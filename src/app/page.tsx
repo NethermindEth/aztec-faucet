@@ -3,58 +3,75 @@ import { NetworkStatus } from "@/components/network-status";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
-      <div className="w-full max-w-lg">
+    <main className="bg-atmosphere flex min-h-screen flex-col items-center justify-center px-4 py-16">
+      <div className="relative z-10 w-full max-w-lg">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="mb-4 flex items-center justify-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-600">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                className="h-6 w-6 text-white"
+        <div className="mb-10 text-center animate-fade-up">
+          <div className="mb-5 flex justify-center">
+            <svg
+              viewBox="0 0 32 32"
+              fill="none"
+              className="h-9 w-9 text-chartreuse"
+            >
+              <path
+                d="M16 2L28 16L16 30L4 16L16 2Z"
                 stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-white">Aztec Faucet</h1>
+                strokeWidth="1.5"
+                fill="currentColor"
+                fillOpacity="0.08"
+              />
+              <path
+                d="M16 8L22 16L16 24L10 16L16 8Z"
+                stroke="currentColor"
+                strokeWidth="1"
+                fill="currentColor"
+                fillOpacity="0.15"
+              />
+            </svg>
           </div>
-          <p className="text-sm text-zinc-400">
-            Get test tokens for building on the Aztec devnet.
+          <h1 className="font-display text-4xl tracking-tight text-white">
+            Aztec <span className="text-chartreuse">Faucet</span>
+          </h1>
+          <p className="mt-3 text-sm text-zinc-500">
+            Test tokens for building on the Aztec devnet
           </p>
         </div>
 
         {/* Network status */}
-        <NetworkStatus />
+        <div className="animate-fade-up animate-delay-1">
+          <NetworkStatus />
+        </div>
 
         {/* Card */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl">
+        <div className="glass-card rounded-2xl p-6 animate-fade-up animate-delay-2">
           <FaucetForm />
         </div>
 
-        {/* Info section for developers */}
-        <div className="mt-6 space-y-3">
-          <details className="group rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-300 hover:text-white">
+        {/* Footer info */}
+        <div className="mt-8 space-y-3 animate-fade-up animate-delay-3">
+          <details className="group glass-card rounded-xl">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-400 transition-colors hover:text-white">
               How does this work?
             </summary>
-            <div className="space-y-2 border-t border-zinc-800 px-4 py-3 text-xs text-zinc-400">
+            <div className="space-y-2 border-t border-white/6 px-4 py-3 text-xs text-zinc-500">
               <p>
                 <strong className="text-zinc-300">L1 ETH:</strong> Sent directly
                 to your Ethereum address on the configured L1 chain. Used for L1
                 gas fees.
               </p>
               <p>
-                <strong className="text-zinc-300">Fee Juice:</strong> Bridged
-                from L1 to L2 via the Fee Juice portal. You&apos;ll receive claim
-                data that you need to submit on L2 to receive the tokens. Fee
-                Juice is used to pay for Aztec L2 transaction fees.
+                <strong className="text-zinc-300">Fee Juice:</strong> Aztec&apos;s
+                L2 gas token — required to pay for every transaction on Aztec. It
+                must be{" "}
+                <strong className="text-zinc-300">bridged from L1 to L2</strong>{" "}
+                through the Fee Juice Portal contract. After bridging, the Aztec
+                sequencer picks up the L1→L2 message (usually within 1-2 minutes)
+                and you receive claim data. Use that data with{" "}
+                <code className="rounded bg-white/6 px-1 font-mono">
+                  FeeJuicePaymentMethodWithClaim
+                </code>{" "}
+                when deploying your account, or claim directly if your account is
+                already deployed.
               </p>
               <p>
                 <strong className="text-zinc-300">Test Token:</strong> An ERC20
@@ -71,7 +88,7 @@ export default function Home() {
                 href="https://docs.aztec.network"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-purple-500 hover:text-purple-400"
+                className="text-chartreuse/60 transition-colors hover:text-chartreuse"
               >
                 Aztec Documentation
               </a>
@@ -80,9 +97,18 @@ export default function Home() {
                 href="https://docs.aztec.network/guides/getting_started"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-purple-500 hover:text-purple-400"
+                className="text-chartreuse/60 transition-colors hover:text-chartreuse"
               >
                 Getting Started
+              </a>
+              {" · "}
+              <a
+                href="/api/status"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-chartreuse/60 transition-colors hover:text-chartreuse"
+              >
+                API Status
               </a>
             </p>
           </div>

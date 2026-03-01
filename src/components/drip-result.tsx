@@ -40,7 +40,6 @@ export function CopyButton({ text }: { text: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for non-HTTPS contexts
       const textarea = document.createElement("textarea");
       textarea.value = text;
       textarea.style.position = "fixed";
@@ -58,7 +57,7 @@ export function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={copy}
-      className="ml-2 shrink-0 rounded px-1.5 py-0.5 text-xs text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-zinc-200"
+      className="ml-2 shrink-0 rounded px-1.5 py-0.5 text-xs text-zinc-500 transition-colors hover:text-chartreuse"
       title="Copy to clipboard"
     >
       {copied ? "Copied!" : "Copy"}
@@ -73,7 +72,7 @@ export function DataField({ label, value }: { label: string; value: string }) {
         <p className="text-xs text-zinc-500">{label}</p>
         <CopyButton text={value} />
       </div>
-      <code className="mt-0.5 block break-all rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-300">
+      <code className="mt-0.5 block break-all rounded-lg bg-white/4 px-2 py-1.5 text-xs text-zinc-300">
         {value}
       </code>
     </div>
@@ -89,7 +88,7 @@ const ASSET_LABELS: Record<string, string> = {
 export function DripResult({ result, error, retryAfter }: DripResultProps) {
   if (error) {
     return (
-      <div className="mt-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+      <div className="mt-6 rounded-xl border border-red-500/20 bg-red-500/6 p-4">
         <p className="text-sm font-medium text-red-400">{error}</p>
         {retryAfter && (
           <p className="mt-1 text-xs text-red-400/70">
@@ -105,8 +104,8 @@ export function DripResult({ result, error, retryAfter }: DripResultProps) {
   const assetLabel = ASSET_LABELS[result.asset] ?? result.asset;
 
   return (
-    <div className="mt-6 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-      <p className="text-sm font-medium text-emerald-400">
+    <div className="mt-6 rounded-xl border border-aqua/20 bg-aqua/4 p-4">
+      <p className="text-sm font-medium text-aqua">
         {result.asset === "fee-juice"
           ? "Fee Juice bridged to L2 successfully!"
           : `${assetLabel} sent successfully!`}
@@ -126,13 +125,13 @@ export function DripResult({ result, error, retryAfter }: DripResultProps) {
 
       {result.claimData && (
         <div className="mt-3 space-y-3">
-          <div className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-            <p className="text-xs font-medium text-amber-400">
+          <div className="rounded-lg border border-orchid/15 bg-orchid/4 px-3 py-2">
+            <p className="text-xs font-medium text-orchid">
               Action required: Claim on L2
             </p>
-            <p className="mt-1 text-xs text-amber-400/70">
+            <p className="mt-1 text-xs text-orchid/60">
               Fee Juice has been deposited on L1 and needs to be claimed on L2.
-              Use <code className="rounded bg-zinc-800 px-1">FeeJuicePaymentMethodWithClaim</code> from
+              Use <code className="rounded bg-white/6 px-1">FeeJuicePaymentMethodWithClaim</code> from
               the Aztec SDK to claim it when deploying your account, or use your
               Aztec wallet to claim. Save the data below — you&apos;ll need it.
             </p>
@@ -157,10 +156,10 @@ export function DripResult({ result, error, retryAfter }: DripResultProps) {
           />
 
           <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-purple-400 hover:text-purple-300">
+            <summary className="cursor-pointer text-xs text-chartreuse/70 transition-colors hover:text-chartreuse">
               How to claim via SDK
             </summary>
-            <div className="mt-2 rounded-md bg-zinc-800 p-3">
+            <div className="mt-2 rounded-lg bg-white/4 p-3">
               <code className="block whitespace-pre-wrap text-xs text-zinc-300">
                 {`import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 

@@ -1,18 +1,101 @@
 @import "tailwindcss";
 
 :root {
-  --background: #09090b;
-  --foreground: #f4f4f5;
+  --background: #06060a;
+  --foreground: #e8e6df;
+  --aztec-chartreuse: #D4FF28;
+  --aztec-orchid: #FF2DF4;
+  --aztec-aqua: #2BFAE9;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-chartreuse: var(--aztec-chartreuse);
+  --color-orchid: var(--aztec-orchid);
+  --color-aqua: var(--aztec-aqua);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-instrument-serif);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Atmospheric background with radial glows */
+.bg-atmosphere {
+  position: relative;
+}
+
+.bg-atmosphere::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(212, 255, 40, 0.07), transparent 70%),
+    radial-gradient(ellipse 50% 50% at 85% 60%, rgba(255, 45, 244, 0.04), transparent 70%),
+    radial-gradient(ellipse 40% 40% at 15% 80%, rgba(43, 250, 233, 0.02), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Glass card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(24px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.015),
+    0 25px 60px -12px rgba(0, 0, 0, 0.6);
+}
+
+/* Primary button */
+.btn-primary {
+  background: var(--aztec-chartreuse);
+  color: #0a0a0f;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: 0 0 20px rgba(212, 255, 40, 0.12);
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 0 30px rgba(212, 255, 40, 0.25);
+  filter: brightness(1.05);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: none;
+}
+
+/* Animations */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s ease-out both;
+}
+
+.animate-delay-1 {
+  animation-delay: 100ms;
+}
+
+.animate-delay-2 {
+  animation-delay: 200ms;
+}
+
+.animate-delay-3 {
+  animation-delay: 300ms;
 }

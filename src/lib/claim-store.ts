@@ -15,7 +15,7 @@ export type StoredClaim = {
 };
 
 const POLL_INTERVAL_MS = 5_000;
-const CLAIM_EXPIRY_MS = 30 * 60 * 1_000; // 30 minutes
+export const CLAIM_EXPIRY_MS = 30 * 60 * 1_000; // 30 minutes
 
 export class ClaimStore {
   private claims = new Map<string, StoredClaim>();

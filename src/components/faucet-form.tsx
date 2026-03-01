@@ -150,7 +150,7 @@ export function FaucetForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Asset selector */}
       <div>
-        <label className="mb-2 block text-sm font-medium text-zinc-300">
+        <label className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-zinc-500">
           Select Token
         </label>
         <div className="grid grid-cols-3 gap-2">
@@ -163,14 +163,14 @@ export function FaucetForm() {
                 setResult(null);
                 setError(null);
               }}
-              className={`rounded-lg border p-3 text-left transition-colors ${
+              className={`rounded-xl border p-3 text-left transition-all ${
                 asset === a.value
-                  ? "border-purple-500 bg-purple-500/10 text-white"
-                  : "border-zinc-700 bg-zinc-800/50 text-zinc-400 hover:border-zinc-600"
+                  ? "border-chartreuse/30 bg-chartreuse/6 text-white"
+                  : "border-white/6 bg-white/2 text-zinc-500 hover:border-white/10 hover:text-zinc-300"
               }`}
             >
               <span className="block text-sm font-medium">{a.label}</span>
-              <span className="mt-0.5 block text-xs opacity-70">
+              <span className="mt-0.5 block text-xs opacity-60">
                 {a.description}
               </span>
             </button>
@@ -178,11 +178,28 @@ export function FaucetForm() {
         </div>
       </div>
 
+      {/* Fee Juice bridging explanation */}
+      {asset === "fee-juice" && (
+        <div className="rounded-xl border border-chartreuse/10 bg-chartreuse/4 px-4 py-3">
+          <p className="text-xs font-medium text-chartreuse/80">
+            Why does Fee Juice take 1-2 minutes?
+          </p>
+          <p className="mt-1 text-xs text-chartreuse/40">
+            Fee Juice is Aztec&apos;s L2 gas token. Unlike ETH (sent on L1) or
+            test tokens (minted on L2), Fee Juice must be{" "}
+            <strong className="text-chartreuse/60">bridged from L1 to L2</strong>{" "}
+            through the Fee Juice Portal contract. The Aztec sequencer needs to
+            pick up the L1→L2 message and include it in a block before the
+            funds are available to claim.
+          </p>
+        </div>
+      )}
+
       {/* Address input */}
       <div>
         <label
           htmlFor="address"
-          className="mb-2 block text-sm font-medium text-zinc-300"
+          className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-zinc-500"
         >
           Recipient Address
         </label>
@@ -197,9 +214,9 @@ export function FaucetForm() {
           placeholder={placeholder}
           spellCheck={false}
           autoComplete="off"
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 font-mono text-sm text-white placeholder-zinc-600 outline-none transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+          className="w-full rounded-xl border border-white/6 bg-white/3 px-4 py-3 font-mono text-sm text-white placeholder-zinc-600 outline-none transition-all focus:border-chartreuse/40 focus:ring-1 focus:ring-chartreuse/20"
         />
-        <p className="mt-1.5 text-xs text-zinc-500">
+        <p className="mt-1.5 text-xs text-zinc-600">
           {isEthAddress
             ? "Ethereum address (0x + 40 hex chars)"
             : "Aztec address (0x + 64 hex chars)"}
@@ -217,7 +234,7 @@ export function FaucetForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-purple-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+        className="btn-primary w-full rounded-xl px-4 py-3 text-sm"
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">

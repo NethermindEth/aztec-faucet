@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { FaucetManager } from "@/lib/faucet-manager";
+import { CLAIM_EXPIRY_MS } from "@/lib/claim-store";
 
 function buildSdkSnippet(claimData: {
   claimAmount: string;
@@ -53,6 +54,10 @@ export async function GET(
       return NextResponse.json({
         status: "ready",
         elapsedSeconds: elapsed,
+        expiresInSeconds: Math.max(
+          0,
+          Math.floor((claim.createdAt + CLAIM_EXPIRY_MS - Date.now()) / 1000),
+        ),
         claimData: claim.claimData,
         sdkSnippet: buildSdkSnippet(claim.claimData),
       });

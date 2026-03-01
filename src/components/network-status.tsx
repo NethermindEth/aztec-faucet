@@ -46,7 +46,7 @@ export function NetworkStatus() {
 
   if (error) {
     return (
-      <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400">
+      <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/15 bg-red-500/4 px-3 py-2 text-xs text-red-400">
         <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
         Faucet unavailable — check server configuration
       </div>
@@ -55,17 +55,17 @@ export function NetworkStatus() {
 
   if (!status) {
     return (
-      <div className="mb-4 flex items-center gap-2 rounded-lg border border-zinc-800 px-3 py-2 text-xs text-zinc-500">
-        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-500" />
+      <div className="mb-4 flex items-center gap-2 rounded-xl border border-white/6 px-3 py-2 text-xs text-zinc-600">
+        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-600" />
         Connecting...
       </div>
     );
   }
 
   return (
-    <div className="mb-4 flex items-center justify-between rounded-lg border border-zinc-800 px-3 py-2 text-xs text-zinc-500">
+    <div className="mb-4 flex items-center justify-between rounded-xl border border-white/6 px-3 py-2 text-xs text-zinc-500">
       <div className="flex items-center gap-2">
-        <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+        <span className="inline-block h-2 w-2 rounded-full bg-chartreuse" />
         <span className="text-zinc-400">
           Chain {status.network.l1ChainId}
         </span>
@@ -76,10 +76,10 @@ export function NetworkStatus() {
         {status.assets.map((a) => (
           <span
             key={a.name}
-            className={`rounded px-1.5 py-0.5 text-[10px] ${
+            className={`rounded-md px-1.5 py-0.5 text-[10px] ${
               a.available
-                ? "bg-emerald-500/10 text-emerald-400"
-                : "bg-zinc-800 text-zinc-600"
+                ? "bg-chartreuse/10 text-chartreuse"
+                : "bg-white/4 text-zinc-600"
             }`}
           >
             {a.name}

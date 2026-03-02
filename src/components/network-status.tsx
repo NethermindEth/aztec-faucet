@@ -8,7 +8,6 @@ type StatusData = {
   l1BalanceEth: string;
   assets: { name: string; available: boolean }[];
   network: {
-    l1RpcUrl: string;
     l1ChainId: number;
     aztecNodeUrl: string;
   };
@@ -20,6 +19,7 @@ export function NetworkStatus() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const startedAt = Date.now();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
     fetch("/api/status", { signal: controller.signal })
@@ -30,6 +30,10 @@ export function NetworkStatus() {
       .then(setStatus)
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") {
+          // Distinguish timeout (from our setTimeout) vs cleanup abort (StrictMode unmount)
+          // Timeout fires at exactly 10s; StrictMode abort fires near-instantly
+          const elapsed = Date.now() - startedAt;
+          if (elapsed < 9_000) return; // cleanup abort — ignore silently
           console.error("Status fetch timed out");
         } else {
           console.error("Status fetch failed:", err);
@@ -82,7 +86,7 @@ export function NetworkStatus() {
                 : "bg-white/4 text-zinc-600"
             }`}
           >
-            {a.name}
+            {a.name === "eth" ? "ETH" : a.name}
           </span>
         ))}
       </div>

@@ -21,6 +21,7 @@ type DripResultProps = {
   result: DripResultData | null;
   error: string | null;
   retryAfter: number | null;
+  onReset?: () => void;
 };
 
 function formatMs(ms: number): string {
@@ -57,10 +58,17 @@ export function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={copy}
-      className="ml-2 shrink-0 rounded px-1.5 py-0.5 text-xs text-zinc-500 transition-colors hover:text-chartreuse"
+      className="shrink-0 rounded-md border border-white/8 px-2 py-1 text-xs text-zinc-500 transition-all hover:border-chartreuse/30 hover:text-chartreuse"
       title="Copy to clipboard"
     >
-      {copied ? "Copied!" : "Copy"}
+      {copied ? (
+        <span className="flex items-center gap-1">
+          <svg viewBox="0 0 12 12" fill="none" className="h-3 w-3">
+            <path d="M2 6.5L4.5 9L10 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Copied
+        </span>
+      ) : "Copy"}
     </button>
   );
 }
@@ -68,11 +76,11 @@ export function CopyButton({ text }: { text: string }) {
 export function DataField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-zinc-500">{label}</p>
+      <div className="mb-1.5 flex items-center justify-between">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">{label}</p>
         <CopyButton text={value} />
       </div>
-      <code className="mt-0.5 block break-all rounded-lg bg-white/4 px-2 py-1.5 text-xs text-zinc-300">
+      <code className="block break-all rounded-lg border border-white/5 bg-white/3 px-3 py-2 text-xs leading-relaxed text-zinc-300">
         {value}
       </code>
     </div>
@@ -85,10 +93,161 @@ const ASSET_LABELS: Record<string, string> = {
   "test-token": "Test Token",
 };
 
-export function DripResult({ result, error, retryAfter }: DripResultProps) {
+const SEPOLIA_ETHERSCAN = "https://sepolia.etherscan.io/tx";
+
+function truncateHash(hash: string): string {
+  if (hash.length <= 22) return hash;
+  return `${hash.slice(0, 12)}...${hash.slice(-10)}`;
+}
+
+function ResetButton({ onReset }: { onReset: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onReset}
+      className="w-full rounded-xl border border-white/8 px-4 py-2.5 text-sm text-zinc-400 transition-all hover:border-white/15 hover:bg-white/4 hover:text-white"
+    >
+      Request another drip
+    </button>
+  );
+}
+
+function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }) {
+  return (
+    <div className="flex h-full flex-col justify-between gap-5">
+      {/* Top section */}
+      <div className="space-y-5">
+        {/* Header row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-aqua/30 bg-aqua/10">
+              <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-aqua">
+                <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-white">ETH Sent</span>
+          </div>
+          <span className="rounded-full border border-aqua/20 bg-aqua/8 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest text-aqua">
+            Confirmed
+          </span>
+        </div>
+
+        {/* Network row */}
+        <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/2 px-3 py-2">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-chartreuse/60" style={{ animationDuration: "2.5s" }} />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-chartreuse" />
+          </span>
+          <span className="text-xs text-zinc-400">Sepolia Testnet</span>
+          <span className="ml-auto font-mono text-xs text-zinc-600">11155111</span>
+        </div>
+
+        {/* Transaction hash */}
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+              Transaction Hash
+            </p>
+            <CopyButton text={txHash} />
+          </div>
+          <div className="rounded-xl border border-white/6 bg-white/2 px-3 py-2.5">
+            <code className="block font-mono text-sm text-zinc-200">
+              {truncateHash(txHash)}
+            </code>
+            <details className="mt-1.5">
+              <summary className="cursor-pointer select-none text-[10px] text-zinc-600 transition-colors hover:text-zinc-400">
+                Show full hash
+              </summary>
+              <code className="mt-1.5 block break-all text-[11px] leading-relaxed text-zinc-500">
+                {txHash}
+              </code>
+            </details>
+          </div>
+        </div>
+
+        {/* Etherscan link */}
+        <a
+          href={`${SEPOLIA_ETHERSCAN}/${txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center justify-between rounded-xl border border-white/8 bg-white/2 px-4 py-3 text-sm transition-all hover:border-aqua/30 hover:bg-aqua/5"
+        >
+          <span className="text-zinc-400 transition-colors group-hover:text-white">
+            View on Sepolia Etherscan
+          </span>
+          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-aqua">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
+      </div>
+
+      {/* Bottom — reset button pinned to bottom */}
+      {onReset && <ResetButton onReset={onReset} />}
+    </div>
+  );
+}
+
+function TestTokenResult({ txHash, onReset }: { txHash?: string; onReset?: () => void }) {
+  return (
+    <div className="flex h-full flex-col justify-between gap-5">
+      <div className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-aqua/30 bg-aqua/10">
+              <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-aqua">
+                <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-white">Test Token Minted</span>
+          </div>
+          <span className="rounded-full border border-aqua/20 bg-aqua/8 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest text-aqua">
+            Confirmed
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/2 px-3 py-2">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orchid/60" style={{ animationDuration: "2.5s" }} />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-orchid" />
+          </span>
+          <span className="text-xs text-zinc-400">Aztec L2 Devnet</span>
+          <span className="ml-auto text-xs text-zinc-600">Public balance</span>
+        </div>
+
+        {txHash && (
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+                Transaction Hash
+              </p>
+              <CopyButton text={txHash} />
+            </div>
+            <div className="rounded-xl border border-white/6 bg-white/2 px-3 py-2.5">
+              <code className="block font-mono text-sm text-zinc-200">
+                {truncateHash(txHash)}
+              </code>
+              <details className="mt-1.5">
+                <summary className="cursor-pointer select-none text-[10px] text-zinc-600 transition-colors hover:text-zinc-400">
+                  Show full hash
+                </summary>
+                <code className="mt-1.5 block break-all text-[11px] leading-relaxed text-zinc-500">
+                  {txHash}
+                </code>
+              </details>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {onReset && <ResetButton onReset={onReset} />}
+    </div>
+  );
+}
+
+export function DripResult({ result, error, retryAfter, onReset }: DripResultProps) {
   if (error) {
     return (
-      <div className="mt-6 rounded-xl border border-red-500/20 bg-red-500/6 p-4">
+      <div className="rounded-xl border border-red-500/20 bg-red-500/6 p-4">
         <p className="text-sm font-medium text-red-400">{error}</p>
         {retryAfter && (
           <p className="mt-1 text-xs text-red-400/70">
@@ -101,89 +260,51 @@ export function DripResult({ result, error, retryAfter }: DripResultProps) {
 
   if (!result) return null;
 
+  if (result.asset === "eth" && result.txHash) {
+    return <EthResult txHash={result.txHash} onReset={onReset} />;
+  }
+
+  if (result.asset === "test-token") {
+    return <TestTokenResult txHash={result.txHash} onReset={onReset} />;
+  }
+
+  // fee-juice fallback
   const assetLabel = ASSET_LABELS[result.asset] ?? result.asset;
 
   return (
-    <div className="mt-6 rounded-xl border border-aqua/20 bg-aqua/4 p-4">
-      <p className="text-sm font-medium text-aqua">
-        {result.asset === "fee-juice"
-          ? "Fee Juice bridged to L2 successfully!"
-          : `${assetLabel} sent successfully!`}
-      </p>
-
-      {result.txHash && (
-        <div className="mt-3">
-          <DataField label="Transaction Hash" value={result.txHash} />
-          {result.asset === "test-token" && (
-            <p className="mt-2 text-xs text-zinc-500">
-              This is an Aztec L2 transaction hash. The tokens have been minted
-              to the recipient&apos;s public balance.
-            </p>
-          )}
-        </div>
-      )}
-
-      {result.claimData && (
-        <div className="mt-3 space-y-3">
-          <div className="rounded-lg border border-orchid/15 bg-orchid/4 px-3 py-2">
-            <p className="text-xs font-medium text-orchid">
-              Action required: Claim on L2
-            </p>
-            <p className="mt-1 text-xs text-orchid/60">
-              Fee Juice has been deposited on L1 and needs to be claimed on L2.
-              Use <code className="rounded bg-white/6 px-1">FeeJuicePaymentMethodWithClaim</code> from
-              the Aztec SDK to claim it when deploying your account, or use your
-              Aztec wallet to claim. Save the data below — you&apos;ll need it.
-            </p>
+    <div className="flex h-full flex-col justify-between gap-5">
+      <div className="space-y-5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-aqua/30 bg-aqua/10">
+            <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-aqua">
+              <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </div>
-
-          <DataField label="Claim Amount" value={result.claimData.claimAmount} />
-          <DataField
-            label="Claim Secret"
-            value={result.claimData.claimSecretHex}
-          />
-          <DataField
-            label="Claim Secret Hash"
-            value={result.claimData.claimSecretHashHex}
-          />
-          <DataField
-            label="Message Hash"
-            value={result.claimData.messageHashHex}
-          />
-          <DataField
-            label="Message Leaf Index"
-            value={result.claimData.messageLeafIndex}
-          />
-
-          <details className="mt-2">
-            <summary className="cursor-pointer text-xs text-chartreuse/70 transition-colors hover:text-chartreuse">
-              How to claim via SDK
-            </summary>
-            <div className="mt-2 rounded-lg bg-white/4 p-3">
-              <code className="block whitespace-pre-wrap text-xs text-zinc-300">
-                {`import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
-
-const claim = {
-  claimAmount: ${result.claimData.claimAmount}n,
-  claimSecret: Fr.fromHexString("${result.claimData.claimSecretHex}"),
-  messageLeafIndex: ${result.claimData.messageLeafIndex}n,
-};
-
-// Use when deploying your account:
-const paymentMethod = new FeeJuicePaymentMethodWithClaim(
-  accountAddress, claim
-);
-await deployMethod.send({ fee: { paymentMethod } });`}
-              </code>
-              <div className="mt-2 flex justify-end">
-                <CopyButton
-                  text={`const claim = { claimAmount: ${result.claimData.claimAmount}n, claimSecret: Fr.fromHexString("${result.claimData.claimSecretHex}"), messageLeafIndex: ${result.claimData.messageLeafIndex}n };`}
-                />
-              </div>
-            </div>
-          </details>
+          <span className="text-sm font-semibold text-white">{assetLabel} Sent</span>
         </div>
-      )}
+
+        {result.txHash && <DataField label="Transaction Hash" value={result.txHash} />}
+
+        {result.claimData && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-orchid/15 bg-orchid/4 px-3 py-2.5">
+              <p className="text-xs font-medium text-orchid">Action required: Claim on L2</p>
+              <p className="mt-1 text-xs text-orchid/60">
+                Use{" "}
+                <code className="rounded bg-white/6 px-1">FeeJuicePaymentMethodWithClaim</code>{" "}
+                from the Aztec SDK.
+              </p>
+            </div>
+            <DataField label="Claim Amount" value={result.claimData.claimAmount} />
+            <DataField label="Claim Secret" value={result.claimData.claimSecretHex} />
+            <DataField label="Claim Secret Hash" value={result.claimData.claimSecretHashHex} />
+            <DataField label="Message Hash" value={result.claimData.messageHashHex} />
+            <DataField label="Message Leaf Index" value={result.claimData.messageLeafIndex} />
+          </div>
+        )}
+      </div>
+
+      {onReset && <ResetButton onReset={onReset} />}
     </div>
   );
 }

@@ -2,8 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { TurnstileWidget } from "./turnstile-widget";
-import { DripResult, type DripResultData } from "./drip-result";
-import { ClaimTracker } from "./claim-tracker";
+import type { DripResultData } from "./drip-result";
 
 type Asset = "eth" | "fee-juice" | "test-token";
 
@@ -41,15 +40,25 @@ function isValidAztecAddress(addr: string): boolean {
   return /^0x[0-9a-fA-F]{64}$/.test(addr);
 }
 
-export function FaucetForm() {
+export function FaucetForm({
+  onSuccess,
+  onClaim,
+  onPending,
+  onError,
+  locked = false,
+}: {
+  onSuccess: (data: DripResultData) => void;
+  onClaim: (claimId: string) => void;
+  onPending: (asset: string) => void;
+  onError: () => void;
+  locked?: boolean;
+}) {
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("eth");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<DripResultData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
-  const [claimId, setClaimId] = useState<string | null>(null);
 
   const currentAsset = ASSETS.find((a) => a.value === asset)!;
   const isEthAddress = currentAsset.addressType === "ethereum";
@@ -84,7 +93,6 @@ export function FaucetForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setResult(null);
     setError(null);
     setRetryAfter(null);
 
@@ -101,6 +109,7 @@ export function FaucetForm() {
     }
 
     setLoading(true);
+    onPending(asset);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60_000);
@@ -122,13 +131,14 @@ export function FaucetForm() {
       if (!res.ok) {
         setError(data.error ?? "Request failed");
         if (data.retryAfter) setRetryAfter(data.retryAfter);
+        onError();
         return;
       }
 
       if (data.claimId) {
-        setClaimId(data.claimId);
+        onClaim(data.claimId);
       } else {
-        setResult(data);
+        onSuccess(data);
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -136,6 +146,7 @@ export function FaucetForm() {
       } else {
         setError("Network error. Please try again.");
       }
+      onError();
     } finally {
       clearTimeout(timeout);
       setLoading(false);
@@ -160,7 +171,6 @@ export function FaucetForm() {
               type="button"
               onClick={() => {
                 setAsset(a.value);
-                setResult(null);
                 setError(null);
               }}
               className={`rounded-xl border p-3 text-left transition-all ${
@@ -233,7 +243,7 @@ export function FaucetForm() {
       {/* Submit */}
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || locked}
         className="btn-primary w-full rounded-xl px-4 py-3 text-sm"
       >
         {loading ? (
@@ -268,18 +278,16 @@ export function FaucetForm() {
         )}
       </button>
 
-      {/* Result display */}
-      {claimId ? (
-        <ClaimTracker
-          claimId={claimId}
-          onReset={() => {
-            setClaimId(null);
-            setResult(null);
-            setError(null);
-          }}
-        />
-      ) : (
-        <DripResult result={result} error={error} retryAfter={retryAfter} />
+      {/* Inline error display */}
+      {error && (
+        <div className="rounded-xl border border-red-500/20 bg-red-500/6 p-4">
+          <p className="text-sm font-medium text-red-400">{error}</p>
+          {retryAfter && (
+            <p className="mt-1 text-xs text-red-400/70">
+              Try again in {Math.ceil(retryAfter / 60000)} minute{Math.ceil(retryAfter / 60000) === 1 ? "" : "s"}
+            </p>
+          )}
+        </div>
       )}
     </form>
   );

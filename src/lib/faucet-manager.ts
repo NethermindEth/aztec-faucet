@@ -28,7 +28,6 @@ export type FaucetStatus = {
   l1BalanceEth: string;
   assets: { name: Asset; available: boolean }[];
   network: {
-    l1RpcUrl: string;
     l1ChainId: number;
     aztecNodeUrl: string;
   };
@@ -170,7 +169,6 @@ export class FaucetManager {
         { name: "test-token", available: hasTokenContract },
       ],
       network: {
-        l1RpcUrl: process.env.L1_RPC_URL ?? "",
         l1ChainId: parseInt(process.env.L1_CHAIN_ID ?? "11155111", 10),
         aztecNodeUrl: process.env.AZTEC_NODE_URL ?? "",
       },

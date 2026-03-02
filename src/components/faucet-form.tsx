@@ -74,7 +74,7 @@ export function FaucetForm({
   locked?: boolean;
 }) {
   const [address, setAddress] = useState("");
-  const [asset, setAsset] = useState<Asset>("eth");
+  const [asset, setAsset] = useState<Asset>("fee-juice");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -168,7 +168,7 @@ curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/cl
 Sent directly to your Ethereum address. Use this to pay for L1 transactions and to fund your own bridging operations.
 
 ```
-0.001 ETH · once per hour · per address
+0.001 ETH · once per 24 hours · per address
 ```
 
 ---
@@ -178,7 +178,7 @@ Sent directly to your Ethereum address. Use this to pay for L1 transactions and 
 Fee Juice is Aztec's native gas token. Unlike ETH, it **cannot be minted on L2** — it must be bridged from L1 through the Fee Juice Portal contract. The faucet handles the bridge on your behalf and returns everything you need to claim.
 
 ```
-1000 Fee Juice · once per hour · per address
+10 Fee Juice · once per 24 hours · per address
 ```
 
 When the bridge is ready (~1–2 min), you receive:

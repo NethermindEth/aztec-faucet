@@ -110,7 +110,7 @@ export default function Home() {
                 </details>
 
                 <div className="text-center text-xs text-zinc-600">
-                  <p>Rate limited to one request per token per hour.</p>
+                  <p>Rate limited to one request per token per 24 hours.</p>
                   <p className="mt-1">
                     <a
                       href="https://docs.aztec.network"

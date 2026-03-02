@@ -100,7 +100,7 @@ export class FaucetManager {
       rpcUrl: l1RpcUrl,
       chainId: l1ChainId,
       privateKey: l1PrivateKey,
-      ethDripAmount: process.env.ETH_DRIP_AMOUNT ?? "0.1",
+      ethDripAmount: process.env.ETH_DRIP_AMOUNT ?? "0.001",
     });
 
     this.l2Faucet = new L2Faucet({
@@ -109,12 +109,14 @@ export class FaucetManager {
       l1ChainId,
       l1PrivateKey,
       sponsoredFpcAddress: requireEnv("SPONSORED_FPC_ADDRESS"),
+      // Default: 10 FJ (10 * 10^18 motes). At the current devnet rate of ~10.2M motes/L2gas,
+      // 10 FJ covers ~9.8M simple txs — more than enough for any developer session.
       feeJuiceDripAmount: process.env.FEE_JUICE_DRIP_AMOUNT
         ? parseBigIntEnv("FEE_JUICE_DRIP_AMOUNT")
-        : undefined,
+        : 10_000_000_000_000_000_000n,
     });
 
-    const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 3600000);
+    const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 86400000);
     this.throttle = new Throttle(intervalMs);
 
     const ipIntervalMs = parseIntEnv("IP_DRIP_INTERVAL_MS", intervalMs);

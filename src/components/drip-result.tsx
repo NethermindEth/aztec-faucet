@@ -13,14 +13,50 @@ export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, m
   --message-leaf-index ${messageLeafIndex}`;
 }
 
-export function makeClaimCLI(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
-  return `git clone ${GITHUB_REPO}
-cd aztec-faucet && npm install
-node scripts/claim-fee-juice.mjs \\
-  --secret <YOUR_SECRET_KEY> \\
-  --claim-amount ${claimAmount} \\
-  --claim-secret ${claimSecretHex} \\
-  --message-leaf-index ${messageLeafIndex}`;
+export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
+  return `# If you already ran the create-account step, packages are cached — install is instant
+mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
+echo '{"type":"module"}' > package.json && \\
+npm install --no-package-lock @aztec/wallets@devnet @aztec/aztec.js@devnet @aztec/stdlib@devnet --silent && \\
+LOG_LEVEL=silent node --input-type=module << 'AZTEC_EOF'
+import { Fr } from "@aztec/aztec.js/fields";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+import { GasSettings } from "@aztec/stdlib/gas";
+const { EmbeddedWallet } = await import("@aztec/wallets/embedded");
+
+const SECRET = "YOUR_SECRET_KEY";           // ← paste your secret key here
+const AMOUNT = ${claimAmount}n;
+const CLAIM_SECRET = Fr.fromHexString("${claimSecretHex}");
+const LEAF = ${messageLeafIndex}n;
+const NODE_URL = "https://v4-devnet-2.aztec-labs.com/";
+
+const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true, pxeConfig: { proverEnabled: true } });
+const mgr = await wallet.createSchnorrAccount(Fr.fromHexString(SECRET), Fr.ZERO);
+const addr = mgr.address;
+const isDeployed = (await wallet.getContractMetadata(addr)).isContractInitialized;
+const node = createAztecNodeClient(NODE_URL);
+const gasSettings = GasSettings.default({ maxFeesPerGas: (await node.getCurrentMinFees()).mul(2) });
+const claim = { claimAmount: AMOUNT, claimSecret: CLAIM_SECRET, messageLeafIndex: LEAF };
+if (!isDeployed) {
+  console.log("Deploying account + claiming Fee Juice (proving ~10s)...");
+  const result = await (await mgr.getDeployMethod()).send({
+    from: AztecAddress.ZERO,
+    fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
+    wait: { returnReceipt: true },
+  });
+  console.log("Done! Tx:", result.txHash?.toString(), "| Block:", result.blockNumber);
+} else {
+  const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
+  console.log("Claiming into existing account (proving ~10s)...");
+  const r = await FeeJuiceContract.at(wallet).methods
+    .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
+    .send({ from: addr, fee: { gasSettings } });
+  console.log("Done! Tx:", r.txHash?.toString());
+}
+await wallet.stop();
+AZTEC_EOF`;
 }
 
 export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }: {
@@ -29,7 +65,7 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
   messageLeafIndex: string;
 }) {
   const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex);
-  const cli = makeClaimCLI(claimAmount, claimSecretHex, messageLeafIndex);
+  const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex);
   return (
     <div className="space-y-2">
       <div className="rounded-xl border border-white/6 bg-white/2">
@@ -43,11 +79,11 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
       </div>
       <div className="rounded-xl border border-white/6 bg-white/2">
         <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">full cli — clone the repo</span>
-          <CopyButton text={cli} />
+          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained — no clone needed</span>
+          <CopyButton text={selfContained} />
         </div>
         <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-          <code>{cli}</code>
+          <code>{selfContained}</code>
         </pre>
       </div>
       <p className="text-[11px] text-zinc-600">

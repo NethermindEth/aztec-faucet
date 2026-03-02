@@ -6,7 +6,11 @@ import { CopyButton } from "./drip-result";
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
 
 function makeBalanceCmd(address: string): string {
-  return `node --input-type=module << 'AZTEC_EOF'
+  return `# Packages already installed if you ran claim — npm install is instant if up to date
+mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
+echo '{"type":"module"}' > package.json && \\
+npm install --no-package-lock @aztec/aztec.js@devnet @aztec/stdlib@devnet --silent && \\
+node --input-type=module << 'AZTEC_EOF'
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";

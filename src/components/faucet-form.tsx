@@ -6,12 +6,21 @@ import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 
 const GITHUB_RAW = "https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main";
-const GITHUB_REPO = "https://github.com/Giri-Aayush/aztec-faucet";
 
 const CREATE_ACCOUNT_ONELINER = `curl -fsSL ${GITHUB_RAW}/sh/create-account.sh | sh`;
-const CREATE_ACCOUNT_CLI = `git clone ${GITHUB_REPO}
-cd aztec-faucet && npm install
-node scripts/create-aztec-account.mjs`;
+const CREATE_ACCOUNT_SELF_CONTAINED = `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
+echo '{"type":"module"}' > package.json && \\
+npm install --no-package-lock @aztec/wallets@devnet @aztec/aztec.js@devnet --silent && \\
+LOG_LEVEL=silent node --input-type=module << 'AZTEC_EOF'
+import { Fr } from "@aztec/aztec.js/fields";
+const { EmbeddedWallet } = await import("@aztec/wallets/embedded");
+const wallet = await EmbeddedWallet.create("https://v4-devnet-2.aztec-labs.com/", { ephemeral: true });
+const secret = Fr.random();
+const account = await wallet.createSchnorrAccount(secret, Fr.ZERO);
+console.log("\\nSecret Key: " + secret.toString());
+console.log("Address:    " + account.address.toString() + "\\n");
+await wallet.stop();
+AZTEC_EOF`;
 
 type Asset = "eth" | "fee-juice";
 
@@ -221,11 +230,11 @@ export function FaucetForm({
               </div>
               <div className="rounded-lg border border-white/5 bg-black/30">
                 <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">full cli — clone the repo</span>
-                  <CopyButton text={CREATE_ACCOUNT_CLI} />
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained — no clone needed</span>
+                  <CopyButton text={CREATE_ACCOUNT_SELF_CONTAINED} />
                 </div>
                 <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                  <code>{CREATE_ACCOUNT_CLI}</code>
+                  <code>{CREATE_ACCOUNT_SELF_CONTAINED}</code>
                 </pre>
               </div>
             </div>

@@ -23,15 +23,22 @@ const nextConfig: NextConfig = {
     "pino-pretty",
     "thread-stream",
   ],
-  // Explicitly include pino transport packages in the standalone output
-  // because they're loaded dynamically by the Aztec SDK's logger and
-  // the static file tracer doesn't follow dynamic require() calls
+  // Explicitly include pino transport packages in the standalone output.
+  // These are dynamically loaded by the Aztec SDK's pino logger via worker
+  // threads — the static file tracer misses them without this hint.
   outputFileTracingIncludes: {
     "/api/**": [
       "./node_modules/pino-pretty/**",
+      "./node_modules/pino-abstract-transport/**",
       "./node_modules/thread-stream/**",
       "./node_modules/sonic-boom/**",
       "./node_modules/atomically/**",
+      "./node_modules/real-require/**",
+      "./node_modules/colorette/**",
+      "./node_modules/dateformat/**",
+      "./node_modules/fast-safe-stringify/**",
+      "./node_modules/jmespath/**",
+      "./node_modules/fast-json-parse/**",
     ],
   },
 };

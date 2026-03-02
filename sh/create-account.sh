@@ -17,4 +17,5 @@ cd ~/.aztec-devtools
 echo '{"type":"module"}' > package.json
 npm install --no-package-lock @aztec/wallets@devnet @aztec/aztec.js@devnet --silent
 
-curl -fsSL "$REPO_RAW/scripts/create-aztec-account.mjs" | node --input-type=module -- "$@"
+curl -fsSL "$REPO_RAW/scripts/create-aztec-account.mjs" -o ~/.aztec-devtools/create-aztec-account.mjs
+node ~/.aztec-devtools/create-aztec-account.mjs "$@"

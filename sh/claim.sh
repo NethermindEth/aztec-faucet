@@ -23,4 +23,5 @@ cd ~/.aztec-devtools
 echo '{"type":"module"}' > package.json
 npm install --no-package-lock @aztec/wallets@devnet @aztec/aztec.js@devnet @aztec/stdlib@devnet --silent
 
-curl -fsSL "$REPO_RAW/scripts/claim-fee-juice.mjs" | node --input-type=module -- "$@"
+curl -fsSL "$REPO_RAW/scripts/claim-fee-juice.mjs" -o ~/.aztec-devtools/claim-fee-juice.mjs
+node ~/.aztec-devtools/claim-fee-juice.mjs "$@"

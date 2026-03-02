@@ -22,4 +22,5 @@ cd ~/.aztec-devtools
 echo '{"type":"module"}' > package.json
 npm install --no-package-lock viem --silent
 
-curl -fsSL "$REPO_RAW/scripts/check-eth-balance.mjs" | node --input-type=module -- "$@"
+curl -fsSL "$REPO_RAW/scripts/check-eth-balance.mjs" -o ~/.aztec-devtools/check-eth-balance.mjs
+node ~/.aztec-devtools/check-eth-balance.mjs "$@"

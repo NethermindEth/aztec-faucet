@@ -10,7 +10,7 @@
 # Aztec Faucet
 
 **The missing piece between local development and devnet.**
-Get L1 ETH and L2 Fee Juice — in one place.
+Get L1 ETH and L2 Fee Juice - in one place.
 
 ![Sepolia](https://img.shields.io/badge/L1-Sepolia-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)
 ![Devnet](https://img.shields.io/badge/L2-Aztec_Devnet-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)
@@ -28,7 +28,7 @@ When you move from local network to devnet, you immediately hit a wall:
 - Fee Juice can only be claimed by deploying an account
 - Deploying an account requires Fee Juice
 
-The Aztec devnet has no official faucet. The Sponsored FPC can cover your first account deployment — but it gives you nothing to pay for subsequent transactions yourself.
+The Aztec devnet has no official faucet. The Sponsored FPC can cover your first account deployment - but it gives you nothing to pay for subsequent transactions yourself.
 
 This faucet breaks that loop.
 
@@ -40,19 +40,19 @@ Every new developer on Aztec devnet faces the same bootstrap problem: you need F
 
 ---
 
-### Quickstart — no clone required
+### Quickstart - no clone required
 
 The faucet ships shell scripts you can run directly from your terminal. They handle package installation automatically and clean up after themselves.
 
 ```bash
-# Step 1 — derive your Aztec address (no deployment, no clone)
+# Step 1 - derive your Aztec address (no deployment, no clone)
 curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/create-account.sh | sh
 # → prints your secret key and Aztec address
 
-# Step 2 — paste the address into the faucet, request Fee Juice
+# Step 2 - paste the address into the faucet, request Fee Juice
 # → wait ~1–2 min for the L1→L2 bridge
 
-# Step 3 — claim (auto-detects deployed vs not)
+# Step 3 - claim (auto-detects deployed vs not)
 curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/claim.sh | sh -s -- \
   --secret <your-secret-key> \
   --claim-amount <from faucet> \
@@ -60,9 +60,9 @@ curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/cl
   --message-leaf-index <from faucet>
 ```
 
-The claim command and all its values are pre-filled in the faucet UI — you only need to substitute your secret key.
+The claim command and all its values are pre-filled in the faucet UI - you only need to substitute your secret key.
 
-**What `create-account` actually does:** it does not deploy anything. On Aztec, every account address is derived deterministically from your secret key — the contract can exist on-chain before it is ever deployed. The script computes that address locally and prints it, so you can give it to the faucet immediately.
+**What `create-account` actually does:** it does not deploy anything. On Aztec, every account address is derived deterministically from your secret key - the contract can exist on-chain before it is ever deployed. The script computes that address locally and prints it, so you can give it to the faucet immediately.
 
 **What `claim` actually does:**
 - If your account is **not yet deployed** → deploys the contract and claims Fee Juice **in a single atomic transaction**, using the claimed Fee Juice itself to pay the deployment fee (`FeeJuicePaymentMethodWithClaim`).
@@ -70,7 +70,7 @@ The claim command and all its values are pre-filled in the faucet UI — you onl
 
 ---
 
-### Path A — New account: atomic deploy + claim (SDK)
+### Path A - New account: atomic deploy + claim (SDK)
 
 If you're building programmatically and don't have a deployed account yet. No Sponsored FPC involved.
 
@@ -82,7 +82,7 @@ If you're building programmatically and don't have a deployed account yet. No Sp
          │
          ▼  (~1–2 min for the L1→L2 bridge)
 3. Deploy your account + claim Fee Juice in one atomic transaction
-   — the claimed Fee Juice pays for the deployment itself
+   - the claimed Fee Juice pays for the deployment itself
          │
          ▼
 4. Account is live. Fee Juice balance is funded. Fully self-sufficient.
@@ -99,7 +99,7 @@ const claim = {
   messageLeafIndex: 123n,
 };
 
-// deploys your account AND claims Fee Juice in one tx —
+// deploys your account AND claims Fee Juice in one tx -
 // the claimed Fee Juice pays the deployment fee atomically
 const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountAddress, claim);
 await deployMethod.send({ fee: { paymentMethod } });
@@ -107,11 +107,11 @@ await deployMethod.send({ fee: { paymentMethod } });
 
 ---
 
-### Path B — Existing account: deploy with Sponsored FPC, then claim
+### Path B - Existing account: deploy with Sponsored FPC, then claim
 
 If you've already deployed your account via the Sponsored FPC (e.g. with `aztec-wallet create-account --payment-method=sponsored_fpc --network devnet`), your account exists but has no Fee Juice balance. You claim into it as a separate step.
 
-> **Why the Sponsored FPC?** It's a contract on devnet (`0x09a4df73...caffb2`) that pays transaction fees unconditionally — it breaks the chicken-and-egg problem for your very first deployment. But it gives you no ongoing Fee Juice balance. If you skip it and have no Fee Juice, the only other way to deploy is Path A (atomic claim). There is no third option.
+> **Why the Sponsored FPC?** It's a contract on devnet (`0x09a4df73...caffb2`) that pays transaction fees unconditionally - it breaks the chicken-and-egg problem for your very first deployment. But it gives you no ongoing Fee Juice balance. If you skip it and have no Fee Juice, the only other way to deploy is Path A (atomic claim). There is no third option.
 
 ```
 1. aztec-wallet create-account --payment-method=sponsored_fpc --network devnet
@@ -133,13 +133,13 @@ If you've already deployed your account via the Sponsored FPC (e.g. with `aztec-
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 
-// Step 1 — deploy with Sponsored FPC
+// Step 1 - deploy with Sponsored FPC
 const SPONSORED_FPC = AztecAddress.fromString("0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2");
 const paymentMethod = new SponsoredFeePaymentMethod(SPONSORED_FPC);
 const deployMethod = await accountManager.getDeployMethod();
 await deployMethod.send({ fee: { paymentMethod } });
 
-// Step 2 — after getting claim data from the faucet, claim Fee Juice
+// Step 2 - after getting claim data from the faucet, claim Fee Juice
 import { FeeJuiceContract } from "@aztec/aztec.js/protocol";
 import { Fr } from "@aztec/aztec.js/fields";
 
@@ -163,7 +163,7 @@ curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/cl
 
 ## What you get
 
-### `ETH` — L1 Sepolia
+### `ETH` - L1 Sepolia
 
 Sent directly to your Ethereum address. Use this to pay for L1 transactions and to fund your own bridging operations.
 
@@ -173,9 +173,9 @@ Sent directly to your Ethereum address. Use this to pay for L1 transactions and 
 
 ---
 
-### `Fee Juice` — L2 gas token
+### `Fee Juice` - L2 gas token
 
-Fee Juice is Aztec's native gas token. Unlike ETH, it **cannot be minted on L2** — it must be bridged from L1 through the Fee Juice Portal contract. The faucet handles the bridge on your behalf and returns everything you need to claim.
+Fee Juice is Aztec's native gas token. Unlike ETH, it **cannot be minted on L2** - it must be bridged from L1 through the Fee Juice Portal contract. The faucet handles the bridge on your behalf and returns everything you need to claim.
 
 ```
 1000 Fee Juice · once per 24 hours · per address
@@ -189,7 +189,7 @@ When the bridge is ready (~1–2 min), you receive:
 | `claimSecret` | Your private claim secret |
 | `messageLeafIndex` | Index of the L1→L2 message in the tree |
 
-The faucet UI pre-fills all of these values into the claim command — you only substitute your secret key.
+The faucet UI pre-fills all of these values into the claim command - you only substitute your secret key.
 
 ![Fee Juice claim data ready](./images/fee-juice-complete.png)
 
@@ -204,9 +204,9 @@ curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/ch
   --address 0x<your-aztec-address>
 ```
 
-Fee Juice is stored in **public storage** on Aztec, so no wallet or private key is needed — any address's balance is readable directly from the node.
+Fee Juice is stored in **public storage** on Aztec, so no wallet or private key is needed - any address's balance is readable directly from the node.
 
-> **Why is balance zero after claiming?** The bridge takes ~1–2 minutes. If you check immediately after requesting Fee Juice, the L1→L2 message hasn't landed yet — wait a moment and check again.
+> **Why is balance zero after claiming?** The bridge takes ~1–2 minutes. If you check immediately after requesting Fee Juice, the L1→L2 message hasn't landed yet - wait a moment and check again.
 
 ---
 
@@ -226,7 +226,7 @@ Faucet calls bridgeTokensPublic() on the L1 Fee Juice Portal
          Aztec sequencer includes the message in a block
                     │
                     ▼
-         Claim data is ready — use it to claim on L2
+         Claim data is ready - use it to claim on L2
 ```
 
 The claim data is valid for **30 minutes**. After that, request again.
@@ -249,7 +249,7 @@ The claim data is valid for **30 minutes**. After that, request again.
 
 ## API
 
-The faucet exposes a public status endpoint — useful for scripts and CI:
+The faucet exposes a public status endpoint - useful for scripts and CI:
 
 ```bash
 curl https://<your-faucet-url>/api/status

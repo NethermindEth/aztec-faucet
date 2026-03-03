@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@azguardwallet/client": "^0.8.0",
     "@aztec/accounts": "^4.0.0-devnet.2-patch.3",
     "@aztec/aztec.js": "^4.0.0-devnet.2-patch.3",
     "@aztec/ethereum": "^4.0.0-devnet.2-patch.3",

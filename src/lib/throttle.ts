@@ -3,7 +3,8 @@ export class ThrottleError extends Error {
   retryAfter: number;
 
   constructor(asset: string, retryAfter: number) {
-    super(`You've already requested ${asset} recently. Please try again later.`);
+    const label = asset === "fee-juice" ? "Fee Juice" : asset.toUpperCase();
+    super(`You've already requested ${label} recently. Please try again later.`);
     this.retryAfter = retryAfter;
   }
 }

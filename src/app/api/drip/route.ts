@@ -74,11 +74,15 @@ export async function POST(request: Request) {
     }
 
     console.error("Drip error:", err);
-    const message = err instanceof Error ? err.message : "Internal server error";
-    // Cap error message length to avoid leaking verbose stack traces to client
-    const truncated = message.length > 300 ? message.slice(0, 300) + "..." : message;
+    // Use the error message if it came from our own faucet code (clean, user-safe).
+    // Raw SDK/viem errors are logged above but not exposed — show a generic fallback instead.
+    const raw = err instanceof Error ? err.message : "";
+    const isFaucetError = raw.startsWith("Could not connect") || raw.startsWith("The Fee Juice bridge");
+    const message = isFaucetError
+      ? raw
+      : "Something went wrong on our end. Please wait a moment and try again.";
     return NextResponse.json(
-      { error: truncated },
+      { error: message },
       { status: 500 },
     );
   }

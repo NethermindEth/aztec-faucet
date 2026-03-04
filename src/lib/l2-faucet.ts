@@ -63,10 +63,10 @@ export class L2Faucet {
         console as any,
       );
     } catch (err) {
+      console.error("[faucet] Portal manager init failed:", err);
       throw new Error(
-        "Failed to connect to Fee Juice portal contracts on L1. " +
-        "Ensure the Aztec L1 contracts are deployed on the configured chain. " +
-        `(${err instanceof Error ? err.message : String(err)})`,
+        "Could not connect to the Fee Juice bridge contract on L1. " +
+        "The devnet contracts may be temporarily unavailable. Please try again in a few minutes.",
       );
     }
 
@@ -86,10 +86,10 @@ export class L2Faucet {
         true, // mint tokens first (test environment)
       );
     } catch (err) {
+      console.error("[faucet] Bridge tx failed:", err);
       throw new Error(
-        "Fee Juice bridge transaction failed. " +
-        "This usually means the L1 Fee Juice contracts are not deployed or the faucet account has insufficient L1 ETH. " +
-        `(${err instanceof Error ? err.message : String(err)})`,
+        "The Fee Juice bridge transaction failed. " +
+        "This is usually a temporary devnet issue. Please wait a moment and try again.",
       );
     }
 

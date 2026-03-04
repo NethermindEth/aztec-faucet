@@ -195,9 +195,31 @@ The faucet UI pre-fills all of these values into the claim command – you only 
 
 ---
 
+## Network tab
+
+The faucet UI includes a **Network** tab with two sub-tabs that auto-refresh every 15 seconds.
+
+**Overview**
+
+| Card | What it shows |
+|------|---------------|
+| Live Fee Rates | Current minimum Fee Juice per mana for DA and L2 dimensions, sourced live from the devnet node. Includes the block number and a fee calculation explainer. |
+| Node Health | Online/unreachable status, node version, current block height, L1 chain, and rollup version. |
+
+**Contracts**
+
+All deployed protocol contract addresses in one place, with one-click copy buttons.
+
+| Column | Contracts |
+|--------|-----------|
+| L1 (Sepolia) | Rollup, Registry, Inbox, Outbox, Fee Juice (L1), Fee Juice Portal, Staking Asset |
+| L2 Protocol | Fee Juice, Instance Registry, Class Registry, MultiCall Entrypoint |
+
+---
+
 ## Check your Fee Juice balance
 
-The faucet UI includes a **Check Balance** tab that generates a terminal command with your address pre-filled. You may also run it directly:
+The faucet UI includes a **Balance** tab that generates a terminal command with your address pre-filled. You may also run it directly:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/check-balance.sh | sh -s -- \
@@ -229,7 +251,7 @@ Faucet calls bridgeTokensPublic() on the L1 Fee Juice Portal
          Claim data is ready - use it to claim on L2
 ```
 
-The claim data is valid for **30 minutes**. After that, request again.
+The faucet's claim tracker keeps your claim data for **30 minutes**. After that the tracker shows "Expired" and stops serving the data — request again to get a fresh set.
 
 ![Bridging Fee Juice to L2](./images/bridging.png)
 
@@ -241,7 +263,7 @@ The claim data is valid for **30 minutes**. After that, request again.
 |--|--|
 | **L1 Network** | Sepolia (`11155111`) |
 | **Aztec Node** | `https://v4-devnet-2.aztec-labs.com/` |
-| **SDK Version** | `@aztec/*@devnet` (`4.0.0-devnet.2-patch.3`) |
+| **SDK Version** | `@aztec/*@devnet` (`4.0.0-devnet.2-patch.4`) |
 | **Sponsored FPC** | `0x09a4df73...caffb2` |
 | **Block Explorer** | [devnet.aztecscan.xyz](https://devnet.aztecscan.xyz) |
 
@@ -258,11 +280,21 @@ curl https://<your-faucet-url>/api/status
 ```json
 {
   "healthy": true,
+  "faucetAddress": "0xAbC...123",
   "l1BalanceEth": "1.23",
   "assets": [
     { "name": "eth", "available": true },
     { "name": "fee-juice", "available": true }
-  ]
+  ],
+  "network": {
+    "l1ChainId": 11155111,
+    "aztecNodeUrl": "https://..."
+  },
+  "sdk": {
+    "faucetVersion": "4.0.0-devnet.2-patch.4",
+    "latestDevnetVersion": "4.0.0-devnet.2-patch.4",
+    "outdated": false
+  }
 }
 ```
 

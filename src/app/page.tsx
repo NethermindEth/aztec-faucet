@@ -6,8 +6,9 @@ import { NetworkStatus } from "@/components/network-status";
 import { StatusView } from "@/components/status-view";
 import { BalanceView } from "@/components/balance-view";
 import { FaqView } from "@/components/faq-view";
+import { NetworkView } from "@/components/network-view";
 
-type View = "faucet" | "balance" | "faq" | "status";
+type View = "faucet" | "balance" | "faq" | "status" | "network";
 
 const DiamondIcon = () => (
   <svg viewBox="0 0 32 32" fill="none" className="h-9 w-9 text-chartreuse">
@@ -30,6 +31,7 @@ const DiamondIcon = () => (
 
 export default function Home() {
   const [view, setView] = useState<View>("faucet");
+  const [howOpen, setHowOpen] = useState(false);
 
   return (
     <main className="bg-atmosphere flex min-h-screen flex-col items-center px-4 pt-10 pb-12">
@@ -48,9 +50,9 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Tab bar — only shown for faucet / balance / faq views */}
+        {/* Tab bar — only shown for faucet / balance / faq / network views */}
         {view !== "status" && (
-          <div className="mx-auto mb-4 max-w-sm">
+          <div className="mx-auto mb-4 max-w-lg">
             <div className="flex items-center gap-1 rounded-full border border-white/6 bg-white/2 p-1">
               <button
                 type="button"
@@ -72,7 +74,18 @@ export default function Home() {
                     : "text-zinc-500 hover:text-zinc-300"
                 }`}
               >
-                Check Balance
+                Balance
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("network")}
+                className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+                  view === "network"
+                    ? "bg-white/10 text-white"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                Network
               </button>
               <button
                 type="button"
@@ -95,6 +108,8 @@ export default function Home() {
             <BalanceView />
           ) : view === "faq" ? (
             <FaqView />
+          ) : view === "network" ? (
+            <NetworkView />
           ) : view === "faucet" ? (
             <>
               {/* Network status bar */}
@@ -107,19 +122,35 @@ export default function Home() {
                 <FaucetLayout
                   footer={
                     <div className="mx-auto mt-5 max-w-lg space-y-3">
-                      <details className="group glass-card rounded-xl">
-                        <summary className="cursor-pointer px-4 py-3 text-sm font-medium text-zinc-400 transition-colors hover:text-white">
-                          How does this work?
-                        </summary>
-                        <div className="space-y-2 border-t border-white/6 px-4 py-3 text-xs text-zinc-500">
-                          <p>
-                            <strong className="text-zinc-300">ETH —</strong> Sent directly to your Ethereum address on Sepolia. Use it to pay L1 gas fees.
-                          </p>
-                          <p>
-                            <strong className="text-zinc-300">Fee Juice —</strong> Aztec&apos;s L2 gas token. Required for every transaction on Aztec. The faucet bridges it from L1 via the Fee Juice Portal — the Aztec sequencer relays the message to L2 in 1-2 minutes. You&apos;ll receive claim data to use when deploying your account.
-                          </p>
+                      <div className="glass-card rounded-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setHowOpen(!howOpen)}
+                          className="flex w-full items-center justify-between px-4 py-3 text-left"
+                        >
+                          <span className="text-sm font-medium text-zinc-400 transition-colors hover:text-white">How does this work?</span>
+                          <span className={`text-chartreuse transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${howOpen ? "rotate-45" : ""}`}>
+                            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+                              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                          </span>
+                        </button>
+                        <div
+                          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                          style={{ gridTemplateRows: howOpen ? "1fr" : "0fr" }}
+                        >
+                          <div className="overflow-hidden">
+                            <div className="space-y-2 border-t border-white/6 px-4 py-3 text-xs text-zinc-500">
+                              <p>
+                                <strong className="text-zinc-300">ETH:</strong> Sent directly to your Ethereum address on Sepolia. Use it to pay L1 gas fees.
+                              </p>
+                              <p>
+                                <strong className="text-zinc-300">Fee Juice:</strong> Aztec&apos;s native fee token. Required for every transaction on Aztec. The faucet sends a message through the Fee Juice Portal on L1, which sits pending until the next rollup block is processed (roughly 1-2 minutes). You&apos;ll receive a secret claim preimage to consume the message and receive your Fee Juice on L2.
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </details>
+                      </div>
 
                       <div className="text-center text-xs text-zinc-600">
                         <p>Rate limited to one request per token per 24 hours.</p>

@@ -16,12 +16,12 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Why does it take a minute or two to receive Fee Juice?",
     answer:
-      "Fee Juice starts on Ethereum (Sepolia) and has to be bridged to Aztec L2 through the Fee Juice Portal. The Aztec sequencer picks up the bridge message and relays it to L2, which normally takes one to two minutes. The claim tracker on the result screen will update you as soon as it lands.",
+      "When the faucet bridges Fee Juice, it sends a message through the Fee Juice Portal on L1. That message sits in a pending state until the next Aztec rollup block is processed. Once a rollup is proven and submitted, the message moves from pending to ready and you can claim it. On devnet this typically takes one to two minutes depending on block timing.",
   },
   {
     question: "My claim proof seems to have expired. What happened?",
     answer:
-      "The claim proof you get after requesting Fee Juice is valid for roughly 30 minutes. If you wait longer than that before deploying your account, the proof will no longer be accepted. Just request a fresh batch from the faucet and use the new claim data right away.",
+      "The faucet's claim tracker keeps your claim data for 30 minutes. After that it shows 'Expired' and stops serving the data through the UI. If you saved the original claim response from the faucet, you may still be able to use it on-chain. Otherwise, request a fresh batch and use the new claim data straight away.",
   },
   {
     question: "How often can I request tokens?",
@@ -47,6 +47,21 @@ const FAQ_ITEMS: FaqItem[] = [
     question: "I already deployed my account. Can I still claim Fee Juice?",
     answer:
       "Yes! If your account is already deployed, you can claim the bridged Fee Juice using the Aztec CLI or the SDK snippet shown in the claim tracker. The faucet bridges the tokens regardless of whether your account is deployed yet. Just use the claim data before the proof expires.",
+  },
+  {
+    question: "What is mana?",
+    answer:
+      "Mana is Aztec's unit of computational effort, equivalent to gas on Ethereum. Every transaction consumes mana across two dimensions: DA mana (cost of publishing data to the data availability layer) and L2 mana (cost of executing the transaction). The total fee is calculated as (daMana x feePerDaMana) + (l2Mana x feePerL2Mana). Note that the Aztec SDK uses \"gas\" in variable names like feePerDaGas, but mana is the correct conceptual term.",
+  },
+  {
+    question: "What are the fee numbers in the Network tab?",
+    answer:
+      "The fee rates show the current minimum Fee Juice per mana for DA and L2 dimensions. Fee Juice uses 18 decimal places, the same as ETH, so the values shown are in base units. To convert to whole Fee Juice, divide by 10^18. The faucet sends you 1,000 Fee Juice, enough to cover many transactions on the devnet.",
+  },
+  {
+    question: "Can I send Fee Juice to another address?",
+    answer:
+      "No. Fee Juice is non-transferable, meaning it can only be used to pay transaction fees on Aztec and cannot be sent between accounts. This is by design, as Fee Juice exists solely as a fee payment mechanism. If you need to fund another address, request Fee Juice directly for that address from this faucet.",
   },
 ];
 
@@ -92,17 +107,38 @@ export function FaqView() {
 
   const toggle = (i: number) => setOpenIndex(openIndex === i ? null : i);
 
+  const left = FAQ_ITEMS.filter((_, i) => i % 2 === 0);
+  const right = FAQ_ITEMS.filter((_, i) => i % 2 === 1);
+
   return (
-    <div className="mx-auto max-w-lg">
-      <div className="space-y-2">
-        {FAQ_ITEMS.map((item, i) => (
-          <FaqAccordion
-            key={i}
-            item={item}
-            isOpen={openIndex === i}
-            onToggle={() => toggle(i)}
-          />
-        ))}
+    <div className="mx-auto max-w-4xl">
+      <div className="grid grid-cols-2 gap-2 items-start">
+        <div className="space-y-2">
+          {left.map((item) => {
+            const i = FAQ_ITEMS.indexOf(item);
+            return (
+              <FaqAccordion
+                key={i}
+                item={item}
+                isOpen={openIndex === i}
+                onToggle={() => toggle(i)}
+              />
+            );
+          })}
+        </div>
+        <div className="space-y-2">
+          {right.map((item) => {
+            const i = FAQ_ITEMS.indexOf(item);
+            return (
+              <FaqAccordion
+                key={i}
+                item={item}
+                isOpen={openIndex === i}
+                onToggle={() => toggle(i)}
+              />
+            );
+          })}
+        </div>
       </div>
       <p className="mt-6 text-center text-xs text-zinc-600">
         Still have questions?{" "}

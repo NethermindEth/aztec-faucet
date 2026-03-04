@@ -14,6 +14,8 @@ export function KeygenView() {
   const [state, setState] = useState<KeypairState>({ status: "idle" });
   const [leaving, setLeaving] = useState(false);
   const [entering, setEntering] = useState(false);
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [rateLimitOpen, setRateLimitOpen] = useState(false);
 
   function destroy() {
     setLeaving(true);
@@ -218,8 +220,81 @@ export function KeygenView() {
             <path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
           <span>
-            Keypair generated server-side using cryptographically secure randomness. Not sent to any third party, not stored, not logged. The address is derived locally on the server from your secret key using the Schnorr account contract. No network call to the Aztec node is needed. Rate limited to 10 keypairs per 24 hours per IP.
+            Keypair generated server-side using cryptographically secure randomness. Not sent to any third party, not stored, not logged. The address is derived locally on the server from your secret key using the Schnorr account contract. No network call to the Aztec node is needed.
           </span>
+        </div>
+      </div>
+      {/* Deploy accordion */}
+      <div className="mt-3 glass-card rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setDeployOpen(!deployOpen)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="text-xs font-medium text-zinc-400 transition-colors hover:text-white">
+            Is my account deployed?
+          </span>
+          <span className={`text-chartreuse transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${deployOpen ? "rotate-45" : ""}`}>
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+        </button>
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{ gridTemplateRows: deployOpen ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-2 border-t border-white/6 px-4 py-3 text-xs text-zinc-500">
+              <p>
+                <span className="font-medium text-zinc-300">Not yet.</span> This keypair gives you a deterministic Aztec address, but no contract is deployed on-chain yet.
+              </p>
+              <p>
+                Your account contract is deployed automatically the first time you claim Fee Juice through the <span className="text-zinc-300 font-medium">Faucet tab</span>. The deploy and claim happen in a single atomic transaction, paid for by the Fee Juice itself. Just paste your address into the Faucet tab and request Fee Juice.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Rate limit accordion */}
+      <div className="mt-3 glass-card rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setRateLimitOpen(!rateLimitOpen)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+        >
+          <span className="text-xs font-medium text-zinc-400 transition-colors hover:text-white">
+            How many accounts can I create?
+          </span>
+          <span className={`text-chartreuse transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${rateLimitOpen ? "rotate-45" : ""}`}>
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+        </button>
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{ gridTemplateRows: rateLimitOpen ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-2 border-t border-white/6 px-4 py-3 text-xs text-zinc-500">
+              <p>
+                This faucet allows <span className="text-zinc-300 font-medium">10 keypairs per 24 hours per IP</span>. This is enough for typical devnet testing.
+              </p>
+              <p>
+                If you need more, you can generate accounts locally with no limits using{" "}
+                <a
+                  href="https://docs.aztec.network/guides/developer_guides/js_apps/aztec-js"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-chartreuse/80 hover:text-chartreuse underline underline-offset-2"
+                >
+                  Aztec.js
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

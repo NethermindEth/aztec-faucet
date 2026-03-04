@@ -101,11 +101,15 @@ export function ClaimTracker({
     return () => clearInterval(interval);
   }, [status]);
 
-  // Countdown timer once claim is ready
+  // Countdown timer once claim is ready; flip to expired when it hits 0
   useEffect(() => {
     if (status !== "ready" || expiresIn === null) return;
     const interval = setInterval(() => {
-      setExpiresIn((prev) => (prev !== null && prev > 0 ? prev - 1 : 0));
+      setExpiresIn((prev) => {
+        if (prev !== null && prev > 0) return prev - 1;
+        setStatus("expired");
+        return 0;
+      });
     }, 1000);
     return () => clearInterval(interval);
   }, [status, expiresIn === null]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -261,8 +265,8 @@ export function ClaimTracker({
           </span>
           <span className="text-xs text-zinc-400">Aztec L2 Devnet</span>
           {expiresIn !== null && (
-            <span className={`ml-auto font-mono text-xs ${expiryCritical ? "text-red-400 font-semibold" : expiryUrgent ? "text-red-400" : "text-red-400"}`}>
-              Expires {formatElapsed(expiresIn)}
+            <span className={`ml-auto font-mono text-xs ${expiryCritical ? "text-red-400 font-semibold" : "text-red-400"}`}>
+              {expiresIn === 0 ? "Expired" : `Expires ${formatElapsed(expiresIn)}`}
             </span>
           )}
         </div>

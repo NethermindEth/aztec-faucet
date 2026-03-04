@@ -101,6 +101,7 @@ export function NetworkView() {
   const [nodeError, setNodeError] = useState(false);
   const [feesUpdatedAt, setFeesUpdatedAt] = useState<Date | null>(null);
   const [nodeUpdatedAt, setNodeUpdatedAt] = useState<Date | null>(null);
+  const [faucetAddress, setFaucetAddress] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   // Tick every second so "Xs ago" stays live
@@ -127,6 +128,13 @@ export function NetworkView() {
     fetchAll();
     const timer = setInterval(fetchAll, REFRESH_INTERVAL);
     return () => { cancelled = true; clearInterval(timer); };
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/status")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { if (data?.faucetAddress) setFaucetAddress(data.faucetAddress); })
+      .catch(() => {});
   }, []);
 
   const feesLoading = !fees && !feesError;
@@ -360,32 +368,72 @@ export function NetworkView() {
               </div>
             </div>
 
-            {/* L2 card */}
-            <div className="glass-card rounded-2xl p-6">
-              <div className="mb-3 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
-                L2 Protocol Contracts
+            {/* Right column: L2 card + donate card */}
+            <div className="flex flex-col gap-4">
+              {/* L2 card */}
+              <div className="glass-card rounded-2xl p-6">
+                <div className="mb-3 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+                  L2 Protocol Contracts
+                </div>
+                <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+                  {nodeLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <Row key={i} label=""><Sk w="w-32" /></Row>
+                    ))
+                  ) : nodeError ? (
+                    <div className="py-3 text-xs text-red-400">Could not load contract addresses.</div>
+                  ) : nodeInfo ? (
+                    Object.entries(L2_CONTRACT_LABELS).map(([key, label]) => {
+                      const addr = nodeInfo.l2Contracts[key];
+                      if (!addr) return null;
+                      return (
+                        <Row key={key} label={label}>
+                          <span className="font-mono text-[11px]">
+                            {addr.slice(0, 10)}…{addr.slice(-8)}
+                          </span>
+                          <CopyInline text={addr} />
+                        </Row>
+                      );
+                    })
+                  ) : null}
+                </div>
               </div>
-              <div className="rounded-xl border border-white/5 bg-white/2 px-4">
-                {nodeLoading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <Row key={i} label=""><Sk w="w-32" /></Row>
-                  ))
-                ) : nodeError ? (
-                  <div className="py-3 text-xs text-red-400">Could not load contract addresses.</div>
-                ) : nodeInfo ? (
-                  Object.entries(L2_CONTRACT_LABELS).map(([key, label]) => {
-                    const addr = nodeInfo.l2Contracts[key];
-                    if (!addr) return null;
-                    return (
-                      <Row key={key} label={label}>
+
+              {/* Donate card */}
+              <div className="glass-card rounded-2xl p-6">
+                <div className="mb-3 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+                  Support the Faucet
+                </div>
+                <p className="mb-4 text-xs text-zinc-500">
+                  This faucet runs on Sepolia ETH. If you find it useful, consider sending a small amount to keep it running.
+                </p>
+                <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+                  <Row label="Faucet Address">
+                    {faucetAddress ? (
+                      <>
                         <span className="font-mono text-[11px]">
-                          {addr.slice(0, 10)}…{addr.slice(-8)}
+                          {faucetAddress.slice(0, 10)}…{faucetAddress.slice(-8)}
                         </span>
-                        <CopyInline text={addr} />
-                      </Row>
-                    );
-                  })
-                ) : null}
+                        <CopyInline text={faucetAddress} />
+                      </>
+                    ) : (
+                      <Sk w="w-32" />
+                    )}
+                  </Row>
+                </div>
+                {faucetAddress && (
+                  <a
+                    href={`https://sepolia.etherscan.io/address/${faucetAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex items-center gap-1.5 text-xs text-zinc-600 transition-colors hover:text-chartreuse"
+                  >
+                    <svg viewBox="0 0 14 14" fill="none" className="h-3 w-3 shrink-0">
+                      <path d="M6 2H2.5A.5.5 0 002 2.5v9a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V8M8.5 2H12v3.5M12 2L6.5 7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    View on Sepolia Etherscan
+                  </a>
+                )}
               </div>
             </div>
           </div>

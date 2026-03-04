@@ -13,6 +13,7 @@ type InitialClaimData = {
   claimSecretHashHex: string;
   messageHashHex: string;
   messageLeafIndex: string;
+  l1TxHash?: string;
 };
 
 type RightPanel =
@@ -154,6 +155,7 @@ export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNo
                     <ClaimTracker
                       claimId={rightPanel.claimId}
                       initialClaimData={rightPanel.initialClaimData}
+                      l1TxHash={rightPanel.initialClaimData?.l1TxHash}
                       onReset={handleReset}
                     />
                   </>

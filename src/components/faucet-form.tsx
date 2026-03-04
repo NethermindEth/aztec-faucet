@@ -58,6 +58,7 @@ type InitialClaimData = {
   claimSecretHashHex: string;
   messageHashHex: string;
   messageLeafIndex: string;
+  l1TxHash?: string;
 };
 
 function formatRetryAfter(ms: number): string {

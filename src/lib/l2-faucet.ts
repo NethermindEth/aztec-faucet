@@ -3,7 +3,7 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { createEthereumChain } from "@aztec/ethereum/chain";
-import { type Hex } from "viem";
+import { type Hex, parseAbiItem } from "viem";
 
 export type L2FaucetConfig = {
   aztecNodeUrl: string;
@@ -20,6 +20,7 @@ export type FeeJuiceClaimData = {
   claimSecretHashHex: string;
   messageHashHex: string;
   messageLeafIndex: string;
+  l1TxHash?: string;
 };
 
 export class L2Faucet {
@@ -69,6 +70,14 @@ export class L2Faucet {
       );
     }
 
+    // Capture block number before the bridge call — the tx must land in a block >= preBlock.
+    let preBlock: bigint | undefined;
+    try {
+      preBlock = await l1Client.getBlockNumber();
+    } catch {
+      // Non-critical — log lookup will fall back to a wider range
+    }
+
     let claim;
     try {
       claim = await portalManager.bridgeTokensPublic(
@@ -84,12 +93,36 @@ export class L2Faucet {
       );
     }
 
+    // Look up the L1 tx hash by querying the DepositToAztecPublic event log,
+    // matched by messageHash (the `key` field). Non-critical — we proceed without it on failure.
+    let l1TxHash: string | undefined;
+    try {
+      const nodeInfo = await this.aztecNode.getNodeInfo();
+      const portalAddr = nodeInfo.l1ContractAddresses.feeJuicePortalAddress.toString() as Hex;
+      const postBlock = await l1Client.getBlockNumber();
+      // fromBlock = block before bridge (guaranteed to contain the tx); fallback to postBlock - 10
+      const fromBlock = preBlock ?? (postBlock > 10n ? postBlock - 10n : 0n);
+      const logs = await l1Client.getLogs({
+        address: portalAddr,
+        event: parseAbiItem("event DepositToAztecPublic(bytes32 indexed to, uint256 amount, bytes32 secretHash, bytes32 key, uint256 index)"),
+        fromBlock,
+        toBlock: postBlock + 1n,
+      });
+      const match = logs.find(
+        (log) => log.args.key?.toLowerCase() === claim.messageHash.toLowerCase(),
+      );
+      l1TxHash = match?.transactionHash;
+    } catch (err) {
+      console.error("[faucet] Failed to look up L1 tx hash:", err);
+    }
+
     return {
       claimAmount: claim.claimAmount.toString(),
       claimSecretHex: claim.claimSecret.toString(),
       claimSecretHashHex: claim.claimSecretHash.toString(),
       messageHashHex: claim.messageHash,
       messageLeafIndex: claim.messageLeafIndex.toString(),
+      l1TxHash,
     };
   }
 

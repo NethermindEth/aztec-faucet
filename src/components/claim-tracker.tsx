@@ -40,13 +40,17 @@ function ResetButton({ onReset }: { onReset: () => void }) {
   );
 }
 
+const SEPOLIA_ETHERSCAN = "https://sepolia.etherscan.io/tx";
+
 export function ClaimTracker({
   claimId,
   initialClaimData,
+  l1TxHash,
   onReset,
 }: {
   claimId: string;
   initialClaimData?: ClaimData;
+  l1TxHash?: string;
   onReset: () => void;
 }) {
   const [status, setStatus] = useState<ClaimStatus>("bridging");
@@ -233,6 +237,20 @@ export function ClaimTracker({
           <p className="text-xs text-zinc-600">
             This usually takes 1-2 minutes. Please don&apos;t close this tab.
           </p>
+
+          {l1TxHash && (
+            <a
+              href={`${SEPOLIA_ETHERSCAN}/${l1TxHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-chartreuse/60 transition-colors hover:text-chartreuse"
+            >
+              <svg viewBox="0 0 14 14" fill="none" className="h-3 w-3 shrink-0">
+                <path d="M6 2H2.5A.5.5 0 002 2.5v9a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V8M8.5 2H12v3.5M12 2L6.5 7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              View L1 bridge tx on Sepolia Etherscan
+            </a>
+          )}
         </div>
       </div>
     );
@@ -315,6 +333,20 @@ export function ClaimTracker({
           />
         )}
       </div>
+
+      {l1TxHash && (
+        <a
+          href={`${SEPOLIA_ETHERSCAN}/${l1TxHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
+        >
+          <svg viewBox="0 0 14 14" fill="none" className="h-3 w-3 shrink-0">
+            <path d="M6 2H2.5A.5.5 0 002 2.5v9a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V8M8.5 2H12v3.5M12 2L6.5 7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          View L1 bridge tx on Sepolia Etherscan
+        </a>
+      )}
 
       {/* Reset button pinned to bottom */}
       <ResetButton onReset={onReset} />

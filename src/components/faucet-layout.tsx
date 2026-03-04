@@ -86,7 +86,7 @@ function PendingPanel({ asset }: { asset: string }) {
   );
 }
 
-export function FaucetLayout({ footer }: { footer?: React.ReactNode }) {
+export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNode; onGoToAccount?: () => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
 
   const handlePending = (asset: string) => {
@@ -130,6 +130,7 @@ export function FaucetLayout({ footer }: { footer?: React.ReactNode }) {
             onPending={handlePending}
             onError={handleError}
             locked={isSplit}
+            onGoToAccount={onGoToAccount}
           />
         </div>
 

@@ -75,12 +75,14 @@ export function FaucetForm({
   onPending,
   onError,
   locked = false,
+  onGoToAccount,
 }: {
   onSuccess: (data: DripResultData) => void;
   onClaim: (claimId: string, initialClaimData?: InitialClaimData) => void;
   onPending: (asset: string) => void;
   onError: () => void;
   locked?: boolean;
+  onGoToAccount?: () => void;
 }) {
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("fee-juice");
@@ -254,7 +256,20 @@ export function FaucetForm({
               <div className="overflow-hidden">
                 <div className="border-t border-white/6 px-4 pb-4 pt-3 space-y-2">
                   <p className="text-xs text-zinc-500">
-                    Prints your secret key and address — nothing leaves your machine.
+                    Prints your secret key and address. Nothing leaves your machine.
+                    {onGoToAccount && (
+                      <>
+                        {" "}Or{" "}
+                        <button
+                          type="button"
+                          onClick={onGoToAccount}
+                          className="text-chartreuse/70 transition-colors hover:text-chartreuse underline underline-offset-2"
+                        >
+                          generate a throwaway account in the Account tab
+                        </button>
+                        {" "}with no CLI needed.
+                      </>
+                    )}
                   </p>
                   <div className="rounded-lg border border-white/5 bg-black/30">
                     <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">

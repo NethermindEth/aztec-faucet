@@ -7,8 +7,9 @@ import { StatusView } from "@/components/status-view";
 import { BalanceView } from "@/components/balance-view";
 import { FaqView } from "@/components/faq-view";
 import { NetworkView } from "@/components/network-view";
+import { KeygenView } from "@/components/keygen-view";
 
-type View = "faucet" | "balance" | "faq" | "status" | "network";
+type View = "faucet" | "balance" | "faq" | "status" | "network" | "keys";
 
 const DiamondIcon = () => (
   <svg viewBox="0 0 32 32" fill="none" className="h-9 w-9 text-chartreuse">
@@ -31,7 +32,17 @@ const DiamondIcon = () => (
 
 export default function Home() {
   const [view, setView] = useState<View>("faucet");
+  const [leaving, setLeaving] = useState<View | null>(null);
   const [howOpen, setHowOpen] = useState(false);
+
+  function switchTab(target: View) {
+    if (target === view || leaving !== null) return;
+    setLeaving(view);
+    setTimeout(() => {
+      setView(target);
+      setLeaving(null);
+    }, 170);
+  }
 
   return (
     <main className="bg-atmosphere flex min-h-screen flex-col items-center px-4 pt-10 pb-12">
@@ -51,12 +62,12 @@ export default function Home() {
         </div>
 
         {/* Tab bar — only shown for faucet / balance / faq / network views */}
-        {view !== "status" && (
+        {(view !== "status" || leaving === "status") && (
           <div className="mx-auto mb-4 max-w-lg">
             <div className="flex items-center gap-1 rounded-full border border-white/6 bg-white/2 p-1">
               <button
                 type="button"
-                onClick={() => setView("faucet")}
+                onClick={() => switchTab("faucet")}
                 className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
                   view === "faucet"
                     ? "bg-white/10 text-white"
@@ -67,7 +78,7 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                onClick={() => setView("balance")}
+                onClick={() => switchTab("balance")}
                 className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
                   view === "balance"
                     ? "bg-white/10 text-white"
@@ -78,7 +89,18 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                onClick={() => setView("network")}
+                onClick={() => switchTab("keys")}
+                className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+                  view === "keys"
+                    ? "bg-white/10 text-white"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                Account
+              </button>
+              <button
+                type="button"
+                onClick={() => switchTab("network")}
                 className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
                   view === "network"
                     ? "bg-white/10 text-white"
@@ -89,7 +111,7 @@ export default function Home() {
               </button>
               <button
                 type="button"
-                onClick={() => setView("faq")}
+                onClick={() => switchTab("faq")}
                 className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
                   view === "faq"
                     ? "bg-white/10 text-white"
@@ -103,7 +125,12 @@ export default function Home() {
         )}
 
         {/* Faucet view — always mounted so claim data survives tab switches */}
-        <div className={view === "faucet" ? "animate-panel-state-in" : "hidden"}>
+        <div className={
+          leaving === "faucet" ? "animate-panel-state-out" :
+          view === "faucet" ? "animate-panel-state-in" :
+          "hidden"
+        }>
+
           {/* Network status bar */}
           <div className="mx-auto max-w-lg">
             <NetworkStatus />
@@ -112,6 +139,7 @@ export default function Home() {
           {/* Split-panel faucet form + footer (footer hidden when split) */}
           <div className="mt-2">
             <FaucetLayout
+              onGoToAccount={() => switchTab("keys")}
               footer={
                 <div className="mx-auto mt-5 max-w-lg space-y-3">
                   <div className="glass-card rounded-xl overflow-hidden">
@@ -167,7 +195,7 @@ export default function Home() {
                       {" · "}
                       <button
                         type="button"
-                        onClick={() => setView("status")}
+                        onClick={() => switchTab("status")}
                         className="text-chartreuse/60 transition-colors hover:text-chartreuse"
                       >
                         API Status
@@ -180,20 +208,29 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Keys view — always mounted so keypair survives tab switches */}
+        <div className={
+          leaving === "keys" ? "animate-panel-state-out" :
+          view === "keys" ? "animate-panel-state-in" :
+          "hidden"
+        }>
+          <KeygenView />
+        </div>
+
         {/* All other views — remount on each switch for the entry animation */}
-        {view !== "faucet" && (
-          <div key={view} className="animate-panel-state-in">
-            {view === "balance" ? (
+        {(view !== "faucet" && view !== "keys") || (leaving !== null && leaving !== "faucet" && leaving !== "keys") ? (
+          <div key={leaving ?? view} className={leaving !== null && leaving !== "faucet" && leaving !== "keys" ? "animate-panel-state-out" : "animate-panel-state-in"}>
+            {(leaving ?? view) === "balance" ? (
               <BalanceView />
-            ) : view === "faq" ? (
+            ) : (leaving ?? view) === "faq" ? (
               <FaqView />
-            ) : view === "network" ? (
+            ) : (leaving ?? view) === "network" ? (
               <NetworkView />
             ) : (
-              <StatusView onBack={() => setView("faucet")} />
+              <StatusView onBack={() => switchTab("faucet")} />
             )}
           </div>
-        )}
+        ) : null}
 
       </div>
     </main>

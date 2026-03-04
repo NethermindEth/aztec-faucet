@@ -181,3 +181,19 @@ body {
 .animate-panel-state-in {
   animation: panel-state-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+@keyframes panel-state-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
+}
+
+.animate-panel-state-out {
+  animation: panel-state-out 0.17s cubic-bezier(0.4, 0, 1, 1) both;
+  pointer-events: none;
+}

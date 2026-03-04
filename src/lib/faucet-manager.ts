@@ -109,11 +109,11 @@ export class FaucetManager {
       l1ChainId,
       l1PrivateKey,
       sponsoredFpcAddress: requireEnv("SPONSORED_FPC_ADDRESS"),
-      // Default: 10 FJ (10 * 10^18 motes). At the current devnet rate of ~10.2M motes/L2gas,
-      // 10 FJ covers ~9.8M simple txs — more than enough for any developer session.
+      // Default: 1000 FJ (1000 * 10^18 motes). The Fee Juice Portal contract in
+      // devnet patch.4+ enforces a minimum mint of 1000 FJ per bridge call.
       feeJuiceDripAmount: process.env.FEE_JUICE_DRIP_AMOUNT
         ? parseBigIntEnv("FEE_JUICE_DRIP_AMOUNT")
-        : 10_000_000_000_000_000_000n,
+        : 1_000_000_000_000_000_000_000n,
     });
 
     const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 86400000);

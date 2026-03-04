@@ -195,6 +195,12 @@ The faucet UI pre-fills all of these values into the claim command – you only 
 
 ---
 
+## FAQ tab
+
+The faucet UI includes a **FAQ** tab covering common questions: how the bridge works, claim expiry, mana and fee calculation, Fee Juice non-transferability, rate limits, and more. All answers are sourced from the official Aztec documentation.
+
+---
+
 ## Network tab
 
 The faucet UI includes a **Network** tab with two sub-tabs that auto-refresh every 15 seconds.
@@ -271,7 +277,11 @@ The faucet's claim tracker keeps your claim data for **30 minutes**. After that 
 
 ## API
 
-The faucet exposes a public status endpoint – useful for scripts and CI:
+Three public endpoints are available – useful for scripts, CI, and tooling.
+
+### `GET /api/status`
+
+Faucet health, balances, and SDK version.
 
 ```bash
 curl https://<your-faucet-url>/api/status
@@ -294,6 +304,56 @@ curl https://<your-faucet-url>/api/status
     "faucetVersion": "4.0.0-devnet.2-patch.4",
     "latestDevnetVersion": "4.0.0-devnet.2-patch.4",
     "outdated": false
+  }
+}
+```
+
+### `GET /api/fees`
+
+Current minimum fee rates from the devnet node. Refreshes on every request.
+
+```bash
+curl https://<your-faucet-url>/api/fees
+```
+
+```json
+{
+  "feePerDaGas": "0",
+  "feePerL2Gas": "10000000",
+  "blockNumber": 30651
+}
+```
+
+Values are in base units (18 decimals). `feePerDaGas` is currently `0` on devnet (DA is free).
+
+### `GET /api/node-info`
+
+Live node metadata and all deployed protocol contract addresses.
+
+```bash
+curl https://<your-faucet-url>/api/node-info
+```
+
+```json
+{
+  "nodeVersion": "4.0.0-devnet.2-patch.4",
+  "l1ChainId": 11155111,
+  "rollupVersion": 1,
+  "blockNumber": 30651,
+  "l1Contracts": {
+    "rollupAddress": "0x...",
+    "registryAddress": "0x...",
+    "inboxAddress": "0x...",
+    "outboxAddress": "0x...",
+    "feeJuiceAddress": "0x...",
+    "feeJuicePortalAddress": "0x...",
+    "stakingAssetAddress": "0x..."
+  },
+  "l2Contracts": {
+    "feeJuice": "0x00...05",
+    "instanceRegistry": "0x00...02",
+    "classRegistry": "0x00...03",
+    "multiCallEntrypoint": "0x00...04"
   }
 }
 ```

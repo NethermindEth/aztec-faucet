@@ -60,6 +60,15 @@ type InitialClaimData = {
   messageLeafIndex: string;
 };
 
+function formatRetryAfter(ms: number): string {
+  const totalMinutes = Math.ceil(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+}
+
 export function FaucetForm({
   onSuccess,
   onClaim,
@@ -153,7 +162,9 @@ export function FaucetForm({
 
       if (!res.ok) {
         setError(data.error ?? "Request failed");
-        if (data.retryAfter) setRetryAfter(data.retryAfter);
+        // retryAfter from server, or default to 24h for any rate-limit response
+        const retryMs = data.retryAfter || (res.status === 429 ? 86_400_000 : null);
+        if (retryMs) setRetryAfter(retryMs);
         onError();
         return;
       }
@@ -407,7 +418,7 @@ export function FaucetForm({
           <p className="text-sm font-medium text-red-400">{error}</p>
           {retryAfter && (
             <p className="mt-1 text-xs text-red-400/70">
-              Try again in {Math.ceil(retryAfter / 60000)} minute{Math.ceil(retryAfter / 60000) === 1 ? "" : "s"}
+              Try again in {formatRetryAfter(retryAfter)}
             </p>
           )}
         </div>

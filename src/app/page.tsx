@@ -102,95 +102,98 @@ export default function Home() {
           </div>
         )}
 
-        {/* View body — keyed so transition fires on every switch */}
-        <div key={view} className="animate-panel-state-in">
-          {view === "balance" ? (
-            <BalanceView />
-          ) : view === "faq" ? (
-            <FaqView />
-          ) : view === "network" ? (
-            <NetworkView />
-          ) : view === "faucet" ? (
-            <>
-              {/* Network status bar */}
-              <div className="mx-auto max-w-lg">
-                <NetworkStatus />
-              </div>
+        {/* Faucet view — always mounted so claim data survives tab switches */}
+        <div className={view === "faucet" ? "animate-panel-state-in" : "hidden"}>
+          {/* Network status bar */}
+          <div className="mx-auto max-w-lg">
+            <NetworkStatus />
+          </div>
 
-              {/* Split-panel faucet form + footer (footer hidden when split) */}
-              <div className="mt-2">
-                <FaucetLayout
-                  footer={
-                    <div className="mx-auto mt-5 max-w-lg space-y-3">
-                      <div className="glass-card rounded-xl overflow-hidden">
-                        <button
-                          type="button"
-                          onClick={() => setHowOpen(!howOpen)}
-                          className="flex w-full items-center justify-between px-4 py-3 text-left"
-                        >
-                          <span className="text-sm font-medium text-zinc-400 transition-colors hover:text-white">How does this work?</span>
-                          <span className={`text-chartreuse transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${howOpen ? "rotate-45" : ""}`}>
-                            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
-                              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            </svg>
-                          </span>
-                        </button>
-                        <div
-                          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                          style={{ gridTemplateRows: howOpen ? "1fr" : "0fr" }}
-                        >
-                          <div className="overflow-hidden">
-                            <div className="space-y-2 border-t border-white/6 px-4 py-3 text-xs text-zinc-500">
-                              <p>
-                                <strong className="text-zinc-300">ETH:</strong> Sent directly to your Ethereum address on Sepolia. Use it to pay L1 gas fees.
-                              </p>
-                              <p>
-                                <strong className="text-zinc-300">Fee Juice:</strong> Aztec&apos;s native fee token. Required for every transaction on Aztec. The faucet sends a message through the Fee Juice Portal on L1, which sits pending until the next rollup block is processed (roughly 1-2 minutes). You&apos;ll receive a secret claim preimage to consume the message and receive your Fee Juice on L2.
-                              </p>
-                            </div>
-                          </div>
+          {/* Split-panel faucet form + footer (footer hidden when split) */}
+          <div className="mt-2">
+            <FaucetLayout
+              footer={
+                <div className="mx-auto mt-5 max-w-lg space-y-3">
+                  <div className="glass-card rounded-xl overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setHowOpen(!howOpen)}
+                      className="flex w-full items-center justify-between px-4 py-3 text-left"
+                    >
+                      <span className="text-sm font-medium text-zinc-400 transition-colors hover:text-white">How does this work?</span>
+                      <span className={`text-chartreuse transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${howOpen ? "rotate-45" : ""}`}>
+                        <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+                          <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </span>
+                    </button>
+                    <div
+                      className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+                      style={{ gridTemplateRows: howOpen ? "1fr" : "0fr" }}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="space-y-2 border-t border-white/6 px-4 py-3 text-xs text-zinc-500">
+                          <p>
+                            <strong className="text-zinc-300">ETH:</strong> Sent directly to your Ethereum address on Sepolia. Use it to pay L1 gas fees.
+                          </p>
+                          <p>
+                            <strong className="text-zinc-300">Fee Juice:</strong> Aztec&apos;s native fee token. Required for every transaction on Aztec. The faucet sends a message through the Fee Juice Portal on L1, which sits pending until the next rollup block is processed (roughly 1-2 minutes). You&apos;ll receive a secret claim preimage to consume the message and receive your Fee Juice on L2.
+                          </p>
                         </div>
                       </div>
-
-                      <div className="text-center text-xs text-zinc-600">
-                        <p>Rate limited to one request per token per 24 hours.</p>
-                        <p className="mt-1">
-                          <a
-                            href="https://docs.aztec.network"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-chartreuse/60 transition-colors hover:text-chartreuse"
-                          >
-                            Aztec Documentation
-                          </a>
-                          {" · "}
-                          <a
-                            href="https://docs.aztec.network/guides/getting_started"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-chartreuse/60 transition-colors hover:text-chartreuse"
-                          >
-                            Getting Started
-                          </a>
-                          {" · "}
-                          <button
-                            type="button"
-                            onClick={() => setView("status")}
-                            className="text-chartreuse/60 transition-colors hover:text-chartreuse"
-                          >
-                            API Status
-                          </button>
-                        </p>
-                      </div>
                     </div>
-                  }
-                />
-              </div>
-            </>
-          ) : (
-            <StatusView onBack={() => setView("faucet")} />
-          )}
+                  </div>
+
+                  <div className="text-center text-xs text-zinc-600">
+                    <p>Rate limited to one request per token per 24 hours.</p>
+                    <p className="mt-1">
+                      <a
+                        href="https://docs.aztec.network"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-chartreuse/60 transition-colors hover:text-chartreuse"
+                      >
+                        Aztec Documentation
+                      </a>
+                      {" · "}
+                      <a
+                        href="https://docs.aztec.network/guides/getting_started"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-chartreuse/60 transition-colors hover:text-chartreuse"
+                      >
+                        Getting Started
+                      </a>
+                      {" · "}
+                      <button
+                        type="button"
+                        onClick={() => setView("status")}
+                        className="text-chartreuse/60 transition-colors hover:text-chartreuse"
+                      >
+                        API Status
+                      </button>
+                    </p>
+                  </div>
+                </div>
+              }
+            />
+          </div>
         </div>
+
+        {/* All other views — remount on each switch for the entry animation */}
+        {view !== "faucet" && (
+          <div key={view} className="animate-panel-state-in">
+            {view === "balance" ? (
+              <BalanceView />
+            ) : view === "faq" ? (
+              <FaqView />
+            ) : view === "network" ? (
+              <NetworkView />
+            ) : (
+              <StatusView onBack={() => setView("faucet")} />
+            )}
+          </div>
+        )}
 
       </div>
     </main>

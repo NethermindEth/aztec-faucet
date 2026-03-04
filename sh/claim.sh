@@ -8,7 +8,7 @@
 # You only need to supply your --secret key.
 #
 # Usage (copy from the faucet UI — values are pre-filled):
-#   curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/claim.sh | sh -s -- \
+#   curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/claim.sh | sh -s -- \
 #     --secret <YOUR_SECRET_KEY> \
 #     --claim-amount <pre-filled> \
 #     --claim-secret <pre-filled> \
@@ -16,7 +16,7 @@
 
 set -e
 
-REPO_RAW="https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main"
+REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main"
 
 # spin <pid> <message> — shows a spinner until <pid> exits, then prints a checkmark
 spin() {

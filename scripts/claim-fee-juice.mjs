@@ -135,7 +135,7 @@ try {
     console.log(`\n  Fee Juice claimed successfully.`);
   }
 
-  console.log(`\n  Check balance:\n    curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
+  console.log(`\n  Check balance:\n    curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
 
   await wallet.stop();
   process.exit(0);

@@ -3,18 +3,18 @@
 # Requires a Sepolia RPC URL (Alchemy, Infura, etc.)
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/check-eth-balance.sh | sh -s -- \
+#   curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/check-eth-balance.sh | sh -s -- \
 #     --address 0xYOUR_ETH_ADDRESS \
 #     --rpc https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
 #
 # Or set L1_RPC_URL in your environment and omit --rpc:
 #   export L1_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY
-#   curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/check-eth-balance.sh | sh -s -- \
+#   curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/check-eth-balance.sh | sh -s -- \
 #     --address 0xYOUR_ETH_ADDRESS
 
 set -e
 
-REPO_RAW="https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main"
+REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main"
 
 # spin <pid> <message> — shows a spinner until <pid> exits, then prints a checkmark
 spin() {

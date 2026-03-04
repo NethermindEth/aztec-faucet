@@ -46,14 +46,14 @@ The faucet ships shell scripts you can run directly from your terminal. They han
 
 ```bash
 # Step 1 - derive your Aztec address (no deployment, no clone)
-curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/create-account.sh | sh
+curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/create-account.sh | sh
 # → prints your secret key and Aztec address
 
 # Step 2 - paste the address into the faucet, request Fee Juice
 # → wait ~1–2 min for the L1→L2 bridge
 
 # Step 3 - claim (auto-detects deployed vs not)
-curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/claim.sh | sh -s -- \
+curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/claim.sh | sh -s -- \
   --secret <your-secret-key> \
   --claim-amount <from faucet> \
   --claim-secret <from faucet> \
@@ -152,7 +152,7 @@ await feeJuice.methods
 **Or use the script** (it auto-detects that your account is already deployed):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/claim.sh | sh -s -- \
+curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/claim.sh | sh -s -- \
   --secret <your-account-secret> \
   --claim-amount <from faucet> \
   --claim-secret <from faucet> \
@@ -243,7 +243,7 @@ All deployed protocol contract addresses in one place, with one-click copy butto
 The faucet UI includes a **Balance** tab that generates a terminal command with your address pre-filled. You may also run it directly:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/check-balance.sh | sh -s -- \
+curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/check-balance.sh | sh -s -- \
   --address 0x<your-aztec-address>
 ```
 
@@ -292,7 +292,7 @@ The faucet's claim tracker keeps your claim data for **30 minutes**. After that 
 
 ## UI tabs
 
-The faucet has five tabs:
+The faucet has six tabs:
 
 | Tab | What it does |
 |-----|-------------|
@@ -301,6 +301,7 @@ The faucet has five tabs:
 | **Balance** | Check the Fee Juice balance of any Aztec address directly from the node. |
 | **Network** | Live fee rates, node health, and all L1/L2 protocol contract addresses. Auto-refreshes every 15 seconds. |
 | **FAQ** | Common questions about the bridge, mana, claim expiry, rate limits, and more. |
+| **Donate** | Send Sepolia ETH to the faucet wallet to help keep it funded. Shows the faucet address with a copy button and a direct Etherscan link. |
 
 ---
 

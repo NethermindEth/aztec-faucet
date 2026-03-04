@@ -3,17 +3,17 @@
 # Fee Juice is stored in public state, so no wallet or private key is needed.
 #
 # Usage (copy from the faucet UI — address is pre-filled):
-#   curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/check-balance.sh | sh -s -- \
+#   curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/check-balance.sh | sh -s -- \
 #     --address <pre-filled>
 #
 # Against a custom node:
-#   curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/check-balance.sh | sh -s -- \
+#   curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/check-balance.sh | sh -s -- \
 #     --address 0xYOUR_ADDRESS \
 #     --node https://your-node-url
 
 set -e
 
-REPO_RAW="https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main"
+REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main"
 
 # spin <pid> <message> — shows a spinner until <pid> exits, then prints a checkmark
 spin() {

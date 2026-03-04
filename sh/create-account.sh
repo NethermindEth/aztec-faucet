@@ -3,15 +3,15 @@
 # Nothing is deployed — just prints your secret key and address.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/create-account.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/create-account.sh | sh
 #
 # With an existing secret key:
-#   curl -fsSL https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main/sh/create-account.sh | sh -s -- \
+#   curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/create-account.sh | sh -s -- \
 #     --secret 0xYOUR_SECRET
 
 set -e
 
-REPO_RAW="https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main"
+REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main"
 
 # spin <pid> <message> — shows a spinner until <pid> exits, then prints a checkmark
 spin() {

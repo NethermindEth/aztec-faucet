@@ -5,7 +5,7 @@ import { TurnstileWidget } from "./turnstile-widget";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 
-const GITHUB_RAW = "https://raw.githubusercontent.com/Giri-Aayush/aztec-faucet/main";
+const GITHUB_RAW = "https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main";
 
 const CREATE_ACCOUNT_ONELINER = `curl -fsSL ${GITHUB_RAW}/sh/create-account.sh | sh`;
 const CREATE_ACCOUNT_SELF_CONTAINED = `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\

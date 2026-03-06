@@ -22,7 +22,6 @@ jobs:
       repo_name: core-oci-local-dev
       image_name: aztec-faucet
       platforms: "linux/amd64"
-      ignore_trivy: true
       context: .
       dockerfile_path: ./Dockerfile
       push: ${{ github.event_name != 'pull_request' }}

@@ -19,7 +19,7 @@ jobs:
   push-aztec-faucet:
     uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.11.4
     with:
-      repo_name: core-oci-local-prod
+      repo_name: core-oci-local-dev
       image_name: aztec-faucet
       platforms: "linux/amd64"
       ignore_trivy: true

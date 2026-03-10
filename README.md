@@ -16,6 +16,8 @@ Get L1 ETH and L2 Fee Juice – in one place.
 ![Devnet](https://img.shields.io/badge/L2-Aztec_Devnet-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)
 ![SDK](https://img.shields.io/badge/SDK-4.0.0--devnet.2--patch.4-2BFAE9?style=flat-square&labelColor=0a0a0f&color=2BFAE9)
 
+[![Live](https://img.shields.io/badge/Live-aztec--faucet.nethermind.io-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)](https://aztec-faucet.nethermind.io/)
+
 </div>
 
 ---

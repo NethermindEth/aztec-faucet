@@ -70,7 +70,7 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
     <div className="space-y-2">
       <div className="rounded-xl border border-white/6 bg-white/2">
         <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start — curl, no clone</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
           <CopyButton text={oneLiner} />
         </div>
         <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
@@ -79,7 +79,7 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
       </div>
       <div className="rounded-xl border border-white/6 bg-white/2">
         <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained — no clone needed</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
           <CopyButton text={selfContained} />
         </div>
         <pre className="max-h-48 overflow-x-auto overflow-y-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">

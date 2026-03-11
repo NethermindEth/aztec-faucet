@@ -141,7 +141,7 @@ export function ClaimTracker({
               </p>
               <p className="mt-0.5 text-xs text-zinc-500">
                 {isError
-                  ? "The L1 bridge tx was sent. Status tracking failed — use the data below to claim."
+                  ? "The L1 bridge tx was sent. Status tracking failed. Use the data below to claim."
                   : "The L1→L2 message took too long. Please request Fee Juice again."}
               </p>
             </div>

@@ -55,7 +55,7 @@ export function NetworkStatus() {
     return (
       <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/15 bg-red-500/4 px-3 py-2 text-xs text-red-400">
         <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
-        Faucet unavailable — check server configuration
+        Faucet unavailable. Check server configuration.
       </div>
     );
   }

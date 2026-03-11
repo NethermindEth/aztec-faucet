@@ -184,14 +184,14 @@ export function BalanceView() {
               </summary>
               <div className="border-t border-white/5 space-y-0">
                 <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start — curl, no clone</span>
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
                   <CopyButton text={makeBalanceCurl(trimmed)} />
                 </div>
                 <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
                   <code>{makeBalanceCurl(trimmed)}</code>
                 </pre>
                 <div className="flex items-center justify-between border-t border-b border-white/5 px-3 py-2">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained — no clone needed</span>
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
                   <CopyButton text={makeBalanceCmd(trimmed)} />
                 </div>
                 <pre className="max-h-40 overflow-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">

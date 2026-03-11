@@ -46,7 +46,7 @@ export default function Home() {
   }
 
   return (
-    <main className="bg-atmosphere flex min-h-screen flex-col items-center px-4 pt-10 pb-12">
+    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-10 pb-4">
       <div className="relative z-10 w-full">
 
         {/* Header — static, never re-renders */}

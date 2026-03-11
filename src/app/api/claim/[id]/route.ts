@@ -29,15 +29,44 @@ await feeJuice.methods
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const { searchParams } = new URL(request.url);
+  const messageHash = searchParams.get("messageHash");
 
   const manager = FaucetManager.getInstance();
   const claim = manager.getClaim(id);
 
   if (!claim) {
+    // Stateless fallback: if the client provides messageHash, check the L2 node
+    // directly. This handles multi-instance deployments where the drip and poll
+    // requests land on different server pods.
+    if (messageHash) {
+      try {
+        const aztecNodeUrl = process.env.AZTEC_NODE_URL;
+        if (aztecNodeUrl) {
+          const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
+          const { Fr } = await import("@aztec/aztec.js/fields");
+          const node = createAztecNodeClient(aztecNodeUrl);
+          const [currentBlock, messageBlock] = await Promise.all([
+            node.getBlockNumber(),
+            node.getL1ToL2MessageBlock(Fr.fromHexString(messageHash)),
+          ]);
+          if (messageBlock !== undefined && currentBlock >= messageBlock) {
+            return NextResponse.json({
+              status: "ready",
+              elapsedSeconds: 0,
+              expiresInSeconds: Math.floor(CLAIM_EXPIRY_MS / 1000),
+            });
+          }
+          return NextResponse.json({ status: "bridging", elapsedSeconds: 0 });
+        }
+      } catch (err) {
+        console.error("[claim] Stateless fallback failed:", err);
+      }
+    }
     return NextResponse.json({ error: "Claim not found" }, { status: 404 });
   }
 

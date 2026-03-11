@@ -64,7 +64,13 @@ export function ClaimTracker({
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch(`/api/claim/${claimId}`);
+      // Pass messageHash so the server can fall back to a stateless L2 node
+      // check if the claim isn't in its local memory (multi-instance deployments).
+      const msgHash = initialClaimData?.messageHashHex;
+      const url = msgHash
+        ? `/api/claim/${claimId}?messageHash=${msgHash}`
+        : `/api/claim/${claimId}`;
+      const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 404) {
           setError("Claim not found. It may have expired.");
@@ -77,16 +83,16 @@ export function ClaimTracker({
       setStatus(data.status);
       setElapsed(data.elapsedSeconds);
 
-      if (data.status === "ready" && data.claimData) {
-        setClaimData(data.claimData);
-        if (data.expiresInSeconds !== undefined) {
-          setExpiresIn(data.expiresInSeconds);
-        }
+      if (data.status === "ready") {
+        // claimData may be absent in stateless fallback responses — the initial
+        // claimData seeded from the drip response is already in state.
+        if (data.claimData) setClaimData(data.claimData);
+        if (data.expiresInSeconds !== undefined) setExpiresIn(data.expiresInSeconds);
       }
     } catch {
       // Silently retry on network errors
     }
-  }, [claimId]);
+  }, [claimId, initialClaimData?.messageHashHex]);
 
   // Poll the backend while bridging
   useEffect(() => {

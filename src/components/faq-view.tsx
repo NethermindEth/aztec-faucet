@@ -112,7 +112,7 @@ export function FaqView() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <div className="grid grid-cols-2 gap-2 items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
         <div className="space-y-2">
           {left.map((item) => {
             const i = FAQ_ITEMS.indexOf(item);

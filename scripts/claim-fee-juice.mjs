@@ -144,11 +144,24 @@ try {
 
   const msg = err.message || String(err);
 
-  if (msg.includes("No non-nullified L1 to L2 message")) {
-    die("This claim has already been consumed or the L1→L2 message has not arrived yet.\n         If you just bridged, wait ~2 minutes and try again.\n         If you already claimed, request new Fee Juice from the faucet.");
+  if (msg.includes("No L1 to L2 message found")) {
+    die(
+      "No matching L1 to L2 message found on the node.\n" +
+      "         Possible causes:\n" +
+      "           - Your secret key does not match the address you dripped to\n" +
+      "           - The bridge is not ready yet — wait ~2 minutes and try again\n" +
+      "           - The claim values (amount, secret, leaf index) are incorrect"
+    );
   }
 
-  if (msg.includes("Balance too low")) {
+  if (msg.includes("No non-nullified L1 to L2 message")) {
+    die(
+      "This claim has already been consumed.\n" +
+      "         Request new Fee Juice from the faucet to get a fresh claim."
+    );
+  }
+
+  if (msg.includes("Balance too low") || msg.includes("not enough balance")) {
     die("Insufficient Fee Juice balance to pay for this transaction's gas.");
   }
 

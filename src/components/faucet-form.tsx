@@ -5,7 +5,7 @@ import { TurnstileWidget } from "./turnstile-widget";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 
-const GITHUB_RAW = "https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main";
+const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
 const CREATE_ACCOUNT_ONELINER = `curl -fsSL ${GITHUB_RAW}/sh/create-account.sh | sh`;
 const CREATE_ACCOUNT_SELF_CONTAINED = `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
@@ -112,14 +112,14 @@ export function FaucetForm({
 
     if (isEthAddress) {
       if (!isValidEthAddress(trimmed)) {
-        return "Invalid Ethereum address — expected 0x followed by 40 hex characters";
+        return "Invalid Ethereum address: expected 0x followed by 40 hex characters";
       }
     } else {
       if (!isValidAztecAddress(trimmed)) {
         if (isValidEthAddress(trimmed)) {
           return `This looks like an Ethereum address. ${currentAsset.label} requires an Aztec address (0x + 64 hex chars)`;
         }
-        return "Invalid Aztec address — expected 0x followed by 64 hex characters";
+        return "Invalid Aztec address: expected 0x followed by 64 hex characters";
       }
     }
 
@@ -179,7 +179,7 @@ export function FaucetForm({
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
-        setError("Request timed out. The server may be busy — please try again.");
+        setError("Request timed out. The server may be busy. Please try again.");
       } else {
         setError("Network error. Please try again.");
       }
@@ -215,10 +215,14 @@ export function FaucetForm({
               className={`rounded-xl border p-3 text-left transition-all ${
                 locked
                   ? asset === a.value
-                    ? "cursor-not-allowed border-chartreuse/20 bg-chartreuse/4 text-zinc-400"
+                    ? a.value === "eth"
+                      ? "cursor-not-allowed border-blue-400/20 bg-blue-400/4 text-zinc-400"
+                      : "cursor-not-allowed border-chartreuse/20 bg-chartreuse/4 text-zinc-400"
                     : "cursor-not-allowed border-white/4 bg-white/1 text-zinc-600"
                   : asset === a.value
-                  ? "border-chartreuse/30 bg-chartreuse/6 text-white"
+                  ? a.value === "eth"
+                    ? "border-blue-400/40 bg-blue-400/8 text-white"
+                    : "border-chartreuse/30 bg-chartreuse/6 text-white"
                   : "border-white/6 bg-white/2 text-zinc-500 hover:border-white/10 hover:text-zinc-300"
               }`}
             >
@@ -274,7 +278,7 @@ export function FaucetForm({
                   </p>
                   <div className="rounded-lg border border-white/5 bg-black/30">
                     <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start — curl, no clone</span>
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
                       <CopyButton text={CREATE_ACCOUNT_ONELINER} />
                     </div>
                     <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
@@ -283,7 +287,7 @@ export function FaucetForm({
                   </div>
                   <div className="rounded-lg border border-white/5 bg-black/30">
                     <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained — no clone needed</span>
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
                       <CopyButton text={CREATE_ACCOUNT_SELF_CONTAINED} />
                     </div>
                     <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
@@ -318,7 +322,7 @@ export function FaucetForm({
               <div className="overflow-hidden">
                 <div className="border-t border-chartreuse/10 px-4 pb-4 pt-3">
                   <p className="text-xs text-chartreuse/50">
-                    Fee Juice must be <strong className="text-chartreuse/70">bridged from L1 to L2</strong> — the faucet sends an L1 transaction to the Fee Juice Portal contract, then the Aztec sequencer picks up that message and includes it in an L2 block. That relay step takes 1-2 minutes. Once ready, you&apos;ll get claim data to use when deploying your account.
+                    Fee Juice must be <strong className="text-chartreuse/70">bridged from L1 to L2</strong>. The faucet sends an L1 transaction to the Fee Juice Portal contract, then the Aztec sequencer picks up that message and includes it in an L2 block. That relay step takes 1-2 minutes. Once ready, you&apos;ll get claim data to use when deploying your account.
                   </p>
                 </div>
               </div>

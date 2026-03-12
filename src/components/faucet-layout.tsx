@@ -118,11 +118,11 @@ export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNo
         isSplit ? "max-w-[58rem]" : "max-w-[32rem]"
       }`}
     >
-      <div className="flex items-start gap-5">
+      <div className="flex flex-col sm:flex-row items-start gap-5">
         {/* Left panel — always visible */}
         <div
           className={`glass-card rounded-2xl p-6 transition-[width] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            isSplit ? "w-[28rem] shrink-0" : "w-full"
+            isSplit ? "w-full sm:w-md sm:shrink-0" : "w-full"
           }`}
         >
           <FaucetForm
@@ -137,7 +137,7 @@ export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNo
 
         {/* Right panel — slides in */}
         {isSplit && (
-          <div className={`w-[28rem] min-h-0 shrink-0 animate-slide-in-right ${rightPanel.kind === "pending" ? "self-stretch" : "self-start"}`}>
+          <div className={`w-full sm:w-md sm:shrink-0 min-h-0 animate-slide-in-right ${rightPanel.kind === "pending" ? "self-stretch" : "self-start"}`}>
             <div className={`glass-card rounded-2xl p-6 ${rightPanel.kind === "pending" ? "flex flex-col h-full overflow-x-hidden" : ""}`}>
               <div key={rightPanel.kind} className="flex flex-col animate-panel-state-in">
                 {rightPanel.kind === "pending" ? (

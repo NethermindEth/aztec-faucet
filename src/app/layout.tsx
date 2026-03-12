@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import Image from "next/image";
 import Script from "next/script";
 import "./globals.css";
 
@@ -32,9 +33,20 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased overflow-x-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased overflow-x-hidden min-h-screen flex flex-col`}
+        suppressHydrationWarning
       >
         {children}
+        <footer className="flex flex-col items-center gap-2 pb-8 pt-4">
+          <Image
+            src="/powered-by-nethermind-dark.svg"
+            alt="Powered by Nethermind"
+            width={160}
+            height={22}
+          />
+          <p className="text-[11px] text-zinc-600">Released under the MIT License.</p>
+          <p className="text-[11px] text-zinc-600">© 2026 Nethermind. All Rights Reserved</p>
+        </footer>
         {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js"

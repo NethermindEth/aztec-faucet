@@ -70,8 +70,8 @@ export function DonateView() {
             <span className="flex items-center justify-end gap-2 text-xs text-zinc-300">
               {faucetAddress ? (
                 <>
-                  <span className="font-mono text-[11px]">
-                    {faucetAddress.slice(0, 12)}…{faucetAddress.slice(-10)}
+                  <span className="font-mono text-[11px] whitespace-nowrap">
+                    {faucetAddress.slice(0, 8)}…{faucetAddress.slice(-6)}
                   </span>
                   <CopyInline text={faucetAddress} />
                 </>

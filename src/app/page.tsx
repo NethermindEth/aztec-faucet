@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { FaucetLayout } from "@/components/faucet-layout";
 import { NetworkStatus } from "@/components/network-status";
 import { StatusView } from "@/components/status-view";
@@ -12,24 +13,6 @@ import { DonateView } from "@/components/donate-view";
 
 type View = "faucet" | "balance" | "faq" | "status" | "network" | "keys" | "donate";
 
-const DiamondIcon = () => (
-  <svg viewBox="0 0 32 32" fill="none" className="h-9 w-9 text-chartreuse">
-    <path
-      d="M16 2L28 16L16 30L4 16L16 2Z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      fill="currentColor"
-      fillOpacity="0.08"
-    />
-    <path
-      d="M16 8L22 16L16 24L10 16L16 8Z"
-      stroke="currentColor"
-      strokeWidth="1"
-      fill="currentColor"
-      fillOpacity="0.15"
-    />
-  </svg>
-);
 
 export default function Home() {
   const [view, setView] = useState<View>("faucet");
@@ -46,13 +29,13 @@ export default function Home() {
   }
 
   return (
-    <main className="bg-atmosphere flex min-h-screen flex-col items-center px-4 pt-10 pb-12">
+    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-10 pb-4">
       <div className="relative z-10 w-full">
 
         {/* Header — static, never re-renders */}
         <div className="mx-auto mb-6 max-w-lg text-center animate-fade-up">
           <div className="mb-3 flex justify-center">
-            <DiamondIcon />
+            <Image src="/aztec-symbol.svg" alt="Aztec" width={44} height={44} className="rounded-lg" />
           </div>
           <h1 className="font-display text-5xl text-white">
             Aztec <span className="text-chartreuse">Faucet</span>
@@ -69,7 +52,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => switchTab("faucet")}
-                className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
                   view === "faucet"
                     ? "bg-white/10 text-white"
                     : "text-zinc-500 hover:text-zinc-300"
@@ -80,7 +63,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => switchTab("balance")}
-                className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
                   view === "balance"
                     ? "bg-white/10 text-white"
                     : "text-zinc-500 hover:text-zinc-300"
@@ -91,7 +74,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => switchTab("keys")}
-                className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
                   view === "keys"
                     ? "bg-white/10 text-white"
                     : "text-zinc-500 hover:text-zinc-300"
@@ -102,7 +85,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => switchTab("network")}
-                className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
                   view === "network"
                     ? "bg-white/10 text-white"
                     : "text-zinc-500 hover:text-zinc-300"
@@ -113,7 +96,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => switchTab("faq")}
-                className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
                   view === "faq"
                     ? "bg-white/10 text-white"
                     : "text-zinc-500 hover:text-zinc-300"
@@ -124,7 +107,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => switchTab("donate")}
-                className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
                   view === "donate"
                     ? "bg-white/10 text-white"
                     : "text-zinc-500 hover:text-zinc-300"

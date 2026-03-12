@@ -34,20 +34,38 @@ printf '\n  Aztec Fee Juice Claim\n\n'
 
 mkdir -p ~/.aztec-devtools
 cd ~/.aztec-devtools
-printf '{"type":"module"}' > package.json
 
-npm install --no-package-lock @aztec/wallets@devnet @aztec/aztec.js@devnet @aztec/stdlib@devnet --silent > /dev/null 2>&1 &
-_npm_pid=$!
-spin $_npm_pid "Installing packages"
-wait $_npm_pid
+# Load shared version config (always fetch fresh so version bumps propagate)
+curl -fsSL "$REPO_RAW/sh/versions.sh" -o .versions.sh 2>/dev/null || true
+[ -f .versions.sh ] && . ./.versions.sh
+AZTEC_SDK_VERSION="${AZTEC_SDK_VERSION:-4.0.0-devnet.2-patch.4}"
+
+# Print installed version of a package, empty string if missing or unreadable
+_pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }
+
+_needs_install=0
+[ "$(_pkg_ver "@aztec/wallets")"  != "$AZTEC_SDK_VERSION" ] && _needs_install=1
+[ "$(_pkg_ver "@aztec/aztec.js")" != "$AZTEC_SDK_VERSION" ] && _needs_install=1
+[ "$(_pkg_ver "@aztec/stdlib")"   != "$AZTEC_SDK_VERSION" ] && _needs_install=1
+
+if [ "$_needs_install" = "1" ]; then
+  # Reset package.json to a clean slate so stale deps don't interfere with the install
+  printf '{"type":"module"}' > package.json
+  # Wipe existing @aztec packages to prevent version conflicts from prior installs
+  rm -rf node_modules/@aztec 2>/dev/null || true
+  npm install --no-package-lock @aztec/wallets@devnet @aztec/aztec.js@devnet @aztec/stdlib@devnet --silent > /dev/null 2>&1 &
+  _npm_pid=$!
+  spin $_npm_pid "Installing packages"
+  wait $_npm_pid
+fi
 
 curl -fsSL "$REPO_RAW/scripts/claim-fee-juice.mjs" \
-  -o ~/.aztec-devtools/claim-fee-juice.mjs 2>/dev/null
+  -o ~/.aztec-devtools/claim-fee-juice.mjs 2>/dev/null || true
 
 _out=$(mktemp)
 node ~/.aztec-devtools/claim-fee-juice.mjs "$@" > "$_out" 2>&1 &
 _node_pid=$!
-spin $_node_pid "Claiming Fee Juice on Aztec L2 (this may take ~30s)"
+spin $_node_pid "Claiming Fee Juice on Aztec L2 (this may take 1-2 min)"
 wait $_node_pid && _code=0 || _code=$?
 cat "$_out"
 rm -f "$_out"

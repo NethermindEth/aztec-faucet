@@ -32,12 +32,17 @@ printf '\n  Sepolia ETH Balance Checker\n\n'
 
 mkdir -p ~/.aztec-devtools
 cd ~/.aztec-devtools
-printf '{"type":"module"}' > package.json
 
-npm install --no-package-lock viem --silent > /dev/null 2>&1 &
-_npm_pid=$!
-spin $_npm_pid "Installing packages"
-wait $_npm_pid
+_pkgs=""
+[ ! -d node_modules/viem ] && _pkgs="$_pkgs viem"
+
+if [ -n "$_pkgs" ]; then
+  [ ! -f package.json ] && printf '{"type":"module"}' > package.json
+  npm install --no-package-lock $_pkgs --silent > /dev/null 2>&1 &
+  _npm_pid=$!
+  spin $_npm_pid "Installing packages"
+  wait $_npm_pid
+fi
 
 curl -fsSL "$REPO_RAW/scripts/check-eth-balance.mjs" \
   -o ~/.aztec-devtools/check-eth-balance.mjs 2>/dev/null

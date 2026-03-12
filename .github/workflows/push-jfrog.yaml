@@ -2,9 +2,9 @@ name: Build and Push image on jfrog
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -19,10 +19,11 @@ jobs:
   push-aztec-faucet:
     uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.11.4
     with:
-      repo_name: core-oci-local-prod
+      repo_name: ${{ github.ref_name == 'main' && 'core-oci-local-prod' || github.ref_name == 'dev' && 'core-oci-local-dev' }}
       image_name: aztec-faucet
       platforms: "linux/amd64"
       ignore_trivy: true
       context: .
       dockerfile_path: ./Dockerfile
+      docker_build_args: ${{ github.ref_name == 'dev' && 'NEXT_PUBLIC_GITHUB_BRANCH=dev' || '' }}
       push: ${{ github.event_name != 'pull_request' }}

@@ -31,12 +31,26 @@ printf '\n  Aztec Fee Juice Balance Checker\n\n'
 
 mkdir -p ~/.aztec-devtools
 cd ~/.aztec-devtools
-printf '{"type":"module"}' > package.json
 
-npm install --no-package-lock @aztec/aztec.js@devnet @aztec/stdlib@devnet --silent > /dev/null 2>&1 &
-_npm_pid=$!
-spin $_npm_pid "Installing packages"
-wait $_npm_pid
+# Load shared version config (always fetch fresh so version bumps propagate)
+curl -fsSL "$REPO_RAW/sh/versions.sh" -o .versions.sh 2>/dev/null || true
+[ -f .versions.sh ] && . ./.versions.sh
+AZTEC_SDK_VERSION="${AZTEC_SDK_VERSION:-4.0.0-devnet.2-patch.4}"
+
+# Print installed version of a package, empty string if missing or unreadable
+_pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }
+
+_pkgs=""
+[ "$(_pkg_ver "@aztec/aztec.js")" != "$AZTEC_SDK_VERSION" ] && _pkgs="$_pkgs @aztec/aztec.js@devnet"
+[ "$(_pkg_ver "@aztec/stdlib")"   != "$AZTEC_SDK_VERSION" ] && _pkgs="$_pkgs @aztec/stdlib@devnet"
+
+if [ -n "$_pkgs" ]; then
+  [ ! -f package.json ] && printf '{"type":"module"}' > package.json
+  npm install --no-package-lock $_pkgs --silent > /dev/null 2>&1 &
+  _npm_pid=$!
+  spin $_npm_pid "Installing packages"
+  wait $_npm_pid
+fi
 
 curl -fsSL "$REPO_RAW/scripts/check-fee-juice-balance.mjs" \
   -o ~/.aztec-devtools/check-fee-juice-balance.mjs 2>/dev/null

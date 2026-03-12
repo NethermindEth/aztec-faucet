@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { ConfettiBurst } from "./confetti-burst";
 
 const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
-const GITHUB_RAW = "https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main";
+const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
 export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
   return `curl -fsSL ${GITHUB_RAW}/sh/claim.sh | sh -s -- \\
@@ -56,6 +56,7 @@ if (!isDeployed) {
   console.log("Done! Tx:", r.txHash?.toString());
 }
 await wallet.stop();
+process.exit(0);
 AZTEC_EOF`;
 }
 
@@ -70,7 +71,10 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
     <div className="space-y-2">
       <div className="rounded-xl border border-white/6 bg-white/2">
         <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start — curl, no clone</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-400">Recommended</span>
+          </div>
           <CopyButton text={oneLiner} />
         </div>
         <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
@@ -79,7 +83,7 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
       </div>
       <div className="rounded-xl border border-white/6 bg-white/2">
         <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained — no clone needed</span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
           <CopyButton text={selfContained} />
         </div>
         <pre className="max-h-48 overflow-x-auto overflow-y-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">

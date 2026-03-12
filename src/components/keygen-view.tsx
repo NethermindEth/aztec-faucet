@@ -121,7 +121,7 @@ export function KeygenView() {
                         <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Secret Key</span>
                         <CopyButton text={state.secretKey} />
                       </div>
-                      <code className="block font-mono text-[11px] leading-relaxed text-zinc-300">
+                      <code className="block truncate font-mono text-[11px] leading-relaxed text-zinc-300">
                         {state.secretKey}
                       </code>
                       <p className="mt-2 text-[10px] text-zinc-600">
@@ -134,7 +134,7 @@ export function KeygenView() {
                         <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Aztec Address</span>
                         <CopyButton text={state.address} />
                       </div>
-                      <code className="block font-mono text-[11px] leading-relaxed text-chartreuse">
+                      <code className="block truncate font-mono text-[11px] leading-relaxed text-chartreuse">
                         {state.address}
                       </code>
                       <p className="mt-2 text-[10px] text-zinc-600">
@@ -175,7 +175,7 @@ export function KeygenView() {
                         <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">Aztec Address</span>
                         <CopyButton text={state.address} />
                       </div>
-                      <code className="block font-mono text-[11px] leading-relaxed text-chartreuse">
+                      <code className="block truncate font-mono text-[11px] leading-relaxed text-chartreuse">
                         {state.address}
                       </code>
                     </div>

@@ -313,6 +313,10 @@ The faucet has six tabs:
 
 ---
 
-Built by [Giri-Aayush](https://github.com/Giri-Aayush) · [MIT License](./LICENSE)
+Developed by [Giri-Aayush](https://github.com/Giri-Aayush) · [MIT License](./LICENSE)
+
+---
+
+A [Nethermind](https://nethermind.io) product.
 
 </div>

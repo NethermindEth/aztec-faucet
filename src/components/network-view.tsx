@@ -163,7 +163,7 @@ export function NetworkView() {
 
       <div key={tab} className="animate-panel-state-in">
       {tab === "overview" && (
-        <div className="grid grid-cols-2 gap-4 items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
           {/* Fee Rates card */}
           <div className="glass-card rounded-2xl p-6 flex flex-col">
             <div className="mb-5 flex items-center justify-between">
@@ -330,7 +330,7 @@ export function NetworkView() {
           </div>
 
           {/* Side-by-side contract cards */}
-          <div className="grid grid-cols-2 gap-4 items-start">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
             {/* L1 card */}
             <div className="glass-card rounded-2xl p-6">
               <div className="mb-3 text-[10px] font-medium uppercase tracking-widest text-zinc-600">

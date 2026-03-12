@@ -64,11 +64,22 @@ export function ClaimTracker({
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch(`/api/claim/${claimId}`);
+      // Pass messageHash so the server can fall back to a stateless L2 node
+      // check if the claim isn't in its local memory (multi-instance deployments).
+      const msgHash = initialClaimData?.messageHashHex;
+      const url = msgHash
+        ? `/api/claim/${claimId}?messageHash=${msgHash}`
+        : `/api/claim/${claimId}`;
+      const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 404) {
-          setError("Claim not found. It may have expired.");
-          setStatus("expired");
+          // If we have the L1 tx hash the bridge confirmed on-chain — keep polling
+          // silently rather than showing an error. The claim may be on a different
+          // server instance; it will resolve on the next poll cycle.
+          if (!l1TxHash) {
+            setError("Claim not found. It may have expired.");
+            setStatus("expired");
+          }
         }
         return;
       }
@@ -77,16 +88,16 @@ export function ClaimTracker({
       setStatus(data.status);
       setElapsed(data.elapsedSeconds);
 
-      if (data.status === "ready" && data.claimData) {
-        setClaimData(data.claimData);
-        if (data.expiresInSeconds !== undefined) {
-          setExpiresIn(data.expiresInSeconds);
-        }
+      if (data.status === "ready") {
+        // claimData may be absent in stateless fallback responses — the initial
+        // claimData seeded from the drip response is already in state.
+        if (data.claimData) setClaimData(data.claimData);
+        if (data.expiresInSeconds !== undefined) setExpiresIn(data.expiresInSeconds);
       }
     } catch {
       // Silently retry on network errors
     }
-  }, [claimId]);
+  }, [claimId, initialClaimData?.messageHashHex]);
 
   // Poll the backend while bridging
   useEffect(() => {
@@ -141,7 +152,7 @@ export function ClaimTracker({
               </p>
               <p className="mt-0.5 text-xs text-zinc-500">
                 {isError
-                  ? "The L1 bridge tx was sent. Status tracking failed — use the data below to claim."
+                  ? "The L1 bridge tx was sent. Status tracking failed. Use the data below to claim."
                   : "The L1→L2 message took too long. Please request Fee Juice again."}
               </p>
             </div>

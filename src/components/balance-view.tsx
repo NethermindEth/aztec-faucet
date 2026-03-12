@@ -31,6 +31,7 @@ AZTEC_EOF`;
 type BalanceResult = {
   balanceFormatted: string;
   balanceRaw: string;
+  isDeployed?: boolean;
 };
 
 export function BalanceView() {
@@ -54,7 +55,7 @@ export function BalanceView() {
       const res = await fetch(`/api/balance?address=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch balance");
-      setResult({ balanceFormatted: data.balanceFormatted, balanceRaw: data.balanceRaw });
+      setResult({ balanceFormatted: data.balanceFormatted, balanceRaw: data.balanceRaw, isDeployed: data.isDeployed });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -168,12 +169,30 @@ export function BalanceView() {
                 </p>
               )}
 
-              {/* Checked address */}
-              <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">Address</span>
-                <code className="font-mono text-[11px] text-zinc-500">
-                  {checkedAddress?.slice(0, 10)}…{checkedAddress?.slice(-8)}
-                </code>
+              {/* Checked address + deployment status */}
+              <div className="mt-4 space-y-2 border-t border-white/5 pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">Address</span>
+                  <code className="font-mono text-[11px] text-zinc-500">
+                    {checkedAddress?.slice(0, 10)}…{checkedAddress?.slice(-8)}
+                  </code>
+                </div>
+                {result.isDeployed !== undefined && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">Status</span>
+                    {result.isDeployed ? (
+                      <span className="flex items-center gap-1.5 text-[11px] text-emerald-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        Deployed
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-[11px] text-amber-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                        Not Deployed
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

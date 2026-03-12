@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
-import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
+import { deriveStorageSlotInMap, siloNullifier } from "@aztec/stdlib/hash";
 
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
 
@@ -27,13 +27,19 @@ export async function GET(request: Request) {
     const owner = AztecAddress.fromString(address);
     const feeJuiceAddress = AztecAddress.fromBigInt(BigInt(5));
     const balanceSlot = await deriveStorageSlotInMap(new Fr(1), owner);
-    const balanceField = await node.getPublicStorageAt("latest", feeJuiceAddress, balanceSlot);
+    const initNullifier = await siloNullifier(owner, new Fr(owner.toBigInt()));
+    const [balanceField, nullifierWitness] = await Promise.all([
+      node.getPublicStorageAt("latest", feeJuiceAddress, balanceSlot),
+      node.getNullifierMembershipWitness("latest", initNullifier).catch(() => null),
+    ]);
     const balance = balanceField.toBigInt();
+    const isDeployed = nullifierWitness !== undefined && nullifierWitness !== null;
 
     return NextResponse.json({
       address,
       balanceRaw: balance.toString(),
       balanceFormatted: formatFeeJuice(balance),
+      isDeployed,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";

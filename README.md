@@ -311,12 +311,8 @@ The faucet has six tabs:
 
 [Aztec Documentation](https://docs.aztec.network) · [Getting Started on Devnet](https://docs.aztec.network/developers/getting_started_on_devnet) · [aztec.js SDK](https://docs.aztec.network/developers/docs/aztec-js)
 
----
+<br />
 
-Developed by [Giri-Aayush](https://github.com/Giri-Aayush) · [MIT License](./LICENSE)
-
----
-
-A [Nethermind](https://nethermind.io) product.
+Developed by [Giri-Aayush](https://github.com/Giri-Aayush) · A [Nethermind](https://nethermind.io) product · [MIT License](./LICENSE)
 
 </div>

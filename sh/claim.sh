@@ -16,7 +16,7 @@
 
 set -e
 
-REPO_BRANCH="main"
+REPO_BRANCH="dev"
 REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/$REPO_BRANCH"
 
 # spin <pid> <message> — shows a spinner until <pid> exits, then prints a checkmark

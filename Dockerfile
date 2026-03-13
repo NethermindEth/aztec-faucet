@@ -10,7 +10,11 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 # rejects the lockfileVersion 3 format we use for @aztec-rc/* aliases.
 RUN npm install -g npm@10
 COPY package.json package-lock.json ./
-RUN npm ci
+# Increase retries and timeout for large @aztec-rc packages (~hundreds of MB)
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 10000 && \
+    npm config set fetch-retry-maxtimeout 300000 && \
+    npm ci
 
 # --- Build ---
 FROM base AS builder

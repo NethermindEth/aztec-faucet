@@ -94,36 +94,24 @@ export function NetworkStatus({ network }: { network: Network }) {
       )}
 
       {/* Network status bar */}
-      <div className="flex items-center justify-between rounded-xl border border-white/6 px-3 py-2 text-xs text-zinc-500">
+      <div className="flex items-center justify-between rounded-xl border border-chartreuse/20 bg-chartreuse/3 px-3 py-2 text-xs text-zinc-500">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-block h-2 w-2 rounded-full bg-chartreuse" />
           <span className="text-zinc-400">
             Chain {status.network.l1ChainId}
           </span>
           <span className="text-zinc-700">·</span>
-          <span>Balance: {Number(status.l1BalanceEth).toFixed(4)} ETH</span>
-          {status.l1FeeJuiceBalance !== null && status.l1FeeJuiceBalance !== undefined && (
+          <span>
+            Balance: {Number(status.l1BalanceEth).toFixed(4)} <span className="text-chartreuse">ETH</span>
+          </span>
+          {status.l1FeeJuiceBalance !== null && status.l1FeeJuiceBalance !== undefined && Number(status.l1FeeJuiceBalance) > 0 && (
             <>
               <span className="text-zinc-700">·</span>
               <span title="L1 Fee Juice ERC20 balance held by the faucet wallet">
-                {Number(status.l1FeeJuiceBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })} Fee Juice
+                {Number(status.l1FeeJuiceBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-chartreuse">Fee Juice</span>
               </span>
             </>
           )}
-        </div>
-        <div className="flex gap-1.5">
-          {status.assets.filter((a) => a.name !== "test-token").map((a) => (
-            <span
-              key={a.name}
-              className={`rounded-md px-1.5 py-0.5 text-[10px] ${
-                a.available
-                  ? "bg-chartreuse/10 text-chartreuse"
-                  : "bg-white/4 text-zinc-600"
-              }`}
-            >
-              {a.name === "eth" ? "ETH" : a.name}
-            </span>
-          ))}
         </div>
       </div>
     </div>

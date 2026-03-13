@@ -3,7 +3,9 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { createEthereumChain } from "@aztec/ethereum/chain";
-import { type Hex, parseAbiItem } from "viem";
+import { createPublicClient, http, type Hex, parseAbiItem } from "viem";
+import { sepolia, foundry } from "viem/chains";
+import type { Chain } from "viem";
 
 export type L2FaucetConfig = {
   aztecNodeUrl: string;
@@ -12,6 +14,8 @@ export type L2FaucetConfig = {
   l1PrivateKey: Hex;
   sponsoredFpcAddress: string;
   feeJuiceDripAmount?: bigint;
+  /** Whether to mint L1 Fee Juice before bridging. True for devnet (open mint), false for testnet (pre-funded wallet). */
+  mintFirst?: boolean;
 };
 
 export type FeeJuiceClaimData = {
@@ -30,6 +34,35 @@ export class L2Faucet {
   constructor(private config: L2FaucetConfig) {
     this.aztecNode = createAztecNodeClient(config.aztecNodeUrl);
     this.fpcAddress = AztecAddress.fromString(config.sponsoredFpcAddress);
+  }
+
+  /**
+   * Returns the faucet wallet's L1 Fee Juice ERC20 balance.
+   * On testnet the faucet is pre-funded — this shows how much is left to drip.
+   * Returns null on any failure (non-critical — status still works without it).
+   */
+  async getL1FeeJuiceBalance(walletAddress: Hex): Promise<bigint | null> {
+    try {
+      const nodeInfo = await this.aztecNode.getNodeInfo();
+      const tokenAddress = nodeInfo.l1ContractAddresses.feeJuiceAddress.toString() as Hex;
+      const CHAIN_MAP: Record<number, Chain> = { [sepolia.id]: sepolia, [foundry.id]: foundry };
+      const chain: Chain = CHAIN_MAP[this.config.l1ChainId] ?? {
+        id: this.config.l1ChainId,
+        name: `Chain ${this.config.l1ChainId}`,
+        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+        rpcUrls: { default: { http: [this.config.l1RpcUrl] } },
+      };
+      const publicClient = createPublicClient({ chain, transport: http(this.config.l1RpcUrl) });
+      const balance = await publicClient.readContract({
+        address: tokenAddress,
+        abi: [parseAbiItem("function balanceOf(address) view returns (uint256)")],
+        functionName: "balanceOf",
+        args: [walletAddress],
+      });
+      return balance as bigint;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -66,7 +99,7 @@ export class L2Faucet {
       console.error("[faucet] Portal manager init failed:", err);
       throw new Error(
         "Could not connect to the Fee Juice bridge contract on L1. " +
-        "The devnet contracts may be temporarily unavailable. Please try again in a few minutes.",
+        "The network contracts may be temporarily unavailable. Please try again in a few minutes.",
       );
     }
 
@@ -83,13 +116,13 @@ export class L2Faucet {
       claim = await portalManager.bridgeTokensPublic(
         recipient,
         this.config.feeJuiceDripAmount,
-        true, // mint tokens first (test environment)
+        this.config.mintFirst ?? true, // devnet: mint first (open mint); testnet: use pre-funded wallet balance
       );
     } catch (err) {
       console.error("[faucet] Bridge tx failed:", err);
       throw new Error(
         "The Fee Juice bridge transaction failed. " +
-        "This is usually a temporary devnet issue. Please wait a moment and try again.",
+        "This may be a temporary network issue. Please wait a moment and try again.",
       );
     }
 

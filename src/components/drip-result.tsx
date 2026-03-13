@@ -2,22 +2,25 @@
 
 import { useState, useCallback } from "react";
 import { ConfettiBurst } from "./confetti-burst";
+import type { Network } from "@/lib/network-config";
+import { NODE_URLS, NPM_TAGS, EXPLORER_TX_URLS } from "@/lib/network-config";
 
 const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
-export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
+export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string, network: "devnet" | "testnet" = "devnet"): string {
+  const networkFlag = ` \\\n  --network ${network}`;
   return `curl -fsSL ${GITHUB_RAW}/sh/claim.sh | sh -s -- \\
   --secret <YOUR_SECRET_KEY> \\
   --claim-amount ${claimAmount} \\
   --claim-secret ${claimSecretHex} \\
-  --message-leaf-index ${messageLeafIndex}`;
+  --message-leaf-index ${messageLeafIndex}${networkFlag}`;
 }
 
-export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
+export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string, nodeUrl: string, npmTag: string, explorerTxUrl?: string): string {
   return `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
 echo '{"type":"module"}' > package.json && \\
-npm install --no-package-lock @aztec/wallets@devnet @aztec/aztec.js@devnet @aztec/stdlib@devnet --silent && \\
+npm install --no-package-lock @aztec/wallets@${npmTag} @aztec/aztec.js@${npmTag} @aztec/stdlib@${npmTag} --silent && \\
 LOG_LEVEL=silent node --input-type=module << 'AZTEC_EOF'
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
@@ -30,7 +33,7 @@ const SECRET = "YOUR_SECRET_KEY";           // ← paste your secret key here
 const AMOUNT = ${claimAmount}n;
 const CLAIM_SECRET = Fr.fromHexString("${claimSecretHex}");
 const LEAF = ${messageLeafIndex}n;
-const NODE_URL = "https://v4-devnet-2.aztec-labs.com/";
+const NODE_URL = "${nodeUrl}";
 
 const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true, pxeConfig: { proverEnabled: true } });
 const mgr = await wallet.createSchnorrAccount(Fr.fromHexString(SECRET), Fr.ZERO);
@@ -44,29 +47,33 @@ if (!isDeployed) {
   const result = await (await mgr.getDeployMethod()).send({
     from: AztecAddress.ZERO,
     fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
-    wait: { returnReceipt: true },
   });
-  console.log("Done! Tx:", result.txHash?.toString(), "| Block:", result.blockNumber);
+  const txHash = result.receipt?.txHash?.toString();
+  console.log("Done! Tx:", txHash, "| Block:", result.receipt?.blockNumber);
+  ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
 } else {
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   console.log("Claiming into existing account (proving ~10s)...");
   const r = await FeeJuiceContract.at(wallet).methods
     .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
     .send({ from: addr, fee: { gasSettings } });
-  console.log("Done! Tx:", r.txHash?.toString());
+  const txHash = r.receipt?.txHash?.toString();
+  console.log("Done! Tx:", txHash, "| Block:", r.receipt?.blockNumber);
+  ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
 }
 await wallet.stop();
 process.exit(0);
 AZTEC_EOF`;
 }
 
-export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }: {
+export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex, network = "devnet" }: {
   claimAmount: string;
   claimSecretHex: string;
   messageLeafIndex: string;
+  network?: Network;
 }) {
-  const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex);
-  const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex);
+  const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex, network);
+  const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex, NODE_URLS[network], NPM_TAGS[network], EXPLORER_TX_URLS[network]);
   return (
     <div className="space-y-2">
       <div className="rounded-xl border border-white/6 bg-white/2">
@@ -117,6 +124,7 @@ type DripResultProps = {
   error: string | null;
   retryAfter: number | null;
   onReset?: () => void;
+  network?: Network;
 };
 
 function formatMs(ms: number): string {
@@ -300,7 +308,7 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
 }
 
 
-export function DripResult({ result, error, retryAfter, onReset }: DripResultProps) {
+export function DripResult({ result, error, retryAfter, onReset, network = "devnet" }: DripResultProps) {
   if (error) {
     return (
       <div className="rounded-xl border border-red-500/20 bg-red-500/6 p-4">
@@ -356,6 +364,7 @@ export function DripResult({ result, error, retryAfter, onReset }: DripResultPro
               claimAmount={result.claimData.claimAmount}
               claimSecretHex={result.claimData.claimSecretHex}
               messageLeafIndex={result.claimData.messageLeafIndex}
+              network={network}
             />
           </div>
         )}

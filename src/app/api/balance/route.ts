@@ -18,11 +18,16 @@ export async function GET(request: Request) {
   const address = searchParams.get("address") ?? "";
 
   if (!AZTEC_ADDRESS_RE.test(address)) {
-    return NextResponse.json({ error: "Invalid Aztec address" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid Aztec address. Expected a 0x-prefixed 64-character hex string (e.g. 0x09a4...fb2)" },
+      { status: 400 },
+    );
   }
 
   try {
-    const nodeUrl = process.env.AZTEC_NODE_URL ?? "https://v4-devnet-2.aztec-labs.com/";
+    const network = (searchParams.get("network") === "testnet" ? "testnet" : "devnet") as "devnet" | "testnet";
+    const { getNodeUrl } = await import("@/lib/network-config");
+    const nodeUrl = getNodeUrl(network);
     const node = createAztecNodeClient(nodeUrl);
     const owner = AztecAddress.fromString(address);
     const feeJuiceAddress = AztecAddress.fromBigInt(BigInt(5));

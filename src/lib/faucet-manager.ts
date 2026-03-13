@@ -3,6 +3,7 @@ import { L1Faucet } from "./l1-faucet";
 import { L2Faucet, type FeeJuiceClaimData } from "./l2-faucet";
 import { Throttle, ThrottleError } from "./throttle";
 import { ClaimStore, type StoredClaim } from "./claim-store";
+import { NODE_URLS, SPONSORED_FPC_ADDRESSES } from "./network-config";
 
 export type Asset = "eth" | "fee-juice";
 
@@ -26,6 +27,8 @@ export type FaucetStatus = {
   healthy: boolean;
   faucetAddress: string;
   l1BalanceEth: string;
+  /** L1 Fee Juice ERC20 balance of the faucet wallet, formatted as a decimal string (e.g. "5000.0000"). Null if unavailable. */
+  l1FeeJuiceBalance: string | null;
   assets: { name: Asset; available: boolean }[];
   network: {
     l1ChainId: number;
@@ -33,7 +36,7 @@ export type FaucetStatus = {
   };
   sdk: {
     faucetVersion: string;
-    latestDevnetVersion: string | null;
+    latestVersion: string | null;
     outdated: boolean;
   };
 };
@@ -42,33 +45,34 @@ export type FaucetStatus = {
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const FAUCET_SDK_VERSION: string = (() => {
+function readPackageVersion(pkgPath: string): string {
   try {
-    const raw = readFileSync(
-      resolve(process.cwd(), "node_modules/@aztec/aztec.js/package.json"),
-      "utf-8",
-    );
+    const raw = readFileSync(resolve(process.cwd(), pkgPath), "utf-8");
     return (JSON.parse(raw) as { version: string }).version;
   } catch {
     return "unknown";
   }
-})();
+}
 
-// Cache the npm registry lookup — TTL 1 hour
-let _npmVersionCache: { version: string; fetchedAt: number } | null = null;
+const DEVNET_SDK_VERSION = readPackageVersion("node_modules/@aztec/aztec.js/package.json");
+const TESTNET_SDK_VERSION = readPackageVersion("node_modules/@aztec-rc/aztec.js/package.json");
 
-async function fetchLatestDevnetVersion(): Promise<string | null> {
+// Cache the npm registry lookups — TTL 1 hour
+let _devnetNpmCache: { version: string; fetchedAt: number } | null = null;
+let _testnetNpmCache: { version: string; fetchedAt: number } | null = null;
+
+async function fetchLatestNpmVersion(tag: "devnet" | "rc"): Promise<string | null> {
+  const cache = tag === "devnet" ? _devnetNpmCache : _testnetNpmCache;
   const now = Date.now();
-  if (_npmVersionCache && now - _npmVersionCache.fetchedAt < 3_600_000) {
-    return _npmVersionCache.version;
-  }
+  if (cache && now - cache.fetchedAt < 3_600_000) return cache.version;
   try {
-    const res = await fetch("https://registry.npmjs.org/@aztec/aztec.js/devnet", {
+    const res = await fetch(`https://registry.npmjs.org/@aztec/aztec.js/${tag}`, {
       signal: AbortSignal.timeout(5_000),
     });
     if (!res.ok) return null;
     const data = await res.json() as { version: string };
-    _npmVersionCache = { version: data.version, fetchedAt: now };
+    const entry = { version: data.version, fetchedAt: now };
+    if (tag === "devnet") _devnetNpmCache = entry; else _testnetNpmCache = entry;
     return data.version;
   } catch {
     return null;
@@ -80,7 +84,8 @@ async function fetchLatestDevnetVersion(): Promise<string | null> {
 // in-memory ClaimStore is wiped — causing GET /api/claim/[id] to 404
 // immediately after a successful POST /api/drip.
 const g = globalThis as typeof globalThis & {
-  _faucetManagerInstance?: FaucetManager;
+  _faucetManagerDevnet?: FaucetManager;
+  _faucetManagerTestnet?: FaucetManager;
 };
 
 export class FaucetManager {
@@ -89,12 +94,23 @@ export class FaucetManager {
   private throttle: Throttle;
   private ipThrottle: Throttle;
   private claimStore: ClaimStore;
+  private network: "devnet" | "testnet";
 
-  private constructor() {
+  private constructor(network: "devnet" | "testnet" = "devnet") {
+    this.network = network;
     const l1PrivateKey = requireEnv("FAUCET_PRIVATE_KEY") as Hex;
     const l1RpcUrl = requireEnv("L1_RPC_URL");
     const l1ChainId = parseIntEnv("L1_CHAIN_ID", 11155111);
-    const aztecNodeUrl = requireEnv("AZTEC_NODE_URL");
+
+    const aztecNodeUrl =
+      network === "testnet"
+        ? (process.env.TESTNET_AZTEC_NODE_URL ?? NODE_URLS.testnet)
+        : (process.env.DEVNET_AZTEC_NODE_URL ?? process.env.AZTEC_NODE_URL ?? NODE_URLS.devnet);
+
+    const sponsoredFpcAddress =
+      network === "testnet"
+        ? (process.env.TESTNET_SPONSORED_FPC_ADDRESS ?? SPONSORED_FPC_ADDRESSES.testnet)
+        : (process.env.DEVNET_SPONSORED_FPC_ADDRESS ?? process.env.SPONSORED_FPC_ADDRESS ?? SPONSORED_FPC_ADDRESSES.devnet);
 
     this.l1Faucet = new L1Faucet({
       rpcUrl: l1RpcUrl,
@@ -103,17 +119,27 @@ export class FaucetManager {
       ethDripAmount: process.env.ETH_DRIP_AMOUNT ?? "0.001",
     });
 
+    // Per-network drip amount env vars take precedence; fall back to the shared
+    // FEE_JUICE_DRIP_AMOUNT, then to the default (1000 FJ for devnet, 1 FJ for testnet).
+    const networkDripEnvKey = network === "testnet" ? "TESTNET_FEE_JUICE_DRIP_AMOUNT" : "DEVNET_FEE_JUICE_DRIP_AMOUNT";
+    const feeJuiceDripAmount = process.env[networkDripEnvKey]
+      ? BigInt(process.env[networkDripEnvKey]!)
+      : process.env.FEE_JUICE_DRIP_AMOUNT
+        ? parseBigIntEnv("FEE_JUICE_DRIP_AMOUNT")
+        : network === "testnet"
+          ? 100_000_000_000_000_000_000n   // testnet default: 100 FJ (portal minimum > 1 FJ)
+          : 1_000_000_000_000_000_000_000n; // devnet default: 1000 FJ (contract minimum)
+
     this.l2Faucet = new L2Faucet({
       aztecNodeUrl,
       l1RpcUrl,
       l1ChainId,
       l1PrivateKey,
-      sponsoredFpcAddress: requireEnv("SPONSORED_FPC_ADDRESS"),
-      // Default: 1000 FJ (1000 * 10^18 motes). The Fee Juice Portal contract in
-      // devnet patch.4+ enforces a minimum mint of 1000 FJ per bridge call.
-      feeJuiceDripAmount: process.env.FEE_JUICE_DRIP_AMOUNT
-        ? parseBigIntEnv("FEE_JUICE_DRIP_AMOUNT")
-        : 1_000_000_000_000_000_000_000n,
+      sponsoredFpcAddress,
+      feeJuiceDripAmount,
+      // Devnet has an open mint function; testnet restricts mint to authorized minters.
+      // On testnet the faucet wallet is pre-funded with L1 Fee Juice, so skip minting.
+      mintFirst: network !== "testnet",
     });
 
     const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 86400000);
@@ -126,11 +152,22 @@ export class FaucetManager {
     this.claimStore = new ClaimStore(aztecNodeUrl);
   }
 
-  static getInstance(): FaucetManager {
-    if (!g._faucetManagerInstance) {
-      g._faucetManagerInstance = new FaucetManager();
+  static getInstance(network: "devnet" | "testnet" = "devnet"): FaucetManager {
+    if (network === "testnet") {
+      if (!g._faucetManagerTestnet) {
+        g._faucetManagerTestnet = new FaucetManager("testnet");
+      }
+      return g._faucetManagerTestnet;
     }
-    return g._faucetManagerInstance;
+    if (!g._faucetManagerDevnet) {
+      g._faucetManagerDevnet = new FaucetManager("devnet");
+    }
+    return g._faucetManagerDevnet;
+  }
+
+  static isTestnetAvailable(): boolean {
+    // Testnet is always available — public defaults exist in network-config.ts.
+    return true;
   }
 
   async drip(address: string, asset: Asset, ip?: string): Promise<DripResult> {
@@ -200,27 +237,34 @@ export class FaucetManager {
   }
 
   async getStatus(): Promise<FaucetStatus> {
-    const [l1Balance, latestDevnetVersion] = await Promise.all([
+    const npmTag = this.network === "testnet" ? "rc" : "devnet";
+    const faucetVersion = this.network === "testnet" ? TESTNET_SDK_VERSION : DEVNET_SDK_VERSION;
+
+    const [l1Balance, feeJuiceRaw, latestVersion] = await Promise.all([
       this.l1Faucet.getBalance(),
-      fetchLatestDevnetVersion(),
+      this.l2Faucet.getL1FeeJuiceBalance(this.l1Faucet.address),
+      fetchLatestNpmVersion(npmTag),
     ]);
+
+    const l1FeeJuiceBalance = feeJuiceRaw !== null ? formatEther(feeJuiceRaw) : null;
 
     return {
       healthy: true,
       faucetAddress: this.l1Faucet.address,
       l1BalanceEth: formatEther(l1Balance),
+      l1FeeJuiceBalance,
       assets: [
         { name: "eth", available: true },
         { name: "fee-juice", available: true },
       ],
       network: {
         l1ChainId: parseInt(process.env.L1_CHAIN_ID ?? "11155111", 10),
-        aztecNodeUrl: process.env.AZTEC_NODE_URL ?? "",
+        aztecNodeUrl: this.claimStore.nodeUrl,
       },
       sdk: {
-        faucetVersion: FAUCET_SDK_VERSION,
-        latestDevnetVersion,
-        outdated: latestDevnetVersion !== null && latestDevnetVersion !== FAUCET_SDK_VERSION,
+        faucetVersion,
+        latestVersion,
+        outdated: latestVersion !== null && latestVersion !== faucetVersion,
       },
     };
   }

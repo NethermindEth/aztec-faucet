@@ -6,9 +6,12 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET",
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const nodeUrl = process.env.AZTEC_NODE_URL ?? "https://v4-devnet-2.aztec-labs.com/";
+    const { searchParams } = new URL(request.url);
+    const network = searchParams.get("network") === "testnet" ? "testnet" : "devnet";
+    const { getNodeUrl } = await import("@/lib/network-config");
+    const nodeUrl = getNodeUrl(network);
     const node = createAztecNodeClient(nodeUrl);
 
     const [info, blockNumber] = await Promise.all([

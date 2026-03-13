@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { FaucetLayout } from "@/components/faucet-layout";
 import { NetworkStatus } from "@/components/network-status";
@@ -10,6 +10,7 @@ import { FaqView } from "@/components/faq-view";
 import { NetworkView } from "@/components/network-view";
 import { KeygenView } from "@/components/keygen-view";
 import { DonateView } from "@/components/donate-view";
+import type { Network } from "@/lib/network-config";
 
 type View = "faucet" | "balance" | "faq" | "status" | "network" | "keys" | "donate";
 
@@ -18,6 +19,15 @@ export default function Home() {
   const [view, setView] = useState<View>("faucet");
   const [leaving, setLeaving] = useState<View | null>(null);
   const [howOpen, setHowOpen] = useState(false);
+  const [network, setNetwork] = useState<Network>("devnet");
+  const [testnetAvailable, setTestnetAvailable] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/networks")
+      .then((r) => r.json())
+      .then((d: { testnet: boolean }) => { if (d.testnet) setTestnetAvailable(true); })
+      .catch(() => {});
+  }, []);
 
   function switchTab(target: View) {
     if (target === view || leaving !== null) return;
@@ -32,6 +42,37 @@ export default function Home() {
     <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-10 pb-4">
       <div className="relative z-10 w-full">
 
+        {/* Network switcher — fixed top-right */}
+        <div className="fixed top-4 right-4 z-50 animate-fade-up">
+          <div className="flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => setNetwork("devnet")}
+              className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
+                network === "devnet"
+                  ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}
+            >
+              Devnet
+            </button>
+            <button
+              type="button"
+              onClick={() => testnetAvailable && setNetwork("testnet")}
+              title={testnetAvailable ? undefined : "Not configured"}
+              className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
+                network === "testnet"
+                  ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
+                  : testnetAvailable
+                    ? "text-zinc-500 hover:text-zinc-300"
+                    : "cursor-not-allowed text-zinc-700"
+              }`}
+            >
+              Testnet
+            </button>
+          </div>
+        </div>
+
         {/* Header — static, never re-renders */}
         <div className="mx-auto mb-6 max-w-lg text-center animate-fade-up">
           <div className="mb-3 flex justify-center">
@@ -41,7 +82,7 @@ export default function Home() {
             Aztec <span className="text-chartreuse">Faucet</span>
           </h1>
           <p className="mt-3 text-sm text-zinc-500">
-            Fee Juice for building on the Aztec devnet
+            Fee Juice for building on the Aztec {network === "testnet" ? "testnet" : "devnet"}
           </p>
         </div>
 
@@ -128,12 +169,13 @@ export default function Home() {
 
           {/* Network status bar */}
           <div className="mx-auto max-w-lg">
-            <NetworkStatus />
+            <NetworkStatus network={network} />
           </div>
 
           {/* Split-panel faucet form + footer (footer hidden when split) */}
           <div className="mt-2">
             <FaucetLayout
+              network={network}
               onGoToAccount={() => switchTab("keys")}
               footer={
                 <div className="mx-auto mt-5 max-w-lg space-y-3">
@@ -209,22 +251,22 @@ export default function Home() {
           view === "keys" ? "animate-panel-state-in" :
           "hidden"
         }>
-          <KeygenView />
+          <KeygenView network={network} />
         </div>
 
         {/* All other views — remount on each switch for the entry animation */}
         {(view !== "faucet" && view !== "keys") || (leaving !== null && leaving !== "faucet" && leaving !== "keys") ? (
           <div key={leaving ?? view} className={leaving !== null && leaving !== "faucet" && leaving !== "keys" ? "animate-panel-state-out" : "animate-panel-state-in"}>
             {(leaving ?? view) === "balance" ? (
-              <BalanceView />
+              <BalanceView network={network} />
             ) : (leaving ?? view) === "faq" ? (
               <FaqView />
             ) : (leaving ?? view) === "network" ? (
-              <NetworkView />
+              <NetworkView network={network} />
             ) : (leaving ?? view) === "donate" ? (
               <DonateView />
             ) : (
-              <StatusView onBack={() => switchTab("faucet")} />
+              <StatusView network={network} onBack={() => switchTab("faucet")} />
             )}
           </div>
         ) : null}

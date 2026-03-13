@@ -2,24 +2,26 @@
 
 import { useState } from "react";
 import { CopyButton } from "./drip-result";
+import type { Network } from "@/lib/network-config";
+import { NODE_URLS, NPM_TAGS } from "@/lib/network-config";
 
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
-function makeBalanceCurl(address: string): string {
-  return `curl -fsSL ${GITHUB_RAW}/sh/check-balance.sh | sh -s -- --address ${address}`;
+function makeBalanceCurl(address: string, network: "devnet" | "testnet"): string {
+  return `curl -fsSL ${GITHUB_RAW}/sh/check-balance.sh | sh -s -- --address ${address} --network ${network}`;
 }
 
-function makeBalanceCmd(address: string): string {
+function makeBalanceCmd(address: string, nodeUrl: string, npmTag: string): string {
   return `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
 echo '{"type":"module"}' > package.json && \\
-npm install --no-package-lock @aztec/aztec.js@devnet @aztec/stdlib@devnet --silent && \\
+npm install --no-package-lock @aztec/aztec.js@${npmTag} @aztec/stdlib@${npmTag} --silent && \\
 node --input-type=module << 'AZTEC_EOF'
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
-const node = createAztecNodeClient("https://v4-devnet-2.aztec-labs.com/");
+const node = createAztecNodeClient("${nodeUrl}");
 const owner = AztecAddress.fromString("${address}");
 const slot = await deriveStorageSlotInMap(new Fr(1), owner);
 const raw = (await node.getPublicStorageAt("latest", AztecAddress.fromBigInt(5n), slot)).toBigInt();
@@ -34,7 +36,7 @@ type BalanceResult = {
   isDeployed?: boolean;
 };
 
-export function BalanceView() {
+export function BalanceView({ network }: { network: Network }) {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BalanceResult | null>(null);
@@ -52,7 +54,7 @@ export function BalanceView() {
     setError(null);
     setCheckedAddress(trimmed);
     try {
-      const res = await fetch(`/api/balance?address=${encodeURIComponent(trimmed)}`);
+      const res = await fetch(`/api/balance?address=${encodeURIComponent(trimmed)}&network=${network}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch balance");
       setResult({ balanceFormatted: data.balanceFormatted, balanceRaw: data.balanceRaw, isDeployed: data.isDeployed });
@@ -152,7 +154,7 @@ export function BalanceView() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orchid/60" style={{ animationDuration: "2.5s" }} />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-orchid" />
                 </span>
-                <span className="text-xs text-zinc-500">Aztec L2 Devnet</span>
+                <span className="text-xs text-zinc-500">Aztec L2 {network === "testnet" ? "Testnet" : "Devnet"}</span>
               </div>
 
               {/* Balance number */}
@@ -204,17 +206,17 @@ export function BalanceView() {
               <div className="border-t border-white/5 space-y-0">
                 <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
                   <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
-                  <CopyButton text={makeBalanceCurl(trimmed)} />
+                  <CopyButton text={makeBalanceCurl(trimmed, network)} />
                 </div>
                 <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                  <code>{makeBalanceCurl(trimmed)}</code>
+                  <code>{makeBalanceCurl(trimmed, network)}</code>
                 </pre>
                 <div className="flex items-center justify-between border-t border-b border-white/5 px-3 py-2">
                   <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
-                  <CopyButton text={makeBalanceCmd(trimmed)} />
+                  <CopyButton text={makeBalanceCmd(trimmed, NODE_URLS[network], NPM_TAGS[network])} />
                 </div>
                 <pre className="max-h-40 overflow-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                  <code>{makeBalanceCmd(trimmed)}</code>
+                  <code>{makeBalanceCmd(trimmed, NODE_URLS[network], NPM_TAGS[network])}</code>
                 </pre>
               </div>
             </details>

@@ -12,10 +12,20 @@ process.env.LOG_LEVEL = process.env.LOG_LEVEL || "silent";
 const { EmbeddedWallet } = await import("@aztec/wallets/embedded");
 const { Fr } = await import("@aztec/aztec.js/fields");
 
-const nodeUrl = process.env.AZTEC_NODE_URL || "https://v4-devnet-2.aztec-labs.com/";
-const existingSecret = process.argv.includes("--secret")
-  ? process.argv[process.argv.indexOf("--secret") + 1]
-  : null;
+function getArg(name) {
+  const idx = process.argv.indexOf(`--${name}`);
+  if (idx === -1 || idx + 1 >= process.argv.length) return undefined;
+  return process.argv[idx + 1];
+}
+
+const DEFAULT_NODE_URLS = {
+  testnet: "https://rpc.testnet.aztec-labs.com",
+  devnet: "https://v4-devnet-2.aztec-labs.com/",
+};
+
+const network = getArg("network") === "testnet" ? "testnet" : "devnet";
+const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || DEFAULT_NODE_URLS[network];
+const existingSecret = getArg("secret") ?? null;
 
 try {
   process.stdout.write(`\n  Connecting to ${nodeUrl}...`);

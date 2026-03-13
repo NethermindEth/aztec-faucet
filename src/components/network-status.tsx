@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Network } from "@/lib/network-config";
 
 type StatusData = {
   healthy: boolean;
   faucetAddress: string;
   l1BalanceEth: string;
+  l1FeeJuiceBalance: string | null;
   assets: { name: string; available: boolean }[];
   network: {
     l1ChainId: number;
@@ -13,21 +15,23 @@ type StatusData = {
   };
   sdk?: {
     faucetVersion: string;
-    latestDevnetVersion: string | null;
+    latestVersion: string | null;
     outdated: boolean;
   };
 };
 
-export function NetworkStatus() {
+export function NetworkStatus({ network }: { network: Network }) {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    setStatus(null);
+    setError(false);
     const controller = new AbortController();
     const startedAt = Date.now();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
-    fetch("/api/status", { signal: controller.signal })
+    fetch(`/api/status?network=${network}`, { signal: controller.signal })
       .then((res) => {
         if (!res.ok) throw new Error(`Status API returned ${res.status}`);
         return res.json();
@@ -49,7 +53,7 @@ export function NetworkStatus() {
       controller.abort();
       clearTimeout(timeout);
     };
-  }, []);
+  }, [network]);
 
   if (error) {
     return (
@@ -82,7 +86,7 @@ export function NetworkStatus() {
             <p className="font-medium text-yellow-400">Faucet SDK out of date</p>
             <p className="mt-0.5 text-yellow-400/60">
               Faucet is running <code className="rounded bg-white/6 px-1">{status.sdk.faucetVersion}</code>,
-              latest devnet is <code className="rounded bg-white/6 px-1">{status.sdk.latestDevnetVersion}</code>.
+              latest is <code className="rounded bg-white/6 px-1">{status.sdk.latestVersion}</code>.
               CLI commands above use the latest automatically. Faucet functionality may differ until redeployed.
             </p>
           </div>
@@ -91,13 +95,21 @@ export function NetworkStatus() {
 
       {/* Network status bar */}
       <div className="flex items-center justify-between rounded-xl border border-white/6 px-3 py-2 text-xs text-zinc-500">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-block h-2 w-2 rounded-full bg-chartreuse" />
           <span className="text-zinc-400">
             Chain {status.network.l1ChainId}
           </span>
           <span className="text-zinc-700">·</span>
           <span>Balance: {Number(status.l1BalanceEth).toFixed(4)} ETH</span>
+          {status.l1FeeJuiceBalance !== null && status.l1FeeJuiceBalance !== undefined && (
+            <>
+              <span className="text-zinc-700">·</span>
+              <span title="L1 Fee Juice ERC20 balance held by the faucet wallet">
+                {Number(status.l1FeeJuiceBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })} Fee Juice
+              </span>
+            </>
+          )}
         </div>
         <div className="flex gap-1.5">
           {status.assets.filter((a) => a.name !== "test-token").map((a) => (

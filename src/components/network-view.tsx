@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Network } from "@/lib/network-config";
+import { NETWORK_LABELS } from "@/lib/network-config";
 
 type FeesData = {
   feePerDaGas: string;
@@ -92,7 +94,7 @@ function timeAgo(since: Date, now: Date): string {
 
 const REFRESH_INTERVAL = 15_000;
 
-export function NetworkView() {
+export function NetworkView({ network }: { network: Network }) {
   const [tab, setTab] = useState<"overview" | "contracts">("overview");
   const [feesOpen, setFeesOpen] = useState(false);
   const [fees, setFees] = useState<FeesData | null>(null);
@@ -110,15 +112,21 @@ export function NetworkView() {
   }, []);
 
   useEffect(() => {
+    setFees(null);
+    setNodeInfo(null);
+    setFeesError(false);
+    setNodeError(false);
+    setFeesUpdatedAt(null);
+    setNodeUpdatedAt(null);
     let cancelled = false;
 
     function fetchAll() {
-      fetch("/api/fees")
+      fetch(`/api/fees?network=${network}`)
         .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
         .then((data) => { if (!cancelled) { setFees(data); setFeesError(false); setFeesUpdatedAt(new Date()); } })
         .catch(() => { if (!cancelled) setFeesError(true); });
 
-      fetch("/api/node-info")
+      fetch(`/api/node-info?network=${network}`)
         .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
         .then((data) => { if (!cancelled) { setNodeInfo(data); setNodeError(false); setNodeUpdatedAt(new Date()); } })
         .catch(() => { if (!cancelled) setNodeError(true); });
@@ -127,7 +135,7 @@ export function NetworkView() {
     fetchAll();
     const timer = setInterval(fetchAll, REFRESH_INTERVAL);
     return () => { cancelled = true; clearInterval(timer); };
-  }, []);
+  }, [network]);
 
   const feesLoading = !fees && !feesError;
   const nodeLoading = !nodeInfo && !nodeError;
@@ -170,7 +178,7 @@ export function NetworkView() {
               <div>
                 <h2 className="text-base font-semibold text-white">Live Fee Rates</h2>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Current minimum fees on the Aztec devnet. Use these to calculate transaction costs.
+                  Current minimum fees on the Aztec {NETWORK_LABELS[network].toLowerCase()}. Use these to calculate transaction costs.
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -195,7 +203,7 @@ export function NetworkView() {
                    <span className="font-mono">
                      {formatGas(fees.feePerDaGas)}
                      {fees.feePerDaGas === "0" && (
-                       <span className="ml-1.5 text-zinc-600">(free on devnet)</span>
+                       <span className="ml-1.5 text-zinc-600">(free on {network})</span>
                      )}
                    </span>
                  ) : "—"}
@@ -229,7 +237,7 @@ export function NetworkView() {
                 <div className="overflow-hidden">
                   <div className="space-y-1.5 border-t border-white/5 px-4 pb-3 pt-2 text-xs text-zinc-500">
                     <p>
-                      <span className="text-zinc-400 font-medium">DA mana:</span> cost of publishing transaction data to the data availability layer. Currently free on devnet.
+                      <span className="text-zinc-400 font-medium">DA mana:</span> cost of publishing transaction data to the data availability layer. Currently free on {network}.
                     </p>
                     <p>
                       <span className="text-zinc-400 font-medium">L2 mana:</span> cost of executing the transaction on Aztec L2.
@@ -252,7 +260,7 @@ export function NetworkView() {
               <div>
                 <h2 className="text-base font-semibold text-white">Node Health</h2>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Live status of the Aztec devnet node.
+                  Live status of the Aztec {NETWORK_LABELS[network].toLowerCase()} node.
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -310,7 +318,7 @@ export function NetworkView() {
             <div>
               <h2 className="text-base font-semibold text-white">Contract Addresses</h2>
               <p className="mt-1 text-xs text-zinc-500">
-                All deployed protocol contract addresses on the Aztec devnet.
+                All deployed protocol contract addresses on the Aztec {NETWORK_LABELS[network].toLowerCase()}.
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">

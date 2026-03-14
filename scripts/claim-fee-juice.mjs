@@ -67,12 +67,31 @@ const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || DEFAULT_NODE
 // devnet node (4.0.0-devnet.*) and testnet node (4.1.0-rc.*) have incompatible
 // verification keys, so the proof must be generated with the correct SDK.
 const SDK = network === "testnet" ? "@aztec-rc" : "@aztec";
-const { Fr } = await import(`${SDK}/aztec.js/fields`);
 const { AztecAddress } = await import(`${SDK}/aztec.js/addresses`);
 const { createAztecNodeClient } = await import(`${SDK}/aztec.js/node`);
 const { FeeJuicePaymentMethodWithClaim } = await import(`${SDK}/aztec.js/fee`);
 const { GasSettings } = await import(`${SDK}/stdlib/gas`);
 const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
+
+// For testnet, @aztec-rc/wallets and @aztec-rc/aztec.js each bundle a separate copy of
+// @aztec/foundation. EmbeddedWallet's AccountManager does `new Fr(salt)` using the wallets-
+// internal Fr class; passing an Fr object from @aztec-rc/aztec.js fails instanceof checks.
+// Fix: import Fr from the wallets package's own nested @aztec/aztec.js so class instances match.
+let Fr;
+if (network === "testnet") {
+  const { createRequire } = await import("module");
+  const _req = createRequire(import.meta.url);
+  // Wallets entry path: .../node_modules/@aztec-rc/wallets/dest/embedded/entrypoints/node.js
+  // Its nested aztec.js lives at: .../node_modules/@aztec-rc/wallets/node_modules/@aztec/aztec.js/
+  const walletsEntry = _req.resolve(`${SDK}/wallets/embedded`);
+  const walletsRoot = walletsEntry.slice(0, walletsEntry.indexOf("/node_modules/@aztec-rc/wallets/") +
+    "/node_modules/@aztec-rc/wallets/".length);
+  // Use absolute path import to bypass package exports restrictions
+  const internalFieldsPath = walletsRoot + "node_modules/@aztec/aztec.js/dest/api/fields.js";
+  ({ Fr } = await import(internalFieldsPath));
+} else {
+  ({ Fr } = await import(`${SDK}/aztec.js/fields`));
+}
 
 console.log(`
   Aztec Fee Juice Claim
@@ -165,7 +184,7 @@ try {
     console.log(`\n  Fee Juice claimed successfully.`);
   }
 
-  console.log(`\n  Check balance:\n    curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/check-balance.sh | sh -s -- --address ${address.toString()} --network ${network}\n`);
+  console.log(`\n  Check balance:\n    curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
 
   await wallet.stop();
   process.exit(0);

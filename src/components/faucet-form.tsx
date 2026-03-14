@@ -10,7 +10,7 @@ import { NODE_URLS, NPM_TAGS } from "@/lib/network-config";
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
 function makeCreateAccountOneLiner(network: "devnet" | "testnet"): string {
-  return `curl -fsSL ${GITHUB_RAW}/sh/create-account.sh | sh -s -- --network ${network}`;
+  return `curl -fsSL ${GITHUB_RAW}/sh/${network}/create-account.sh | sh`;
 }
 
 function makeCreateAccountSelfContained(nodeUrl: string, npmTag: string): string {

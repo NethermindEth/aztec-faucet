@@ -9,7 +9,7 @@ const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
 function makeBalanceCurl(address: string, network: "devnet" | "testnet"): string {
-  return `curl -fsSL ${GITHUB_RAW}/sh/check-balance.sh | sh -s -- --address ${address} --network ${network}`;
+  return `curl -fsSL ${GITHUB_RAW}/sh/${network}/check-balance.sh | sh -s -- --address ${address}`;
 }
 
 function makeBalanceCmd(address: string, nodeUrl: string, npmTag: string): string {

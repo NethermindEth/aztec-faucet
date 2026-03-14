@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CopyButton } from "./drip-result";
 import type { Network } from "@/lib/network-config";
 import { NETWORK_LABELS } from "@/lib/network-config";
@@ -19,6 +19,21 @@ export function KeygenView({ network = "devnet" }: { network?: Network }) {
   const [entering, setEntering] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [rateLimitOpen, setRateLimitOpen] = useState(false);
+  const prevNetwork = useRef(network);
+
+  // Reset keypair when network switches — devnet and testnet derive different addresses
+  // from the same secret key, so a stale keypair would be wrong on the new network.
+  useEffect(() => {
+    if (prevNetwork.current === network) return;
+    prevNetwork.current = network;
+    if (state.status !== "idle") {
+      setLeaving(true);
+      setTimeout(() => {
+        setState({ status: "idle" });
+        setLeaving(false);
+      }, 300);
+    }
+  }, [network, state.status]);
 
   function destroy() {
     setLeaving(true);

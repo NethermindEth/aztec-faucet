@@ -9,12 +9,11 @@ const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
 export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string, network: "devnet" | "testnet" = "devnet"): string {
-  const networkFlag = ` \\\n  --network ${network}`;
-  return `curl -fsSL ${GITHUB_RAW}/sh/claim.sh | sh -s -- \\
+  return `curl -fsSL ${GITHUB_RAW}/sh/${network}/claim.sh | sh -s -- \\
   --secret <YOUR_SECRET_KEY> \\
   --claim-amount ${claimAmount} \\
   --claim-secret ${claimSecretHex} \\
-  --message-leaf-index ${messageLeafIndex}${networkFlag}`;
+  --message-leaf-index ${messageLeafIndex}`;
 }
 
 export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string, nodeUrl: string, npmTag: string, explorerTxUrl?: string): string {

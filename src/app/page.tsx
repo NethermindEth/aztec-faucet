@@ -110,7 +110,7 @@ export default function Home() {
             Aztec <span className="text-chartreuse transition-colors duration-350">Faucet</span>
           </h1>
           <p className="mt-3 text-sm text-zinc-500">
-            Fee Juice for building on the Aztec <span className="text-chartreuse transition-colors duration-350">{network === "testnet" ? "TESTNET" : "DEVNET"}</span>
+            Fee Juice for building on the <span className="text-chartreuse transition-colors duration-350">{network === "testnet" ? "TESTNET" : "DEVNET"}</span>
           </p>
         </div>
 

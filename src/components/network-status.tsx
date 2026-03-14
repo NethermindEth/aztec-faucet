@@ -105,13 +105,14 @@ export function NetworkStatus({ network }: { network: Network }) {
           }}
         >
           <span className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} />
-          <span>Chain {status.network.l1ChainId}</span>
-          <span className="text-zinc-600">·</span>
+          {/* Chain ID — hidden on mobile to avoid colliding with the right-side toggle */}
+          <span className="hidden sm:inline">Chain {status.network.l1ChainId}</span>
+          <span className="hidden sm:inline text-zinc-600">·</span>
           <span className="font-normal">{Number(status.l1BalanceEth).toFixed(4)} <span style={{ color: "var(--accent)" }}>ETH</span></span>
           {status.l1FeeJuiceBalance !== null && status.l1FeeJuiceBalance !== undefined && Number(status.l1FeeJuiceBalance) > 0 && (
             <>
-              <span className="text-zinc-600">·</span>
-              <span className="font-normal" title="L1 Fee Juice ERC20 balance held by the faucet wallet">
+              <span className="hidden sm:inline text-zinc-600">·</span>
+              <span className="hidden sm:inline font-normal" title="L1 Fee Juice ERC20 balance held by the faucet wallet">
                 {Number(status.l1FeeJuiceBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })} <span style={{ color: "var(--accent)" }}>FJ</span>
               </span>
             </>

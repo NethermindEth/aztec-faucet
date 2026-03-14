@@ -52,7 +52,7 @@ export default function Home() {
   }
 
   return (
-    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-10 pb-4" data-network={network}>
+    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-24 sm:pt-10 pb-4" data-network={network}>
       <div className="relative z-10 w-full">
 
         {/* Network status bar — fixed top-left */}

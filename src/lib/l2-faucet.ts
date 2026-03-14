@@ -3,6 +3,7 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { createEthereumChain } from "@aztec/ethereum/chain";
+import { privateKeyToAccount } from "viem/accounts";
 import { createPublicClient, http, type Hex, parseAbiItem } from "viem";
 import { sepolia, foundry } from "viem/chains";
 import type { Chain } from "viem";
@@ -30,10 +31,50 @@ export type FeeJuiceClaimData = {
 export class L2Faucet {
   private aztecNode;
   private fpcAddress: AztecAddress;
+  // Cached per-instance — contract addresses and L1 client never change at runtime
+  private _l1Client: ReturnType<typeof createExtendedL1Client> | null = null;
+  private _portalManagerPromise: Promise<L1FeeJuicePortalManager> | null = null;
+  private _nodeInfoPromise: Promise<Awaited<ReturnType<ReturnType<typeof createAztecNodeClient>["getNodeInfo"]>>> | null = null;
 
   constructor(private config: L2FaucetConfig) {
     this.aztecNode = createAztecNodeClient(config.aztecNodeUrl);
     this.fpcAddress = AztecAddress.fromString(config.sponsoredFpcAddress);
+  }
+
+  private getL1Client(): ReturnType<typeof createExtendedL1Client> {
+    if (!this._l1Client) {
+      const account = privateKeyToAccount(this.config.l1PrivateKey);
+      const chain = createEthereumChain([this.config.l1RpcUrl], this.config.l1ChainId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this._l1Client = createExtendedL1Client([this.config.l1RpcUrl], account as any, chain.chainInfo);
+    }
+    return this._l1Client;
+  }
+
+  private getPortalManager(): Promise<L1FeeJuicePortalManager> {
+    if (!this._portalManagerPromise) {
+      this._portalManagerPromise = L1FeeJuicePortalManager.new(
+        this.aztecNode,
+        this.getL1Client(),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        console as any,
+      ).catch((err) => {
+        // Don't cache failures — allow retry on next drip
+        this._portalManagerPromise = null;
+        throw err;
+      });
+    }
+    return this._portalManagerPromise;
+  }
+
+  private getNodeInfo() {
+    if (!this._nodeInfoPromise) {
+      this._nodeInfoPromise = this.aztecNode.getNodeInfo().catch((err) => {
+        this._nodeInfoPromise = null;
+        throw err;
+      });
+    }
+    return this._nodeInfoPromise;
   }
 
   /**
@@ -43,7 +84,7 @@ export class L2Faucet {
    */
   async getL1FeeJuiceBalance(walletAddress: Hex): Promise<bigint | null> {
     try {
-      const nodeInfo = await this.aztecNode.getNodeInfo();
+      const nodeInfo = await this.getNodeInfo();
       const tokenAddress = nodeInfo.l1ContractAddresses.feeJuiceAddress.toString() as Hex;
       const CHAIN_MAP: Record<number, Chain> = { [sepolia.id]: sepolia, [foundry.id]: foundry };
       const chain: Chain = CHAIN_MAP[this.config.l1ChainId] ?? {
@@ -73,28 +114,11 @@ export class L2Faucet {
     recipientAztecAddress: string,
   ): Promise<FeeJuiceClaimData> {
     const recipient = AztecAddress.fromString(recipientAztecAddress);
-
-    const { privateKeyToAccount } = await import("viem/accounts");
-    const account = privateKeyToAccount(this.config.l1PrivateKey);
-    const chain = createEthereumChain(
-      [this.config.l1RpcUrl],
-      this.config.l1ChainId,
-    );
-    const l1Client = createExtendedL1Client(
-      [this.config.l1RpcUrl],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- viem version mismatch between top-level and @aztec/ethereum
-      account as any,
-      chain.chainInfo,
-    );
+    const l1Client = this.getL1Client();
 
     let portalManager;
     try {
-      portalManager = await L1FeeJuicePortalManager.new(
-        this.aztecNode,
-        l1Client,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        console as any,
-      );
+      portalManager = await this.getPortalManager();
     } catch (err) {
       console.error("[faucet] Portal manager init failed:", err);
       throw new Error(
@@ -130,7 +154,7 @@ export class L2Faucet {
     // matched by messageHash (the `key` field). Non-critical — we proceed without it on failure.
     let l1TxHash: string | undefined;
     try {
-      const nodeInfo = await this.aztecNode.getNodeInfo();
+      const nodeInfo = await this.getNodeInfo();
       const portalAddr = nodeInfo.l1ContractAddresses.feeJuicePortalAddress.toString() as Hex;
       const postBlock = await l1Client.getBlockNumber();
       // fromBlock = block before bridge (guaranteed to contain the tx); fallback to postBlock - 10

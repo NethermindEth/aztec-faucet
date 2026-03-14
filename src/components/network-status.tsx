@@ -25,33 +25,42 @@ export function NetworkStatus({ network }: { network: Network }) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    function fetchStatus() {
+      const controller = new AbortController();
+      const startedAt = Date.now();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+
+      fetch(`/api/status?network=${network}`, { signal: controller.signal })
+        .then((res) => {
+          if (!res.ok) throw new Error(`Status API returned ${res.status}`);
+          return res.json();
+        })
+        .then((data) => {
+          setStatus(data);
+          setError(false);
+        })
+        .catch((err) => {
+          if (err instanceof DOMException && err.name === "AbortError") {
+            const elapsed = Date.now() - startedAt;
+            if (elapsed < 9_000) return;
+            console.error("Status fetch timed out");
+          } else {
+            console.error("Status fetch failed:", err);
+          }
+          setError(true);
+        })
+        .finally(() => clearTimeout(timeout));
+    }
+
     setStatus(null);
     setError(false);
-    const controller = new AbortController();
-    const startedAt = Date.now();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-
-    fetch(`/api/status?network=${network}`, { signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Status API returned ${res.status}`);
-        return res.json();
-      })
-      .then(setStatus)
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          const elapsed = Date.now() - startedAt;
-          if (elapsed < 9_000) return;
-          console.error("Status fetch timed out");
-        } else {
-          console.error("Status fetch failed:", err);
-        }
-        setError(true);
-      })
-      .finally(() => clearTimeout(timeout));
+    fetchStatus();
+    pollTimer = setInterval(fetchStatus, 60_000);
 
     return () => {
-      controller.abort();
-      clearTimeout(timeout);
+      if (pollTimer) clearInterval(pollTimer);
     };
   }, [network]);
 

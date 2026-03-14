@@ -119,15 +119,18 @@ export class FaucetManager {
       ethDripAmount: process.env.ETH_DRIP_AMOUNT ?? "0.001",
     });
 
-    // Per-network drip amount env vars take precedence; fall back to the shared
-    // FEE_JUICE_DRIP_AMOUNT, then to the default (1000 FJ for devnet, 1 FJ for testnet).
+    // Per-network drip amount env vars take precedence over the network defaults.
+    // FEE_JUICE_DRIP_AMOUNT is treated as a legacy devnet-only alias so that a
+    // deployment which only sets FEE_JUICE_DRIP_AMOUNT=1000 FJ does NOT accidentally
+    // use that value for testnet (which should default to 100 FJ to preserve the
+    // pre-funded faucet wallet balance).
     const networkDripEnvKey = network === "testnet" ? "TESTNET_FEE_JUICE_DRIP_AMOUNT" : "DEVNET_FEE_JUICE_DRIP_AMOUNT";
     const feeJuiceDripAmount = process.env[networkDripEnvKey]
       ? BigInt(process.env[networkDripEnvKey]!)
-      : process.env.FEE_JUICE_DRIP_AMOUNT
-        ? parseBigIntEnv("FEE_JUICE_DRIP_AMOUNT")
-        : network === "testnet"
-          ? 100_000_000_000_000_000_000n   // testnet default: 100 FJ (portal minimum > 1 FJ)
+      : network === "testnet"
+        ? 100_000_000_000_000_000_000n   // testnet default: 100 FJ (portal minimum > 1 FJ)
+        : process.env.FEE_JUICE_DRIP_AMOUNT
+          ? parseBigIntEnv("FEE_JUICE_DRIP_AMOUNT")
           : 1_000_000_000_000_000_000_000n; // devnet default: 1000 FJ (contract minimum)
 
     this.l2Faucet = new L2Faucet({

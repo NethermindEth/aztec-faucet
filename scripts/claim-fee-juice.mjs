@@ -110,9 +110,8 @@ try {
   };
 
   // Normalize the return value from send() across SDK versions:
-  // - @rc / base_contract_interaction: send() returns TxReceipt directly (has .txHash)
-  // - @devnet deployMethod with returnReceipt:true: returns { ...receipt, contract, instance }
-  // - older pattern: sentTx has a .wait() method
+  // - @rc: send() returns TxReceipt directly (has .txHash)
+  // - @devnet: send() returns SentTx; need to call .wait() to get receipt
   async function getReceipt(sentTx) {
     if (sentTx?.txHash) return sentTx;
     if (sentTx?.receipt?.txHash) return sentTx.receipt;
@@ -136,7 +135,6 @@ try {
     const result = await deployMethod.send({
       from: AztecAddress.ZERO,
       fee: { gasSettings, paymentMethod },
-      wait: { returnReceipt: true, timeout: 600 },
     });
 
     const receipt = await getReceipt(result);

@@ -53,7 +53,6 @@ if (!isDeployed) {
   const raw = await (await mgr.getDeployMethod()).send({
     from: AztecAddress.ZERO,
     fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
-    wait: { returnReceipt: true, timeout: 600 },
   });
   const receipt = await getReceipt(raw);
   const txHash = receipt?.txHash?.toString();

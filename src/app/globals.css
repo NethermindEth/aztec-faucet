@@ -3,7 +3,40 @@
 :root {
   --background: #06060a;
   --foreground: #e8e6df;
+  --accent: #D4FF28;           /* chartreuse — devnet */
+  --accent-rgb: 212, 255, 40;
 }
+
+[data-network="testnet"] {
+  --accent: #A78BFA;           /* violet — testnet */
+  --accent-rgb: 167, 139, 250;
+}
+
+/* Remap every chartreuse utility to violet on testnet.
+   Tailwind v4 registers --color-chartreuse via @property { inherits: false },
+   so we override the generated class values directly. */
+[data-network="testnet"] [class*="text-chartreuse"] {
+  color: var(--accent) !important;
+  transition: color 0.35s ease;
+}
+[data-network="testnet"] [class*="bg-chartreuse"] {
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent) !important;
+  transition: background-color 0.35s ease;
+}
+[data-network="testnet"] .bg-chartreuse {
+  background-color: var(--accent) !important;
+}
+[data-network="testnet"] [class*="border-chartreuse"] {
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent) !important;
+  transition: border-color 0.35s ease;
+}
+[data-network="testnet"] [class*="shadow-chartreuse"] {
+  --tw-shadow-color: var(--accent);
+}
+[data-network="testnet"] [class*="ring-chartreuse"] {
+  --tw-ring-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
 
 /* Custom color tokens — use @theme (not @theme inline) so Tailwind
    generates text, bg, and border utilities with opacity modifier support */
@@ -64,16 +97,60 @@ body {
   position: relative;
 }
 
+/* Devnet glow — chartreuse */
 .bg-atmosphere::before {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(212, 255, 40, 0.12), transparent 70%),
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(212, 255, 40, 0.13), transparent 70%),
     radial-gradient(ellipse 50% 50% at 85% 60%, rgba(255, 45, 244, 0.06), transparent 70%),
     radial-gradient(ellipse 40% 40% at 15% 80%, rgba(43, 250, 233, 0.04), transparent 70%);
   pointer-events: none;
   z-index: 0;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+}
+
+/* Testnet glow — violet */
+.bg-atmosphere::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(167, 139, 250, 0.13), transparent 70%),
+    radial-gradient(ellipse 50% 50% at 85% 60%, rgba(255, 45, 244, 0.06), transparent 70%),
+    radial-gradient(ellipse 40% 40% at 15% 80%, rgba(212, 255, 40, 0.04), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+[data-network="testnet"].bg-atmosphere::before { opacity: 0; }
+[data-network="testnet"].bg-atmosphere::after  { opacity: 1; }
+
+/* Network switch — ripple bloom from toggle */
+@keyframes ripple-expand {
+  0%  { clip-path: circle(0%   at calc(100% - 88px) 32px); opacity: 1; }
+  62% { clip-path: circle(160% at calc(100% - 88px) 32px); opacity: 1; }
+  100%{ clip-path: circle(160% at calc(100% - 88px) 32px); opacity: 0; }
+}
+
+.ripple-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(
+    ellipse 90% 80% at calc(100% - 88px) 32px,
+    color-mix(in srgb, var(--ripple-color) 22%, transparent)  0%,
+    color-mix(in srgb, var(--ripple-color) 10%, transparent) 38%,
+    color-mix(in srgb, var(--ripple-color)  3%, transparent) 62%,
+    transparent 78%
+  );
+  animation: ripple-expand 0.55s cubic-bezier(0.2, 0, 0.3, 1) forwards;
+  will-change: clip-path, opacity;
 }
 
 /* Glass card */
@@ -86,17 +163,17 @@ body {
     0 25px 60px -12px rgba(0, 0, 0, 0.6);
 }
 
-/* Primary button — direct hex, no CSS var chain */
+/* Primary button — uses --accent CSS variable for network-aware theming */
 .btn-primary {
-  background-color: #D4FF28;
+  background-color: var(--accent);
   color: #0a0a0f;
   font-weight: 600;
-  transition: all 0.2s ease;
-  box-shadow: 0 0 20px rgba(212, 255, 40, 0.15);
+  transition: background-color 0.35s ease, box-shadow 0.35s ease, filter 0.2s ease;
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.15);
 }
 
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 0 32px rgba(212, 255, 40, 0.3);
+  box-shadow: 0 0 32px rgba(var(--accent-rgb), 0.3);
   filter: brightness(1.06);
 }
 

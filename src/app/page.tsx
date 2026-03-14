@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { FaucetLayout } from "@/components/faucet-layout";
 import { NetworkStatus } from "@/components/network-status";
@@ -21,6 +21,8 @@ export default function Home() {
   const [howOpen, setHowOpen] = useState(false);
   const [network, setNetwork] = useState<Network>("devnet");
   const [testnetAvailable, setTestnetAvailable] = useState(false);
+  const [rippleColor, setRippleColor] = useState<string | null>(null);
+  const rippleTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
     fetch("/api/networks")
@@ -28,6 +30,17 @@ export default function Home() {
       .then((d: { testnet: boolean }) => { if (d.testnet) setTestnetAvailable(true); })
       .catch(() => {});
   }, []);
+
+  function handleNetworkSwitch(newNetwork: Network) {
+    if (newNetwork === network || rippleColor !== null) return;
+    if (newNetwork === "testnet" && !testnetAvailable) return;
+    const color = newNetwork === "testnet" ? "#A78BFA" : "#D4FF28";
+    setRippleColor(color);
+    // Change theme when ripple reaches center of screen (~275ms into 550ms animation)
+    rippleTimers.current.push(setTimeout(() => setNetwork(newNetwork), 275));
+    // Clear overlay after animation completes
+    rippleTimers.current.push(setTimeout(() => setRippleColor(null), 600));
+  }
 
   function switchTab(target: View) {
     if (target === view || leaving !== null) return;
@@ -39,15 +52,20 @@ export default function Home() {
   }
 
   return (
-    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-10 pb-4">
+    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-10 pb-4" data-network={network}>
       <div className="relative z-10 w-full">
+
+        {/* Network status bar — fixed top-left */}
+        <div className="fixed top-4 left-4 z-50 animate-fade-up">
+          <NetworkStatus network={network} />
+        </div>
 
         {/* Network switcher — fixed top-right */}
         <div className="fixed top-4 right-4 z-50 animate-fade-up">
           <div className="flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md">
             <button
               type="button"
-              onClick={() => setNetwork("devnet")}
+              onClick={() => handleNetworkSwitch("devnet")}
               className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
                 network === "devnet"
                   ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
@@ -58,7 +76,7 @@ export default function Home() {
             </button>
             <button
               type="button"
-              onClick={() => testnetAvailable && setNetwork("testnet")}
+              onClick={() => handleNetworkSwitch("testnet")}
               title={testnetAvailable ? undefined : "Not configured"}
               className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
                 network === "testnet"
@@ -76,13 +94,23 @@ export default function Home() {
         {/* Header — static, never re-renders */}
         <div className="mx-auto mb-6 max-w-lg text-center animate-fade-up">
           <div className="mb-3 flex justify-center">
-            <Image src="/aztec-symbol.svg" alt="Aztec" width={44} height={44} className="rounded-lg" />
+            <Image
+              src="/aztec-symbol.svg"
+              alt="Aztec"
+              width={44}
+              height={44}
+              className="rounded-lg"
+              style={{
+                filter: network === "testnet" ? "hue-rotate(191deg) saturate(0.85) brightness(1.15)" : "none",
+                transition: "filter 0.35s ease",
+              }}
+            />
           </div>
           <h1 className="font-display text-5xl text-white">
-            Aztec <span className="text-chartreuse">Faucet</span>
+            Aztec <span className="text-chartreuse transition-colors duration-350">Faucet</span>
           </h1>
           <p className="mt-3 text-sm text-zinc-500">
-            Fee Juice for building on the Aztec {network === "testnet" ? "testnet" : "devnet"}
+            Fee Juice for building on the Aztec <span className="text-chartreuse transition-colors duration-350">{network === "testnet" ? "TESTNET" : "DEVNET"}</span>
           </p>
         </div>
 
@@ -166,11 +194,6 @@ export default function Home() {
           view === "faucet" ? "animate-panel-state-in" :
           "hidden"
         }>
-
-          {/* Network status bar */}
-          <div className="mx-auto max-w-lg">
-            <NetworkStatus network={network} />
-          </div>
 
           {/* Split-panel faucet form + footer (footer hidden when split) */}
           <div className="mt-2">
@@ -272,6 +295,14 @@ export default function Home() {
         ) : null}
 
       </div>
+
+      {/* Network switch ripple bloom */}
+      {rippleColor && (
+        <div
+          className="ripple-overlay"
+          style={{ "--ripple-color": rippleColor } as React.CSSProperties}
+        />
+      )}
     </main>
   );
 }

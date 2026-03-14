@@ -57,58 +57,62 @@ export function NetworkStatus({ network }: { network: Network }) {
 
   if (error) {
     return (
-      <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/15 bg-red-500/4 px-3 py-2 text-xs text-red-400">
-        <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
-        Faucet unavailable. Check server configuration.
+      <div className="flex items-center rounded-full border border-white/10 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md">
+        <div className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm text-red-400">
+          <span className="inline-block h-2 w-2 rounded-full bg-red-500" />
+          Unavailable
+        </div>
       </div>
     );
   }
 
   if (!status) {
     return (
-      <div className="mb-4 flex items-center gap-2 rounded-xl border border-white/6 px-3 py-2 text-xs text-zinc-600">
-        <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-600" />
-        Connecting...
+      <div className="flex items-center rounded-full border border-white/10 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md">
+        <div className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm text-zinc-500">
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-zinc-600" />
+          Connecting...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 mb-4">
+    <div className="flex flex-col gap-2 items-start">
       {/* SDK outdated warning */}
       {status.sdk?.outdated && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-yellow-500/20 bg-yellow-500/6 px-3 py-2.5 text-xs">
-          <svg viewBox="0 0 16 16" fill="none" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-400">
-            <path d="M8 2L14 13H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-            <path d="M8 6v4M8 11.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <div>
-            <p className="font-medium text-yellow-400">Faucet SDK out of date</p>
-            <p className="mt-0.5 text-yellow-400/60">
-              Faucet is running <code className="rounded bg-white/6 px-1">{status.sdk.faucetVersion}</code>,
-              latest is <code className="rounded bg-white/6 px-1">{status.sdk.latestVersion}</code>.
-              CLI commands above use the latest automatically. Faucet functionality may differ until redeployed.
-            </p>
+        <div className="flex items-center rounded-full border border-yellow-500/20 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md">
+          <div className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm text-yellow-400">
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 shrink-0">
+              <path d="M8 2L14 13H2L8 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+              <path d="M8 6v4M8 11.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            SDK outdated ({status.sdk.faucetVersion})
           </div>
         </div>
       )}
 
-      {/* Network status bar */}
-      <div className="flex items-center justify-between rounded-xl border border-chartreuse/20 bg-chartreuse/3 px-3 py-2 text-xs text-zinc-500">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-block h-2 w-2 rounded-full bg-chartreuse" />
-          <span className="text-zinc-400">
-            Chain {status.network.l1ChainId}
-          </span>
-          <span className="text-zinc-700">·</span>
-          <span>
-            Balance: {Number(status.l1BalanceEth).toFixed(4)} <span className="text-chartreuse">ETH</span>
-          </span>
+      {/* Network status pill — outer shell matches devnet/testnet toggle */}
+      <div
+        className="flex items-center rounded-full border bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md"
+        style={{ borderColor: "color-mix(in srgb, var(--accent) 28%, transparent)" }}
+      >
+        <div
+          className="flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold text-zinc-400"
+          style={{
+            background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+            boxShadow: "0 1px 2px color-mix(in srgb, var(--accent) 20%, transparent)",
+          }}
+        >
+          <span className="inline-block h-2 w-2 rounded-full" style={{ background: "var(--accent)" }} />
+          <span>Chain {status.network.l1ChainId}</span>
+          <span className="text-zinc-600">·</span>
+          <span className="font-normal">{Number(status.l1BalanceEth).toFixed(4)} <span style={{ color: "var(--accent)" }}>ETH</span></span>
           {status.l1FeeJuiceBalance !== null && status.l1FeeJuiceBalance !== undefined && Number(status.l1FeeJuiceBalance) > 0 && (
             <>
-              <span className="text-zinc-700">·</span>
-              <span title="L1 Fee Juice ERC20 balance held by the faucet wallet">
-                {Number(status.l1FeeJuiceBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })} <span className="text-chartreuse">Fee Juice</span>
+              <span className="text-zinc-600">·</span>
+              <span className="font-normal" title="L1 Fee Juice ERC20 balance held by the faucet wallet">
+                {Number(status.l1FeeJuiceBalance).toLocaleString(undefined, { maximumFractionDigits: 0 })} <span style={{ color: "var(--accent)" }}>FJ</span>
               </span>
             </>
           )}

@@ -65,7 +65,7 @@ export async function GET(request: Request) {
   } catch (err) {
     if (err instanceof ThrottleError) {
       return NextResponse.json(
-        { error: "Too many keypair requests. Please try again later." },
+        { error: "Too many keypair requests. You can generate up to 10 keypairs per 24 hours. Please try again later." },
         { status: 429 },
       );
     }

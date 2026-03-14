@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { TurnstileWidget } from "./turnstile-widget";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
@@ -103,6 +103,17 @@ export function FaucetForm({
   const [openAccordion, setOpenAccordion] = useState<"address" | "timing" | null>(null);
   const toggleAccordion = (name: "address" | "timing") =>
     setOpenAccordion((prev) => (prev === name ? null : name));
+
+  const prevNetwork = useRef(network);
+  const assetRef = useRef(asset);
+  assetRef.current = asset;
+  useEffect(() => {
+    if (prevNetwork.current === network) return;
+    prevNetwork.current = network;
+    setError(null);
+    setRetryAfter(null);
+    if (assetRef.current === "fee-juice") setAddress("");
+  }, [network]);
 
   const currentAsset = ASSETS.find((a) => a.value === asset)!;
   const isEthAddress = currentAsset.addressType === "ethereum";

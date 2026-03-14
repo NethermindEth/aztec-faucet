@@ -311,7 +311,7 @@ export default function Home() {
             ) : (leaving ?? view) === "network" ? (
               <NetworkView network={network} />
             ) : (leaving ?? view) === "donate" ? (
-              <DonateView />
+              <DonateView network={network} />
             ) : (
               <StatusView network={network} onBack={() => switchTab("faucet")} />
             )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CopyButton } from "./drip-result";
 import type { Network } from "@/lib/network-config";
 import { NODE_URLS, NPM_TAGS } from "@/lib/network-config";
@@ -42,6 +42,17 @@ export function BalanceView({ network }: { network: Network }) {
   const [result, setResult] = useState<BalanceResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkedAddress, setCheckedAddress] = useState<string | null>(null);
+
+  const prevNetwork = useRef(network);
+
+  // Clear stale result when network switches — a devnet balance is meaningless on testnet
+  useEffect(() => {
+    if (prevNetwork.current === network) return;
+    prevNetwork.current = network;
+    setResult(null);
+    setError(null);
+    setCheckedAddress(null);
+  }, [network]);
 
   const trimmed = address.trim();
   const isValid = AZTEC_ADDRESS_RE.test(trimmed);

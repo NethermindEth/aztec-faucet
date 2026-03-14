@@ -41,24 +41,33 @@ const addr = mgr.address;
 const isDeployed = (await wallet.getContractMetadata(addr)).isContractInitialized;
 const node = createAztecNodeClient(NODE_URL);
 const gasSettings = GasSettings.default({ maxFeesPerGas: (await node.getCurrentMinFees()).mul(2) });
+async function getReceipt(r) {
+  if (r?.txHash) return r;
+  if (r?.receipt?.txHash) return r.receipt;
+  if (typeof r?.wait === "function") { try { return await r.wait(); } catch { return r?.receipt; } }
+  return r?.receipt;
+}
 const claim = { claimAmount: AMOUNT, claimSecret: CLAIM_SECRET, messageLeafIndex: LEAF };
 if (!isDeployed) {
   console.log("Deploying account + claiming Fee Juice (proving ~10s)...");
-  const result = await (await mgr.getDeployMethod()).send({
+  const raw = await (await mgr.getDeployMethod()).send({
     from: AztecAddress.ZERO,
     fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
+    wait: { returnReceipt: true, timeout: 600 },
   });
-  const txHash = result.receipt?.txHash?.toString();
-  console.log("Done! Tx:", txHash, "| Block:", result.receipt?.blockNumber);
+  const receipt = await getReceipt(raw);
+  const txHash = receipt?.txHash?.toString();
+  console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
   ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
 } else {
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   console.log("Claiming into existing account (proving ~10s)...");
-  const r = await FeeJuiceContract.at(wallet).methods
+  const raw = await FeeJuiceContract.at(wallet).methods
     .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
     .send({ from: addr, fee: { gasSettings } });
-  const txHash = r.receipt?.txHash?.toString();
-  console.log("Done! Tx:", txHash, "| Block:", r.receipt?.blockNumber);
+  const receipt = await getReceipt(raw);
+  const txHash = receipt?.txHash?.toString();
+  console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
   ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
 }
 await wallet.stop();

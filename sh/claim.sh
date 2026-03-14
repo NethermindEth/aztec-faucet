@@ -60,10 +60,9 @@ _pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/packag
 if [ "$_network" = "testnet" ]; then
   _npm_tag="$AZTEC_SDK_NPM_TAG_TESTNET"
   _node_url="$AZTEC_NODE_URL_TESTNET"
-  # For testnet (@rc packages), reinstall if currently on the pinned devnet version
-  _current_ver="$(_pkg_ver "@aztec/wallets")"
+  # Testnet uses @aztec-rc/* aliases so claim-fee-juice.mjs can import them by that scope
+  _current_ver="$(_pkg_ver "@aztec-rc/wallets")"
   _needs_install=0
-  [ "$_current_ver" = "$AZTEC_SDK_VERSION" ] && _needs_install=1
   [ -z "$_current_ver" ] && _needs_install=1
 else
   _npm_tag="devnet"
@@ -77,9 +76,18 @@ fi
 if [ "$_needs_install" = "1" ]; then
   # Reset package.json to a clean slate so stale deps don't interfere with the install
   printf '{"type":"module"}' > package.json
-  # Wipe existing @aztec packages to prevent version conflicts from prior installs
-  rm -rf node_modules/@aztec 2>/dev/null || true
-  npm install --no-package-lock "@aztec/wallets@$_npm_tag" "@aztec/aztec.js@$_npm_tag" "@aztec/stdlib@$_npm_tag" --silent > /dev/null 2>&1 &
+  if [ "$_network" = "testnet" ]; then
+    # Install as @aztec-rc/* aliases — claim-fee-juice.mjs imports from that scope for testnet
+    rm -rf node_modules/@aztec-rc 2>/dev/null || true
+    npm install --no-package-lock \
+      "@aztec-rc/wallets@npm:@aztec/wallets@$_npm_tag" \
+      "@aztec-rc/aztec.js@npm:@aztec/aztec.js@$_npm_tag" \
+      "@aztec-rc/stdlib@npm:@aztec/stdlib@$_npm_tag" \
+      --silent > /dev/null 2>&1 &
+  else
+    rm -rf node_modules/@aztec 2>/dev/null || true
+    npm install --no-package-lock "@aztec/wallets@$_npm_tag" "@aztec/aztec.js@$_npm_tag" "@aztec/stdlib@$_npm_tag" --silent > /dev/null 2>&1 &
+  fi
   _npm_pid=$!
   spin $_npm_pid "Installing packages (@$_npm_tag)"
   wait $_npm_pid

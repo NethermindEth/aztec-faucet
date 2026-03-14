@@ -21,6 +21,7 @@ export default function Home() {
   const [howOpen, setHowOpen] = useState(false);
   const [network, setNetwork] = useState<Network>("devnet");
   const [testnetAvailable, setTestnetAvailable] = useState(false);
+  const [dripActive, setDripActive] = useState(false);
   const [rippleColor, setRippleColor] = useState<string | null>(null);
   const rippleTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -33,6 +34,7 @@ export default function Home() {
 
   function handleNetworkSwitch(newNetwork: Network) {
     if (newNetwork === network || rippleColor !== null) return;
+    if (dripActive) return;
     if (newNetwork === "testnet" && !testnetAvailable) return;
     const color = newNetwork === "testnet" ? "#A78BFA" : "#D4FF28";
     setRippleColor(color);
@@ -62,32 +64,53 @@ export default function Home() {
 
         {/* Network switcher — fixed top-right */}
         <div className="fixed top-4 right-4 z-50 animate-fade-up">
-          <div className="flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md">
-            <button
-              type="button"
-              onClick={() => handleNetworkSwitch("devnet")}
-              className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
-                network === "devnet"
-                  ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
-                  : "text-zinc-500 hover:text-zinc-300"
-              }`}
+          <div className="relative group/switcher">
+            <div
+              className="flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md"
             >
-              Devnet
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNetworkSwitch("testnet")}
-              title={testnetAvailable ? undefined : "Not configured"}
-              className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
-                network === "testnet"
-                  ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
-                  : testnetAvailable
-                    ? "text-zinc-500 hover:text-zinc-300"
-                    : "cursor-not-allowed text-zinc-700"
-              }`}
-            >
-              Testnet
-            </button>
+              <button
+                type="button"
+                onClick={() => handleNetworkSwitch("devnet")}
+                disabled={dripActive && network !== "devnet"}
+                className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
+                  network === "devnet"
+                    ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
+                    : dripActive
+                      ? "cursor-not-allowed text-zinc-700"
+                      : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >
+                Devnet
+              </button>
+              <div className="relative group/testnet-btn">
+                <button
+                  type="button"
+                  onClick={() => handleNetworkSwitch("testnet")}
+                  disabled={(dripActive && network !== "testnet") || !testnetAvailable}
+                  className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
+                    network === "testnet"
+                      ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
+                      : dripActive
+                        ? "cursor-not-allowed text-zinc-700"
+                        : testnetAvailable
+                          ? "text-zinc-500 hover:text-zinc-300"
+                          : "cursor-not-allowed text-zinc-700"
+                  }`}
+                >
+                  Testnet
+                </button>
+                {!testnetAvailable && (
+                  <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 opacity-0 shadow-lg transition-opacity duration-0 group-hover/testnet-btn:opacity-100">
+                    Not configured
+                  </div>
+                )}
+              </div>
+            </div>
+            {dripActive && (
+              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 opacity-0 shadow-lg transition-opacity duration-0 group-hover/switcher:opacity-100">
+                Locked while a drip is in progress
+              </div>
+            )}
           </div>
         </div>
 
@@ -200,6 +223,7 @@ export default function Home() {
             <FaucetLayout
               network={network}
               onGoToAccount={() => switchTab("keys")}
+              onDripActiveChange={setDripActive}
               footer={
                 <div className="mx-auto mt-5 max-w-lg space-y-3">
                   <div className="glass-card rounded-xl overflow-hidden">

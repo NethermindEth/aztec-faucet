@@ -241,12 +241,13 @@ export function ClaimTracker({
               <span>Broadcasting</span>
               <span className="font-mono">{formatElapsed(elapsed)}</span>
             </div>
-            <div className="h-1 overflow-hidden rounded-full bg-white/8">
+            <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "color-mix(in srgb, var(--accent) 15%, transparent)" }}>
               <div
-                className="h-full animate-pulse rounded-full transition-all duration-1000"
+                className="h-full rounded-full transition-all duration-1000"
                 style={{
                   width: `${Math.min((elapsed / 120) * 100, 95)}%`,
-                  background: "color-mix(in srgb, var(--accent) 75%, transparent)",
+                  background: "var(--accent)",
+                  boxShadow: "0 0 8px var(--accent)",
                 }}
               />
             </div>

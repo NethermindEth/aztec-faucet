@@ -109,55 +109,29 @@ try {
     messageLeafIndex: BigInt(messageLeafIndexStr),
   };
 
-  // Normalize the return value from send() across SDK versions:
-  // - @rc:     send() returns TxReceipt directly (has .txHash, no .wait)
-  // - @devnet: send() returns SentTx; txHash via getTxHash(), receipt via .wait()
-  //            wait() may return null/throw even when the tx succeeded, so we
-  //            fetch the hash first so it is never lost.
-  async function getReceipt(r) {
-    // Already a receipt (testnet: send() returns TxReceipt directly)
-    if (r?.txHash && typeof r?.wait !== "function") return r;
-    if (r?.receipt?.txHash) return r.receipt;
-
-    // Grab txHash early before waiting.
-    // Devnet send() without wait returns a TxHash object where the hash is at .hash
-    // (not .txHash). getTxHash() is for older SentTx patterns.
-    const earlyTxHash =
-      (typeof r?.getTxHash === "function" ? await r.getTxHash().catch(() => null) : null)
-      ?? r?.txHash
-      ?? r?.hash?.toString?.()
-      ?? null;
-
-    // Wait for mining receipt (may return null or throw on devnet)
-    let receipt = null;
-    if (typeof r?.wait === "function") {
-      receipt = await r.wait().catch(() => null);
-    }
-
-    if (!receipt) receipt = r?.receipt ?? {};
-    // Merge in the hash if wait() didn't include it
-    if (!receipt.txHash && earlyTxHash) receipt = { ...receipt, txHash: earlyTxHash };
-    return receipt;
-  }
-
   const node = createAztecNodeClient(nodeUrl);
   const currentMinFees = await node.getCurrentMinFees();
   const maxFeesPerGas = currentMinFees.mul(2);
   const gasSettings = GasSettings.default({ maxFeesPerGas });
 
   if (!isDeployed) {
-    // Deploy + claim in one tx
+    // Deploy + claim in one tx.
+    // wait: { returnReceipt: true } is required — without it DeployMethod.send()
+    // returns the deployed contract instance, not the TxReceipt.
     process.stdout.write("  [3/3] Deploying account + claiming Fee Juice (proving ~10s)...");
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
     const deployMethod = await accountManager.getDeployMethod();
 
-    const result = await deployMethod.send({
+    const raw = await deployMethod.send({
       from: AztecAddress.ZERO,
       fee: { gasSettings, paymentMethod },
+      wait: { returnReceipt: true },
     });
+    // devnet @devnet: receipt fields at top level
+    // testnet @rc: receipt nested under raw.receipt
+    const receipt = raw?.receipt ?? raw;
 
-    const receipt = await getReceipt(result);
-    const txHash = receipt?.txHash?.toString() ?? "n/a";
+    const txHash = receipt?.txHash?.toString?.() ?? "n/a";
     console.log(" done\n");
     console.log("  Result");
     console.log("  ------");
@@ -174,12 +148,12 @@ try {
 
     // FeeJuiceContract.at() takes only the wallet — protocol address is hardcoded
     const feeJuice = FeeJuiceContract.at(wallet);
-    const result = await feeJuice.methods
+    const raw = await feeJuice.methods
       .claim(address, claim.claimAmount, claim.claimSecret, new Fr(claim.messageLeafIndex))
       .send({ from: address, fee: { gasSettings } });
+    const receipt = raw?.receipt ?? raw;
 
-    const receipt = await getReceipt(result);
-    const txHash = receipt?.txHash?.toString() ?? "n/a";
+    const txHash = receipt?.txHash?.toString?.() ?? "n/a";
     console.log(" done\n");
     console.log("  Result");
     console.log("  ------");

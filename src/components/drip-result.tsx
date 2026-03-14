@@ -41,24 +41,16 @@ const addr = mgr.address;
 const isDeployed = (await wallet.getContractMetadata(addr)).isContractInitialized;
 const node = createAztecNodeClient(NODE_URL);
 const gasSettings = GasSettings.default({ maxFeesPerGas: (await node.getCurrentMinFees()).mul(2) });
-async function getReceipt(r) {
-  if (r?.txHash && typeof r?.wait !== "function") return r;
-  if (r?.receipt?.txHash) return r.receipt;
-  const earlyTxHash = (typeof r?.getTxHash === "function" ? await r.getTxHash().catch(() => null) : null) ?? r?.txHash ?? r?.hash?.toString?.() ?? null;
-  let receipt = typeof r?.wait === "function" ? await r.wait().catch(() => null) : null;
-  if (!receipt) receipt = r?.receipt ?? {};
-  if (!receipt.txHash && earlyTxHash) receipt = { ...receipt, txHash: earlyTxHash };
-  return receipt;
-}
 const claim = { claimAmount: AMOUNT, claimSecret: CLAIM_SECRET, messageLeafIndex: LEAF };
 if (!isDeployed) {
   console.log("Deploying account + claiming Fee Juice (proving ~10s)...");
   const raw = await (await mgr.getDeployMethod()).send({
     from: AztecAddress.ZERO,
     fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
+    wait: { returnReceipt: true },
   });
-  const receipt = await getReceipt(raw);
-  const txHash = receipt?.txHash?.toString();
+  const receipt = raw?.receipt ?? raw; // devnet: receipt at top; testnet @rc: nested under .receipt
+  const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
   ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
 } else {
@@ -67,8 +59,8 @@ if (!isDeployed) {
   const raw = await FeeJuiceContract.at(wallet).methods
     .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
     .send({ from: addr, fee: { gasSettings } });
-  const receipt = await getReceipt(raw);
-  const txHash = receipt?.txHash?.toString();
+  const receipt = raw?.receipt ?? raw; // devnet: receipt at top; testnet @rc: nested under .receipt
+  const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
   ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
 }

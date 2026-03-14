@@ -75,8 +75,8 @@ function PendingPanel({ asset, network }: { asset: string; network: Network }) {
             <span>Broadcasting</span>
             <span>Confirming</span>
           </div>
-          <div className="h-1 overflow-hidden rounded-full bg-white/6">
-            <div className="h-full w-2/3 animate-pulse rounded-full bg-chartreuse/40" />
+          <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "color-mix(in srgb, var(--accent) 15%, transparent)" }}>
+            <div className="h-full w-2/3 rounded-full" style={{ background: "var(--accent)", boxShadow: "0 0 8px var(--accent)" }} />
           </div>
         </div>
 
@@ -88,11 +88,12 @@ function PendingPanel({ asset, network }: { asset: string; network: Network }) {
   );
 }
 
-export function FaucetLayout({ footer, onGoToAccount, network }: { footer?: React.ReactNode; onGoToAccount?: () => void; network: Network }) {
+export function FaucetLayout({ footer, onGoToAccount, network, onDripActiveChange }: { footer?: React.ReactNode; onGoToAccount?: () => void; network: Network; onDripActiveChange?: (active: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
 
   const handlePending = (asset: string) => {
     setRightPanel({ kind: "pending", asset });
+    onDripActiveChange?.(true);
   };
 
   const handleSuccess = (data: DripResultData) => {
@@ -105,10 +106,12 @@ export function FaucetLayout({ footer, onGoToAccount, network }: { footer?: Reac
 
   const handleError = () => {
     setRightPanel(null);
+    onDripActiveChange?.(false);
   };
 
   const handleReset = () => {
     setRightPanel(null);
+    onDripActiveChange?.(false);
   };
 
   const isSplit = rightPanel !== null;

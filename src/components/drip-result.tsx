@@ -42,10 +42,13 @@ const isDeployed = (await wallet.getContractMetadata(addr)).isContractInitialize
 const node = createAztecNodeClient(NODE_URL);
 const gasSettings = GasSettings.default({ maxFeesPerGas: (await node.getCurrentMinFees()).mul(2) });
 async function getReceipt(r) {
-  if (r?.txHash) return r;
+  if (r?.txHash && typeof r?.wait !== "function") return r;
   if (r?.receipt?.txHash) return r.receipt;
-  if (typeof r?.wait === "function") { try { return await r.wait(); } catch { return r?.receipt; } }
-  return r?.receipt;
+  const earlyTxHash = (typeof r?.getTxHash === "function" ? await r.getTxHash().catch(() => null) : null) ?? r?.txHash ?? r?.hash?.toString?.() ?? null;
+  let receipt = typeof r?.wait === "function" ? await r.wait().catch(() => null) : null;
+  if (!receipt) receipt = r?.receipt ?? {};
+  if (!receipt.txHash && earlyTxHash) receipt = { ...receipt, txHash: earlyTxHash };
+  return receipt;
 }
 const claim = { claimAmount: AMOUNT, claimSecret: CLAIM_SECRET, messageLeafIndex: LEAF };
 if (!isDeployed) {

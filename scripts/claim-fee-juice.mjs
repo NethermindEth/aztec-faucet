@@ -110,15 +110,34 @@ try {
   };
 
   // Normalize the return value from send() across SDK versions:
-  // - @rc: send() returns TxReceipt directly (has .txHash)
-  // - @devnet: send() returns SentTx; need to call .wait() to get receipt
-  async function getReceipt(sentTx) {
-    if (sentTx?.txHash) return sentTx;
-    if (sentTx?.receipt?.txHash) return sentTx.receipt;
-    if (typeof sentTx?.wait === "function") {
-      try { return await sentTx.wait(); } catch { return sentTx?.receipt; }
+  // - @rc:     send() returns TxReceipt directly (has .txHash, no .wait)
+  // - @devnet: send() returns SentTx; txHash via getTxHash(), receipt via .wait()
+  //            wait() may return null/throw even when the tx succeeded, so we
+  //            fetch the hash first so it is never lost.
+  async function getReceipt(r) {
+    // Already a receipt (testnet: send() returns TxReceipt directly)
+    if (r?.txHash && typeof r?.wait !== "function") return r;
+    if (r?.receipt?.txHash) return r.receipt;
+
+    // Grab txHash early before waiting.
+    // Devnet send() without wait returns a TxHash object where the hash is at .hash
+    // (not .txHash). getTxHash() is for older SentTx patterns.
+    const earlyTxHash =
+      (typeof r?.getTxHash === "function" ? await r.getTxHash().catch(() => null) : null)
+      ?? r?.txHash
+      ?? r?.hash?.toString?.()
+      ?? null;
+
+    // Wait for mining receipt (may return null or throw on devnet)
+    let receipt = null;
+    if (typeof r?.wait === "function") {
+      receipt = await r.wait().catch(() => null);
     }
-    return sentTx?.receipt;
+
+    if (!receipt) receipt = r?.receipt ?? {};
+    // Merge in the hash if wait() didn't include it
+    if (!receipt.txHash && earlyTxHash) receipt = { ...receipt, txHash: earlyTxHash };
+    return receipt;
   }
 
   const node = createAztecNodeClient(nodeUrl);

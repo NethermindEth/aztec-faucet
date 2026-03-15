@@ -5,8 +5,16 @@ FROM base AS deps
 WORKDIR /app
 # Build tools needed to compile native addons (lmdb etc.) on Linux slim
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Pin npm to the same major version used to generate the lock file.
+# npm 11 changed how it validates npm-aliased packages in lock files and
+# rejects the lockfileVersion 3 format we use for @aztec-rc/* aliases.
+RUN npm install -g npm@10
 COPY package.json package-lock.json ./
-RUN npm ci
+# Increase retries and timeout for large @aztec-rc packages (~hundreds of MB)
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 10000 && \
+    npm config set fetch-retry-maxtimeout 300000 && \
+    npm ci
 
 # --- Build ---
 FROM base AS builder

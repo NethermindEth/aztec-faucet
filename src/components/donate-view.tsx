@@ -23,17 +23,17 @@ function Sk({ w = "w-24" }: { w?: string }) {
   return <span className={`skeleton inline-block ${w} h-3 rounded`} />;
 }
 
-export function DonateView() {
+export function DonateView({ network }: { network: "devnet" | "testnet" }) {
   const [faucetAddress, setFaucetAddress] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/status")
+    fetch(`/api/status?network=${network}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.faucetAddress) setFaucetAddress(data.faucetAddress);
       })
       .catch(() => {});
-  }, []);
+  }, [network]);
 
   return (
     <div className="mx-auto w-full max-w-lg space-y-4 animate-panel-state-in">

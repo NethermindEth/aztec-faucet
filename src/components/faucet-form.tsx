@@ -1,26 +1,33 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { TurnstileWidget } from "./turnstile-widget";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
+import type { Network } from "@/lib/network-config";
+import { NODE_URLS, NPM_TAGS } from "@/lib/network-config";
 
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
-const CREATE_ACCOUNT_ONELINER = `curl -fsSL ${GITHUB_RAW}/sh/create-account.sh | sh`;
-const CREATE_ACCOUNT_SELF_CONTAINED = `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
+function makeCreateAccountOneLiner(network: "devnet" | "testnet"): string {
+  return `curl -fsSL ${GITHUB_RAW}/sh/${network}/create-account.sh | sh`;
+}
+
+function makeCreateAccountSelfContained(nodeUrl: string, npmTag: string): string {
+  return `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
 echo '{"type":"module"}' > package.json && \\
-npm install --no-package-lock @aztec/wallets@devnet @aztec/aztec.js@devnet --silent && \\
+npm install --no-package-lock @aztec/wallets@${npmTag} @aztec/aztec.js@${npmTag} --silent && \\
 LOG_LEVEL=silent node --input-type=module << 'AZTEC_EOF'
 import { Fr } from "@aztec/aztec.js/fields";
 const { EmbeddedWallet } = await import("@aztec/wallets/embedded");
-const wallet = await EmbeddedWallet.create("https://v4-devnet-2.aztec-labs.com/", { ephemeral: true });
+const wallet = await EmbeddedWallet.create("${nodeUrl}", { ephemeral: true });
 const secret = Fr.random();
 const account = await wallet.createSchnorrAccount(secret, Fr.ZERO);
 console.log("\\nSecret Key: " + secret.toString());
 console.log("Address:    " + account.address.toString() + "\\n");
 await wallet.stop();
 AZTEC_EOF`;
+}
 
 type Asset = "eth" | "fee-juice";
 
@@ -77,6 +84,7 @@ export function FaucetForm({
   onError,
   locked = false,
   onGoToAccount,
+  network,
 }: {
   onSuccess: (data: DripResultData) => void;
   onClaim: (claimId: string, initialClaimData?: InitialClaimData) => void;
@@ -84,6 +92,7 @@ export function FaucetForm({
   onError: () => void;
   locked?: boolean;
   onGoToAccount?: () => void;
+  network: Network;
 }) {
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("fee-juice");
@@ -94,6 +103,17 @@ export function FaucetForm({
   const [openAccordion, setOpenAccordion] = useState<"address" | "timing" | null>(null);
   const toggleAccordion = (name: "address" | "timing") =>
     setOpenAccordion((prev) => (prev === name ? null : name));
+
+  const prevNetwork = useRef(network);
+  const assetRef = useRef(asset);
+  assetRef.current = asset;
+  useEffect(() => {
+    if (prevNetwork.current === network) return;
+    prevNetwork.current = network;
+    setError(null);
+    setRetryAfter(null);
+    if (assetRef.current === "fee-juice") setAddress("");
+  }, [network]);
 
   const currentAsset = ASSETS.find((a) => a.value === asset)!;
   const isEthAddress = currentAsset.addressType === "ethereum";
@@ -157,6 +177,7 @@ export function FaucetForm({
           address: address.trim(),
           asset,
           captchaToken: captchaToken ?? "",
+          network,
         }),
         signal: controller.signal,
       });
@@ -279,19 +300,19 @@ export function FaucetForm({
                   <div className="rounded-lg border border-white/5 bg-black/30">
                     <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
                       <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
-                      <CopyButton text={CREATE_ACCOUNT_ONELINER} />
+                      <CopyButton text={makeCreateAccountOneLiner(network)} />
                     </div>
                     <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                      <code>{CREATE_ACCOUNT_ONELINER}</code>
+                      <code>{makeCreateAccountOneLiner(network)}</code>
                     </pre>
                   </div>
                   <div className="rounded-lg border border-white/5 bg-black/30">
                     <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
                       <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
-                      <CopyButton text={CREATE_ACCOUNT_SELF_CONTAINED} />
+                      <CopyButton text={makeCreateAccountSelfContained(NODE_URLS[network], NPM_TAGS[network])} />
                     </div>
                     <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                      <code>{CREATE_ACCOUNT_SELF_CONTAINED}</code>
+                      <code>{makeCreateAccountSelfContained(NODE_URLS[network], NPM_TAGS[network])}</code>
                     </pre>
                   </div>
                 </div>

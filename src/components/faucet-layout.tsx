@@ -3,6 +3,7 @@
 import { useState } from "react";
 import React from "react";
 import { FaucetForm } from "./faucet-form";
+import type { Network } from "@/lib/network-config";
 import { DripResult, type DripResultData } from "./drip-result";
 import { ClaimTracker } from "./claim-tracker";
 import { ConfettiBurst } from "./confetti-burst";
@@ -32,7 +33,7 @@ const PENDING_SUBS: Record<string, string> = {
   "fee-juice": "Initiating L1→L2 bridge deposit.",
 };
 
-function PendingPanel({ asset }: { asset: string }) {
+function PendingPanel({ asset, network }: { asset: string; network: Network }) {
   return (
     <div className="flex h-full flex-col justify-between gap-5">
       <div className="space-y-5">
@@ -61,7 +62,7 @@ function PendingPanel({ asset }: { asset: string }) {
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-chartreuse" />
           </span>
           <span className="text-xs text-zinc-400">
-            {asset === "eth" ? "Sepolia Testnet" : "Aztec L2 Devnet"}
+            {asset === "eth" ? "Sepolia Testnet" : `Aztec L2 ${network === "testnet" ? "Testnet" : "Devnet"}`}
           </span>
           {asset === "eth" && (
             <span className="ml-auto font-mono text-xs text-zinc-600">11155111</span>
@@ -74,8 +75,8 @@ function PendingPanel({ asset }: { asset: string }) {
             <span>Broadcasting</span>
             <span>Confirming</span>
           </div>
-          <div className="h-1 overflow-hidden rounded-full bg-white/6">
-            <div className="h-full w-2/3 animate-pulse rounded-full bg-chartreuse/40" />
+          <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "color-mix(in srgb, var(--accent) 15%, transparent)" }}>
+            <div className="h-full w-2/3 rounded-full" style={{ background: "var(--accent)", boxShadow: "0 0 8px var(--accent)" }} />
           </div>
         </div>
 
@@ -87,11 +88,12 @@ function PendingPanel({ asset }: { asset: string }) {
   );
 }
 
-export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNode; onGoToAccount?: () => void }) {
+export function FaucetLayout({ footer, onGoToAccount, network, onDripActiveChange }: { footer?: React.ReactNode; onGoToAccount?: () => void; network: Network; onDripActiveChange?: (active: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
 
   const handlePending = (asset: string) => {
     setRightPanel({ kind: "pending", asset });
+    onDripActiveChange?.(true);
   };
 
   const handleSuccess = (data: DripResultData) => {
@@ -104,10 +106,12 @@ export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNo
 
   const handleError = () => {
     setRightPanel(null);
+    onDripActiveChange?.(false);
   };
 
   const handleReset = () => {
     setRightPanel(null);
+    onDripActiveChange?.(false);
   };
 
   const isSplit = rightPanel !== null;
@@ -132,6 +136,7 @@ export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNo
             onError={handleError}
             locked={isSplit}
             onGoToAccount={onGoToAccount}
+            network={network}
           />
         </div>
 
@@ -141,13 +146,14 @@ export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNo
             <div className={`glass-card rounded-2xl p-6 ${rightPanel.kind === "pending" ? "flex flex-col h-full overflow-x-hidden" : ""}`}>
               <div key={rightPanel.kind} className="flex flex-col animate-panel-state-in">
                 {rightPanel.kind === "pending" ? (
-                  <PendingPanel asset={rightPanel.asset} />
+                  <PendingPanel asset={rightPanel.asset} network={network} />
                 ) : rightPanel.kind === "result" ? (
                   <DripResult
                     result={rightPanel.data}
                     error={null}
                     retryAfter={null}
                     onReset={handleReset}
+                    network={network}
                   />
                 ) : (
                   <>
@@ -157,6 +163,7 @@ export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNo
                       initialClaimData={rightPanel.initialClaimData}
                       l1TxHash={rightPanel.initialClaimData?.l1TxHash}
                       onReset={handleReset}
+                      network={network}
                     />
                   </>
                 )}

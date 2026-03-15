@@ -21,7 +21,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { address, asset, captchaToken } = body as Record<string, unknown>;
+    const { address, asset, captchaToken, network: networkRaw } = body as Record<string, unknown>;
+    const network = networkRaw === "testnet" ? "testnet" : "devnet";
 
     // Validate inputs
     if (!address || typeof address !== "string") {
@@ -54,21 +55,24 @@ export async function POST(request: Request) {
     const ip = forwarded?.split(",")[0]?.trim() || realIp || undefined;
 
     // Execute drip
-    const manager = FaucetManager.getInstance();
+    const manager = FaucetManager.getInstance(network as "devnet" | "testnet");
     const result = await manager.drip(address, asset as Asset, ip);
 
     return NextResponse.json(result);
   } catch (err) {
-    if (err instanceof AddressValidationError) {
+    // Use both instanceof and .name check — the name check handles Next.js HMR
+    // module reloads where the class reference changes but the singleton persists.
+    if (err instanceof AddressValidationError || (err instanceof Error && err.name === "AddressValidationError")) {
       return NextResponse.json(
         { error: err.message },
         { status: 400 },
       );
     }
 
-    if (err instanceof ThrottleError) {
+    if (err instanceof ThrottleError || (err instanceof Error && err.name === "ThrottleError")) {
+      const throttleErr = err as ThrottleError;
       return NextResponse.json(
-        { error: err.message, retryAfter: err.retryAfter },
+        { error: err.message, retryAfter: throttleErr.retryAfter },
         { status: 429 },
       );
     }

@@ -36,7 +36,8 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const messageHash = searchParams.get("messageHash");
 
-  const manager = FaucetManager.getInstance();
+  const network = searchParams.get("network") === "testnet" ? "testnet" : "devnet";
+  const manager = FaucetManager.getInstance(network as "devnet" | "testnet");
   const claim = manager.getClaim(id);
 
   if (!claim) {
@@ -45,16 +46,17 @@ export async function GET(
     // requests land on different server pods.
     if (messageHash) {
       try {
-        const aztecNodeUrl = process.env.AZTEC_NODE_URL;
+        const { getNodeUrl } = await import("@/lib/network-config");
+        const aztecNodeUrl = getNodeUrl(network as "devnet" | "testnet");
         if (aztecNodeUrl) {
           const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
           const { Fr } = await import("@aztec/aztec.js/fields");
           const node = createAztecNodeClient(aztecNodeUrl);
-          const [currentBlock, messageBlock] = await Promise.all([
-            node.getBlockNumber(),
-            node.getL1ToL2MessageBlock(Fr.fromHexString(messageHash)),
-          ]);
-          if (messageBlock !== undefined && currentBlock >= messageBlock) {
+          const witness = await node.getL1ToL2MessageMembershipWitness(
+            "latest",
+            Fr.fromHexString(messageHash),
+          );
+          if (witness !== undefined) {
             return NextResponse.json({
               status: "ready",
               elapsedSeconds: 0,

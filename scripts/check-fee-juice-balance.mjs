@@ -3,6 +3,7 @@
  *
  * Usage:
  *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS
+ *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS --network testnet
  *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS --node https://...
  */
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
@@ -23,16 +24,24 @@ function formatFeeJuice(raw) {
   return `${intPart}.${decPart}`;
 }
 
+const DEFAULT_NODE_URLS = {
+  testnet: "https://rpc.testnet.aztec-labs.com",
+  devnet: "https://v4-devnet-2.aztec-labs.com/",
+};
+
 const address = getArg("address");
-const nodeUrl = getArg("node") || process.env.AZTEC_NODE_URL || "https://v4-devnet-2.aztec-labs.com/";
+const networkArg = getArg("network");
+const network = networkArg === "testnet" ? "testnet" : "devnet";
+const nodeUrl = getArg("node") || process.env.AZTEC_NODE_URL || DEFAULT_NODE_URLS[network];
 
 if (!address) {
   console.log(`
   Usage: node scripts/check-fee-juice-balance.mjs --address <aztec-address>
 
   Options:
-    --address  Aztec address (required, 0x + 64 hex chars)
-    --node     Aztec node URL (defaults to AZTEC_NODE_URL env or devnet)
+    --address   Aztec address (required, 0x + 64 hex chars)
+    --network   testnet or devnet (default: devnet)
+    --node      Aztec node URL (overrides --network default)
 `);
   process.exit(1);
 }

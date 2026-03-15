@@ -65,13 +65,13 @@ The faucet supports two Aztec networks, selectable from the toggle in the top-ri
 
 ### Fee Juice
 
-Fee Juice is Aztec's native gas token. It cannot be minted on L2 directly; it must be bridged from L1 through the Fee Juice Portal contract. The faucet handles the full bridge on your behalf: it mints Fee Juice on L1 (on Devnet) or draws from a pre-funded wallet (on Testnet), locks the tokens in the portal, and queues a message for your address. Once the Aztec sequencer includes that message in a block, which takes roughly one to two minutes, the faucet UI shows a live claim tracker with all values pre-filled.
+Fee Juice is Aztec's native gas token. Unlike ETH, it cannot be minted on L2 directly and must be bridged from L1 through the Fee Juice Portal contract. The faucet handles the full bridge on your behalf: it mints Fee Juice on L1 (on Devnet) or draws from a pre-funded wallet (on Testnet), locks the tokens in the portal, and queues a message for your address. Once the Aztec sequencer includes that message in a block, which takes roughly one to two minutes, the faucet UI shows a live claim tracker with all values pre-filled.
 
 Rate limit: once per 24 hours per address.
 
 ### ETH (Sepolia)
 
-Sent directly to your Ethereum address on Sepolia. Useful for paying L1 transaction fees and for funding your own bridging operations.
+This is sent directly to your Ethereum address on Sepolia, and is useful for paying L1 transaction fees and funding your own bridging operations.
 
 Rate limit: 0.001 ETH once per 24 hours per address.
 
@@ -91,13 +91,11 @@ Every new Aztec developer faces the same bootstrap problem: you need Fee Juice t
 
 ![Claim data ready](./images/fee-juice-complete.png)
 
----
-
-## New account: atomic deploy and claim
+### New account: atomic deploy and claim
 
 If your account is not yet deployed, the claim script uses `FeeJuicePaymentMethodWithClaim` to deploy the account contract and claim Fee Juice in a single atomic transaction. The claimed Fee Juice pays the deployment fee itself, so no Sponsored FPC is needed and no pre-existing balance is required. After this one transaction your account is live and fully funded.
 
-## Existing account: direct claim
+### Existing account: direct claim
 
 If you have already deployed your account via the Sponsored FPC or by another means, the script detects that the contract is already on-chain and calls `FeeJuice.claim()` directly into your existing account. The gas for this transaction is paid from whatever balance you already hold.
 
@@ -107,7 +105,7 @@ The Sponsored FPC is a contract on each network that pays transaction fees uncon
 
 ## How the bridge works
 
-When you request Fee Juice, the faucet calls `bridgeTokensPublic()` on the L1 Fee Juice Portal. On Devnet it mints Fee Juice on L1 first, which is an open privilege on the devnet build. On Testnet the faucet wallet is pre-funded and the mint step is skipped. In both cases the tokens are locked in the portal contract and an L1 to L2 message is queued for your address.
+When you request Fee Juice, the faucet calls `bridgeTokensPublic()` on the L1 Fee Juice Portal. On Devnet it mints Fee Juice on L1 first, which the devnet build permits. On Testnet the faucet wallet is pre-funded and the mint step is skipped. In both cases the tokens are locked in the portal contract and an L1 to L2 message is queued for your address.
 
 The Aztec sequencer picks up that message and includes it in a block. Once the message is finalised in the L2 Merkle tree, the claim data becomes available. The faucet's claim tracker polls this state continuously and shows the ready indicator as soon as the claim can proceed.
 

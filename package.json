@@ -10,6 +10,9 @@
   },
   "dependencies": {
     "@azguardwallet/client": "^0.8.0",
+    "@aztec-rc/aztec.js": "npm:@aztec/aztec.js@4.1.0-rc.3",
+    "@aztec-rc/stdlib": "npm:@aztec/stdlib@4.1.0-rc.3",
+    "@aztec-rc/wallets": "npm:@aztec/wallets@4.1.0-rc.3",
     "@aztec/accounts": "4.0.0-devnet.2-patch.4",
     "@aztec/aztec.js": "4.0.0-devnet.2-patch.4",
     "@aztec/ethereum": "4.0.0-devnet.2-patch.4",
@@ -20,9 +23,6 @@
     "@aztec/pxe": "4.0.0-devnet.2-patch.4",
     "@aztec/stdlib": "4.0.0-devnet.2-patch.4",
     "@aztec/wallets": "4.0.0-devnet.2-patch.4",
-    "@aztec-rc/aztec.js": "npm:@aztec/aztec.js@4.1.0-rc.2",
-    "@aztec-rc/stdlib": "npm:@aztec/stdlib@4.1.0-rc.2",
-    "@aztec-rc/wallets": "npm:@aztec/wallets@4.1.0-rc.2",
     "async-mutex": "^0.5.0",
     "next": "16.1.6",
     "react": "19.2.3",
@@ -31,15 +31,15 @@
   },
   "overrides": {
     "@aztec-rc/wallets": {
-      "@aztec/foundation": "4.1.0-rc.2",
-      "@aztec/stdlib": "4.1.0-rc.2",
-      "@aztec/aztec.js": "4.1.0-rc.2"
+      "@aztec/foundation": "4.1.0-rc.3",
+      "@aztec/stdlib": "4.1.0-rc.3",
+      "@aztec/aztec.js": "4.1.0-rc.3"
     },
     "@aztec-rc/aztec.js": {
-      "@aztec/foundation": "4.1.0-rc.2"
+      "@aztec/foundation": "4.1.0-rc.3"
     },
     "@aztec-rc/stdlib": {
-      "@aztec/foundation": "4.1.0-rc.2"
+      "@aztec/foundation": "4.1.0-rc.3"
     }
   },
   "devDependencies": {

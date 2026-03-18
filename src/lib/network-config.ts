@@ -51,10 +51,10 @@ export const NPM_TAGS: Record<Network, string> = {
 };
 
 /**
- * Schnorr account contract class ID for testnet (@rc SDK, 4.1.0-rc.2).
+ * Schnorr account contract class ID for testnet (@rc SDK, 4.1.0-rc.3).
  * The class ID is deterministically derived from the contract artifact bytecode.
  * Devnet uses a different bytecode version (@devnet SDK), so the class ID differs.
  * Update this constant when the testnet network upgrades to a new SDK version.
  */
 export const TESTNET_SCHNORR_CLASS_ID =
-  "0x1939ef95eec5103c7e172839cb5f55b8a7e63bc653598de1d813d85a4ce16c2f";
+  "0x010319cf7faafaab5cbe684f2556e379a22539a8de18b35d290a85f30057bf02";

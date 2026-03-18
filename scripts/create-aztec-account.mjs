@@ -9,9 +9,6 @@
 // Suppress all SDK logs
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "silent";
 
-const { EmbeddedWallet } = await import("@aztec/wallets/embedded");
-const { Fr } = await import("@aztec/aztec.js/fields");
-
 function getArg(name) {
   const idx = process.argv.indexOf(`--${name}`);
   if (idx === -1 || idx + 1 >= process.argv.length) return undefined;
@@ -26,6 +23,27 @@ const DEFAULT_NODE_URLS = {
 const network = getArg("network") === "testnet" ? "testnet" : "devnet";
 const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || DEFAULT_NODE_URLS[network];
 const existingSecret = getArg("secret") ?? null;
+
+// Load SDK matching the network — devnet uses @aztec/*, testnet uses @aztec-rc/*
+const SDK = network === "testnet" ? "@aztec-rc" : "@aztec";
+const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
+
+// For testnet, Fr must come from the wallets-internal @aztec/foundation to pass
+// instanceof checks inside EmbeddedWallet.createSchnorrAccount (same pattern as claim-fee-juice.mjs)
+let Fr;
+if (network === "testnet") {
+  const { createRequire } = await import("module");
+  const _req = createRequire(import.meta.url);
+  const walletsEntry = _req.resolve(`${SDK}/wallets/embedded`);
+  const walletsRoot = walletsEntry.slice(
+    0,
+    walletsEntry.indexOf("/node_modules/@aztec-rc/wallets/") + "/node_modules/@aztec-rc/wallets/".length
+  );
+  const internalFieldsPath = walletsRoot + "node_modules/@aztec/aztec.js/dest/api/fields.js";
+  ({ Fr } = await import(internalFieldsPath));
+} else {
+  ({ Fr } = await import(`${SDK}/aztec.js/fields`));
+}
 
 try {
   process.stdout.write(`\n  Connecting to ${nodeUrl}...`);

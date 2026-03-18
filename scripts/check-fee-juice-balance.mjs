@@ -6,11 +6,6 @@
  *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS --network testnet
  *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS --node https://...
  */
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { Fr } from "@aztec/aztec.js/fields";
-import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
-
 function getArg(name) {
   const idx = process.argv.indexOf(`--${name}`);
   if (idx === -1 || idx + 1 >= process.argv.length) return undefined;
@@ -33,6 +28,13 @@ const address = getArg("address");
 const networkArg = getArg("network");
 const network = networkArg === "testnet" ? "testnet" : "devnet";
 const nodeUrl = getArg("node") || process.env.AZTEC_NODE_URL || DEFAULT_NODE_URLS[network];
+
+// Load SDK matching the network — devnet uses @aztec/*, testnet uses @aztec-rc/*
+const SDK = network === "testnet" ? "@aztec-rc" : "@aztec";
+const { createAztecNodeClient } = await import(`${SDK}/aztec.js/node`);
+const { AztecAddress } = await import(`${SDK}/aztec.js/addresses`);
+const { Fr } = await import(`${SDK}/aztec.js/fields`);
+const { deriveStorageSlotInMap } = await import(`${SDK}/stdlib/hash`);
 
 if (!address) {
   console.log(`

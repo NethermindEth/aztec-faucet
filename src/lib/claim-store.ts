@@ -23,8 +23,10 @@ export class ClaimStore {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private aztecNode: any;
+  readonly nodeUrl: string;
 
   constructor(aztecNodeUrl: string) {
+    this.nodeUrl = aztecNodeUrl;
     this.aztecNode = createAztecNodeClient(aztecNodeUrl);
     this.startPolling();
   }
@@ -99,11 +101,26 @@ export class ClaimStore {
     for (const claim of bridgingClaims) {
       try {
         const messageHash = Fr.fromHexString(claim.claimData.messageHashHex);
-        const messageBlock = await this.aztecNode.getL1ToL2MessageBlock(
-          messageHash,
-        );
+        let isReady = false;
 
-        if (messageBlock !== undefined && currentBlock >= messageBlock) {
+        try {
+          const messageBlock = await this.aztecNode.getL1ToL2MessageBlock(messageHash);
+          isReady = messageBlock !== undefined && currentBlock >= messageBlock;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes("Method not found")) {
+            // Newer nodes (rc+) removed getL1ToL2MessageBlock.
+            // getL1ToL2MessageMembershipWitness('latest') returns a witness only when
+            // the message is finalized in the L2 Merkle tree — the true prerequisite
+            // for claiming. isL1ToL2MessageSynced is deprecated and returns true too early.
+            const witness = await this.aztecNode.getL1ToL2MessageMembershipWitness("latest", messageHash);
+            isReady = witness !== undefined;
+          } else {
+            throw err;
+          }
+        }
+
+        if (isReady) {
           claim.status = "ready";
           claim.readyAt = Date.now();
         }

@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { FaucetManager } from "@/lib/faucet-manager";
 
-export async function GET() {
+export async function GET(request: Request) {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET",
   };
 
   try {
-    const manager = FaucetManager.getInstance();
+    const { searchParams } = new URL(request.url);
+    const network = searchParams.get("network") === "testnet" ? "testnet" : "devnet";
+    const manager = FaucetManager.getInstance(network);
     const status = await manager.getStatus();
     return NextResponse.json(status, { headers: corsHeaders });
   } catch (err) {

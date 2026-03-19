@@ -42,6 +42,9 @@ function spin(label) {
     },
   });
 }
+// OSC 8 hyperlink — clickable in iTerm2, macOS Terminal, GNOME Terminal, Windows Terminal
+// Falls back gracefully to plain text in unsupported terminals.
+const link = (url) => `\x1b]8;;${url}\x1b\\${url}\x1b]8;;\x1b\\`;
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getArg(name) {
@@ -180,7 +183,7 @@ try {
   tx      ${txHash}
   status  ${receipt?.status ?? "unknown"}
   block   ${receipt?.blockNumber ?? "n/a"}
-  fee     ${receipt?.transactionFee?.toString() ?? "n/a"}${txHash !== "n/a" ? `\n\n  ${EXPLORER_TX_URLS[network]}/${txHash}` : ""}
+  fee     ${receipt?.transactionFee?.toString() ?? "n/a"}${txHash !== "n/a" ? `\n\n  ${link(`${EXPLORER_TX_URLS[network]}/${txHash}`)}` : ""}
 `);
   } else {
     // Claim directly on already-deployed account
@@ -201,7 +204,7 @@ try {
   tx      ${txHash}
   status  ${receipt?.status ?? "unknown"}
   block   ${receipt?.blockNumber ?? "n/a"}
-  fee     ${receipt?.transactionFee?.toString() ?? "n/a"}${txHash !== "n/a" ? `\n\n  ${EXPLORER_TX_URLS[network]}/${txHash}` : ""}
+  fee     ${receipt?.transactionFee?.toString() ?? "n/a"}${txHash !== "n/a" ? `\n\n  ${link(`${EXPLORER_TX_URLS[network]}/${txHash}`)}` : ""}
 `);
   }
 

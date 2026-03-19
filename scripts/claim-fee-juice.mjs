@@ -18,6 +18,32 @@
 // Suppress all SDK logs — only our own output is shown
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "silent";
 
+// ── progress spinner ─────────────────────────────────────────────────────────
+const _F = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+const _C = { cy:'\x1b[36m', gr:'\x1b[32m', rd:'\x1b[31m', di:'\x1b[2m', rs:'\x1b[0m' };
+let _sp = null;
+function spin(label) {
+  let i = 0, t, s = Date.now();
+  t = setInterval(() => {
+    const e = Math.floor((Date.now() - s) / 1000);
+    process.stdout.write(`\r  ${_C.cy}${_F[i++ % 10]}${_C.rs}  ${label}  ${_C.di}${e}s${_C.rs}`);
+  }, 80);
+  return (_sp = {
+    ok(note = '') {
+      clearInterval(t); _sp = null;
+      const d = ((Date.now() - s) / 1000).toFixed(1);
+      const n = note ? `  ${_C.di}${note}${_C.rs}` : '';
+      process.stdout.write(`\r\x1b[K  ${_C.gr}✓${_C.rs}  ${label}${n}  ${_C.di}${d}s${_C.rs}\n`);
+    },
+    fail(note = '') {
+      clearInterval(t); _sp = null;
+      const n = note ? `  ${_C.di}${note}${_C.rs}` : '';
+      process.stdout.write(`\r\x1b[K  ${_C.rd}✗${_C.rs}  ${label}${n}\n`);
+    },
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function getArg(name) {
   const idx = process.argv.indexOf(`--${name}`);
   if (idx === -1 || idx + 1 >= process.argv.length) return undefined;
@@ -94,17 +120,15 @@ if (network === "testnet") {
 }
 
 console.log(`
-  Aztec Fee Juice Claim
-  ---------------------
-  Network:      ${network}
-  Node:         ${nodeUrl}
-  Claim Amount: ${claimAmountStr}
-  Leaf Index:   ${messageLeafIndexStr}
+  Aztec Fee Juice Claim  ·  ${network}
+  node    ${nodeUrl}
+  amount  ${claimAmountStr}
+  leaf    ${messageLeafIndexStr}
 `);
 
 try {
   // Step 1: Create wallet and derive account
-  process.stdout.write("  [1/3] Initializing wallet and account...");
+  const s1 = spin('Initializing wallet');
   const wallet = await EmbeddedWallet.create(nodeUrl, {
     ephemeral: true,
     pxeConfig: { proverEnabled: true },
@@ -112,14 +136,13 @@ try {
   const secretKey = Fr.fromHexString(accountSecret);
   const accountManager = await wallet.createSchnorrAccount(secretKey, Fr.ZERO);
   const address = accountManager.address;
-  console.log(" done");
-  console.log(`        Address: ${address.toString()}`);
+  s1.ok(address.toString().slice(0, 20) + '…');
 
   // Step 2: Check deployment status
-  process.stdout.write("  [2/3] Checking account status...");
+  const s2 = spin('Checking account status');
   const metadata = await wallet.getContractMetadata(address);
   const isDeployed = metadata.isContractInitialized;
-  console.log(isDeployed ? " deployed" : " not deployed");
+  s2.ok(isDeployed ? 'deployed' : 'not yet deployed');
 
   // Prepare claim and gas settings
   const claim = {
@@ -137,7 +160,7 @@ try {
     // Deploy + claim in one tx.
     // wait: { returnReceipt: true } is required — without it DeployMethod.send()
     // returns the deployed contract instance, not the TxReceipt.
-    process.stdout.write("  [3/3] Deploying account + claiming Fee Juice (proving ~10s)...");
+    const s3 = spin('Deploying account and claiming Fee Juice');
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
     const deployMethod = await accountManager.getDeployMethod();
 
@@ -151,18 +174,17 @@ try {
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
-    console.log(" done\n");
-    console.log("  Result");
-    console.log("  ------");
-    console.log(`  Tx Hash: ${txHash}`);
-    console.log(`  Status:  ${receipt?.status ?? "unknown"}`);
-    console.log(`  Block:   ${receipt?.blockNumber ?? "n/a"}`);
-    console.log(`  Fee:     ${receipt?.transactionFee?.toString() ?? "n/a"}`);
-    if (txHash !== "n/a") console.log(`  Explorer: ${EXPLORER_TX_URLS[network]}/${txHash}`);
-    console.log(`\n  Account deployed and Fee Juice claimed successfully.`);
+    s3.ok(receipt?.status ?? 'done');
+
+    console.log(`
+  tx      ${txHash}
+  status  ${receipt?.status ?? "unknown"}
+  block   ${receipt?.blockNumber ?? "n/a"}
+  fee     ${receipt?.transactionFee?.toString() ?? "n/a"}${txHash !== "n/a" ? `\n\n  ${EXPLORER_TX_URLS[network]}/${txHash}` : ""}
+`);
   } else {
     // Claim directly on already-deployed account
-    process.stdout.write("  [3/3] Claiming Fee Juice (proving ~10s)...");
+    const s3 = spin('Claiming Fee Juice');
     const { FeeJuiceContract } = await import(`${SDK}/aztec.js/protocol`);
 
     // FeeJuiceContract.at() takes only the wallet — protocol address is hardcoded
@@ -173,15 +195,14 @@ try {
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
-    console.log(" done\n");
-    console.log("  Result");
-    console.log("  ------");
-    console.log(`  Tx Hash: ${txHash}`);
-    console.log(`  Status:  ${receipt?.status ?? "unknown"}`);
-    console.log(`  Block:   ${receipt?.blockNumber ?? "n/a"}`);
-    console.log(`  Fee:     ${receipt?.transactionFee?.toString() ?? "n/a"}`);
-    if (txHash !== "n/a") console.log(`  Explorer: ${EXPLORER_TX_URLS[network]}/${txHash}`);
-    console.log(`\n  Fee Juice claimed successfully.`);
+    s3.ok(receipt?.status ?? 'done');
+
+    console.log(`
+  tx      ${txHash}
+  status  ${receipt?.status ?? "unknown"}
+  block   ${receipt?.blockNumber ?? "n/a"}
+  fee     ${receipt?.transactionFee?.toString() ?? "n/a"}${txHash !== "n/a" ? `\n\n  ${EXPLORER_TX_URLS[network]}/${txHash}` : ""}
+`);
   }
 
   console.log(`\n  Check balance:\n    curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
@@ -189,7 +210,7 @@ try {
   await wallet.stop();
   process.exit(0);
 } catch (err) {
-  console.log(" failed\n");
+  if (_sp) _sp.fail();
 
   const msg = err.message || String(err);
 

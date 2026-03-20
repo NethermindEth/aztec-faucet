@@ -84,10 +84,10 @@ try {
   s2.ok(account.address.toString().slice(0, 20) + '…');
 
   console.log(`
-  secret  ${secretKey.toString()}
-  address ${account.address.toString()}
+  ${_C.di}secret${_C.rs}   ${secretKey.toString()}
+  ${_C.di}address${_C.rs}  ${account.address.toString()}
 
-  Next: paste your address into the faucet, wait ~2 min for the bridge,
+  ${_C.di}Next:${_C.rs} paste your address into the faucet, wait ~2 min for the bridge,
   then run the claim command shown in the faucet UI.
 `);
 

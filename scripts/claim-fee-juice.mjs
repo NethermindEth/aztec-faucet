@@ -42,10 +42,20 @@ function spin(label) {
     },
   });
 }
-// OSC 8 hyperlink — clickable in iTerm2, macOS Terminal, GNOME Terminal, Windows Terminal
-// Falls back gracefully to plain text in unsupported terminals.
-const link = (url) => `\x1b]8;;${url}\x1b\\${url}\x1b]8;;\x1b\\`;
+// OSC 8 hyperlink with explicit underline + cyan so it looks clickable even
+// in terminals that don't render OSC 8 hover effects (e.g. macOS Terminal.app).
+// Cmd+click (Terminal.app) or click (iTerm2/Ghostty/Warp) opens the URL.
+const link = (url, text = url) =>
+  `\x1b]8;;${url}\x1b\\\x1b[4;36m${text}\x1b[0m\x1b]8;;\x1b\\`;
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Format a raw Fee Juice bigint (18 decimals) as "x.xxxx FJ"
+function formatFJ(raw) {
+  try {
+    const s = BigInt(raw).toString().padStart(19, "0");
+    return `${s.slice(0, s.length - 18) || "0"}.${s.slice(s.length - 18, s.length - 14)} FJ`;
+  } catch { return raw ?? "n/a"; }
+}
 
 function getArg(name) {
   const idx = process.argv.indexOf(`--${name}`);
@@ -124,9 +134,9 @@ if (network === "testnet") {
 
 console.log(`
   Aztec Fee Juice Claim  ·  ${network}
-  node    ${nodeUrl}
-  amount  ${claimAmountStr}
-  leaf    ${messageLeafIndexStr}
+  ${_C.di}node${_C.rs}    ${nodeUrl}
+  ${_C.di}amount${_C.rs}  ${claimAmountStr}
+  ${_C.di}leaf${_C.rs}    ${messageLeafIndexStr}
 `);
 
 try {
@@ -177,13 +187,16 @@ try {
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
-    s3.ok(receipt?.status ?? 'done');
+    const statusStr = receipt?.status ?? "unknown";
+    s3.ok(statusStr);
 
+    const explorerUrl = `${EXPLORER_TX_URLS[network]}/${txHash}`;
     console.log(`
-  tx      ${txHash}
-  status  ${receipt?.status ?? "unknown"}
-  block   ${receipt?.blockNumber ?? "n/a"}
-  fee     ${receipt?.transactionFee?.toString() ?? "n/a"}${txHash !== "n/a" ? `\n\n  ${link(`${EXPLORER_TX_URLS[network]}/${txHash}`)}` : ""}
+  ${_C.di}tx${_C.rs}      ${txHash}
+  ${_C.di}status${_C.rs}  ${['checkpointed','success','mined'].includes(statusStr) ? _C.gr : _C.rs}${statusStr}${_C.rs}
+  ${_C.di}block${_C.rs}   ${receipt?.blockNumber ?? "n/a"}
+  ${_C.di}fee${_C.rs}     ${formatFJ(receipt?.transactionFee?.toString())}
+${txHash !== "n/a" ? `  ${link(explorerUrl, 'View on AztecScan  ↗')}` : ""}
 `);
   } else {
     // Claim directly on already-deployed account
@@ -198,17 +211,20 @@ try {
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
-    s3.ok(receipt?.status ?? 'done');
+    const statusStr = receipt?.status ?? "unknown";
+    s3.ok(statusStr);
 
+    const explorerUrl = `${EXPLORER_TX_URLS[network]}/${txHash}`;
     console.log(`
-  tx      ${txHash}
-  status  ${receipt?.status ?? "unknown"}
-  block   ${receipt?.blockNumber ?? "n/a"}
-  fee     ${receipt?.transactionFee?.toString() ?? "n/a"}${txHash !== "n/a" ? `\n\n  ${link(`${EXPLORER_TX_URLS[network]}/${txHash}`)}` : ""}
+  ${_C.di}tx${_C.rs}      ${txHash}
+  ${_C.di}status${_C.rs}  ${['checkpointed','success','mined'].includes(statusStr) ? _C.gr : _C.rs}${statusStr}${_C.rs}
+  ${_C.di}block${_C.rs}   ${receipt?.blockNumber ?? "n/a"}
+  ${_C.di}fee${_C.rs}     ${formatFJ(receipt?.transactionFee?.toString())}
+${txHash !== "n/a" ? `  ${link(explorerUrl, 'View on AztecScan  ↗')}` : ""}
 `);
   }
 
-  console.log(`\n  Check balance:\n    curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
+  console.log(`  ${_C.di}check balance${_C.rs}\n  curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
 
   await wallet.stop();
   process.exit(0);

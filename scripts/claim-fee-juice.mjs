@@ -57,23 +57,6 @@ function formatFJ(raw) {
   } catch { return raw ?? "n/a"; }
 }
 
-// Rounded box: rows = [label, display_value, raw_value_without_ansi?]
-function box(rows) {
-  const PAD = 2, GAP = 2;
-  const lW = Math.max(...rows.map(r => r[0].length));
-  const vW = Math.max(...rows.map(r => (r[2] !== undefined ? r[2] : r[1]).length));
-  const iW = PAD + lW + GAP + vW + PAD;
-  const hr = '─'.repeat(iW);
-  return [
-    `  ╭${hr}╮`,
-    ...rows.map(([l, v, raw]) => {
-      const trail = ' '.repeat(vW - (raw !== undefined ? raw.length : v.length) + PAD);
-      return `  │${' '.repeat(PAD)}${_C.di}${l.padEnd(lW)}${_C.rs}${' '.repeat(GAP)}${v}${trail}│`;
-    }),
-    `  ╰${hr}╯`,
-  ].join('\n');
-}
-
 function getArg(name) {
   const idx = process.argv.indexOf(`--${name}`);
   if (idx === -1 || idx + 1 >= process.argv.length) return undefined;
@@ -149,13 +132,12 @@ if (network === "testnet") {
   ({ Fr } = await import(`${SDK}/aztec.js/fields`));
 }
 
-console.log(`\n  Aztec Fee Juice Claim  ·  ${network}\n`);
-console.log(box([
-  ['network', network],
-  ['node',    nodeUrl],
-  ['amount',  claimAmountStr],
-  ['leaf',    messageLeafIndexStr],
-]) + '\n');
+console.log(`
+  Aztec Fee Juice Claim  ·  ${network}
+  ${_C.di}node${_C.rs}    ${nodeUrl}
+  ${_C.di}amount${_C.rs}  ${claimAmountStr}
+  ${_C.di}leaf${_C.rs}    ${messageLeafIndexStr}
+`);
 
 try {
   // Step 1: Create wallet and derive account
@@ -210,14 +192,13 @@ try {
 
     const explorerUrl = `${EXPLORER_TX_URLS[network]}/${txHash}`;
     const statusClr = ['checkpointed','success','mined'].includes(statusStr) ? _C.gr : '';
-    console.log('\n' + box([
-      ['tx',     txHash],
-      ['status', `${statusClr}${statusStr}${_C.rs}`, statusStr],
-      ['block',  String(receipt?.blockNumber ?? "n/a")],
-      ['fee',    formatFJ(receipt?.transactionFee?.toString())],
-    ]));
-    if (txHash !== "n/a") console.log(`\n  ${link(explorerUrl, 'View on AztecScan  ↗')}`);
-    console.log('');
+    console.log(`
+  ${_C.di}tx${_C.rs}      ${txHash}
+  ${_C.di}status${_C.rs}  ${statusClr}${statusStr}${_C.rs}
+  ${_C.di}block${_C.rs}   ${receipt?.blockNumber ?? "n/a"}
+  ${_C.di}fee${_C.rs}     ${formatFJ(receipt?.transactionFee?.toString())}
+`);
+    if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   } else {
     // Claim directly on already-deployed account
     const s3 = spin('Claiming Fee Juice');
@@ -236,14 +217,13 @@ try {
 
     const explorerUrl = `${EXPLORER_TX_URLS[network]}/${txHash}`;
     const statusClr = ['checkpointed','success','mined'].includes(statusStr) ? _C.gr : '';
-    console.log('\n' + box([
-      ['tx',     txHash],
-      ['status', `${statusClr}${statusStr}${_C.rs}`, statusStr],
-      ['block',  String(receipt?.blockNumber ?? "n/a")],
-      ['fee',    formatFJ(receipt?.transactionFee?.toString())],
-    ]));
-    if (txHash !== "n/a") console.log(`\n  ${link(explorerUrl, 'View on AztecScan  ↗')}`);
-    console.log('');
+    console.log(`
+  ${_C.di}tx${_C.rs}      ${txHash}
+  ${_C.di}status${_C.rs}  ${statusClr}${statusStr}${_C.rs}
+  ${_C.di}block${_C.rs}   ${receipt?.blockNumber ?? "n/a"}
+  ${_C.di}fee${_C.rs}     ${formatFJ(receipt?.transactionFee?.toString())}
+`);
+    if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   }
 
   console.log(`  ${_C.di}check balance${_C.rs}\n  curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);

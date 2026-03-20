@@ -64,7 +64,7 @@ _needs_install=0
 if [ "$_needs_install" = "1" ]; then
   printf '{"type":"module"}' > package.json
   rm -rf node_modules/@aztec-rc 2>/dev/null || true
-  npm install --no-package-lock \
+  npm install --no-package-lock --no-audit \
     "@aztec-rc/wallets@npm:@aztec/wallets@$AZTEC_SDK_NPM_TAG_TESTNET" \
     "@aztec-rc/aztec.js@npm:@aztec/aztec.js@$AZTEC_SDK_NPM_TAG_TESTNET" \
     "@aztec-rc/stdlib@npm:@aztec/stdlib@$AZTEC_SDK_NPM_TAG_TESTNET" \

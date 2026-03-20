@@ -64,7 +64,7 @@ _needs_install=0
 if [ "$_needs_install" = "1" ]; then
   printf '{"type":"module"}' > package.json
   rm -rf node_modules/@aztec 2>/dev/null || true
-  npm install --no-package-lock "@aztec/wallets@devnet" "@aztec/aztec.js@devnet" "@aztec/stdlib@devnet" --silent > /dev/null 2>&1 &
+  npm install --no-package-lock --no-audit "@aztec/wallets@devnet" "@aztec/aztec.js@devnet" "@aztec/stdlib@devnet" --silent > /dev/null 2>&1 &
   _npm_pid=$!
   spin $_npm_pid "Installing packages (@devnet)" || exit 1
 fi

@@ -50,7 +50,7 @@ _pkgs=""
 
 if [ -n "$_pkgs" ]; then
   [ ! -f package.json ] && printf '{"type":"module"}' > package.json
-  npm install --no-package-lock $_pkgs --silent > /dev/null 2>&1 &
+  npm install --no-package-lock --no-audit $_pkgs --silent > /dev/null 2>&1 &
   _npm_pid=$!
   spin $_npm_pid "Installing packages" || exit 1
 fi

@@ -33,6 +33,22 @@ function spin(label) {
     },
   });
 }
+// Rounded box: rows = [label, display_value, raw_value_without_ansi?]
+function box(rows) {
+  const PAD = 2, GAP = 2;
+  const lW = Math.max(...rows.map(r => r[0].length));
+  const vW = Math.max(...rows.map(r => (r[2] !== undefined ? r[2] : r[1]).length));
+  const iW = PAD + lW + GAP + vW + PAD;
+  const hr = '─'.repeat(iW);
+  return [
+    `  ╭${hr}╮`,
+    ...rows.map(([l, v, raw]) => {
+      const trail = ' '.repeat(vW - (raw !== undefined ? raw.length : v.length) + PAD);
+      return `  │${' '.repeat(PAD)}${_C.di}${l.padEnd(lW)}${_C.rs}${' '.repeat(GAP)}${v}${trail}│`;
+    }),
+    `  ╰${hr}╯`,
+  ].join('\n');
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getArg(name) {
@@ -83,13 +99,11 @@ try {
   const account = await wallet.createSchnorrAccount(secretKey, Fr.ZERO);
   s2.ok(account.address.toString().slice(0, 20) + '…');
 
-  console.log(`
-  ${_C.di}secret${_C.rs}   ${secretKey.toString()}
-  ${_C.di}address${_C.rs}  ${account.address.toString()}
-
-  ${_C.di}Next:${_C.rs} paste your address into the faucet, wait ~2 min for the bridge,
-  then run the claim command shown in the faucet UI.
-`);
+  console.log('\n' + box([
+    ['secret',  secretKey.toString()],
+    ['address', account.address.toString()],
+  ]) + '\n');
+  console.log(`  ${_C.di}Next:${_C.rs} paste your address into the faucet, wait ~2 min for the bridge,\n  then run the claim command shown in the faucet UI.\n`);
 
   await wallet.stop();
   process.exit(0);

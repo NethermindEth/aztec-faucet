@@ -32,6 +32,22 @@ function spin(label) {
     },
   });
 }
+// Rounded box: rows = [label, display_value, raw_value_without_ansi?]
+function box(rows) {
+  const PAD = 2, GAP = 2;
+  const lW = Math.max(...rows.map(r => r[0].length));
+  const vW = Math.max(...rows.map(r => (r[2] !== undefined ? r[2] : r[1]).length));
+  const iW = PAD + lW + GAP + vW + PAD;
+  const hr = '─'.repeat(iW);
+  return [
+    `  ╭${hr}╮`,
+    ...rows.map(([l, v, raw]) => {
+      const trail = ' '.repeat(vW - (raw !== undefined ? raw.length : v.length) + PAD);
+      return `  │${' '.repeat(PAD)}${_C.di}${l.padEnd(lW)}${_C.rs}${' '.repeat(GAP)}${v}${trail}│`;
+    }),
+    `  ╰${hr}╯`,
+  ].join('\n');
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 function getArg(name) {
@@ -95,13 +111,14 @@ try {
   const balanceField = await node.getPublicStorageAt("latest", feeJuiceAddress, balanceSlot);
   const balance = balanceField.toBigInt();
 
-  sp.ok(`${formatFeeJuice(balance)} FJ`);
+  const balanceFormatted = `${formatFeeJuice(balance)} Fee Juice`;
+  sp.ok(balanceFormatted);
 
-  console.log(`
-  ${_C.di}address${_C.rs}  ${address}
-  ${_C.di}node${_C.rs}     ${nodeUrl}
-  ${_C.di}balance${_C.rs}  ${_C.gr}${formatFeeJuice(balance)} Fee Juice${_C.rs}  ${_C.di}(${balance.toString()} raw)${_C.rs}
-`);
+  console.log('\n' + box([
+    ['address', address],
+    ['node',    nodeUrl],
+    ['balance', `${_C.gr}${balanceFormatted}${_C.rs}`, balanceFormatted],
+  ]) + '\n');
 
   if (balance === 0n) {
     console.log(`  No balance found. Possible reasons:

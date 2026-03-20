@@ -216,11 +216,11 @@ function ResetButton({ onReset }: { onReset: () => void }) {
   );
 }
 
-function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }) {
+function EthResult({ txHash, onReset, network }: { txHash: string; onReset?: () => void; network?: string }) {
   const [showFullHash, setShowFullHash] = useState(false);
   return (
     <div className="flex flex-col gap-5">
-      <ConfettiBurst />
+      <ConfettiBurst network={network} />
       {/* Top section */}
       <div className="space-y-5">
         {/* Header row */}
@@ -327,7 +327,7 @@ export function DripResult({ result, error, retryAfter, onReset, network = "devn
   if (!result) return null;
 
   if (result.asset === "eth" && result.txHash) {
-    return <EthResult txHash={result.txHash} onReset={onReset} />;
+    return <EthResult txHash={result.txHash} onReset={onReset} network={network} />;
   }
 
   // fee-juice fallback

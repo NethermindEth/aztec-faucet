@@ -59,6 +59,7 @@ const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
 let Fr;
 if (network === "testnet") {
   const { createRequire } = await import("module");
+  const { existsSync } = await import("fs");
   const _req = createRequire(import.meta.url);
   const walletsEntry = _req.resolve(`${SDK}/wallets/embedded`);
   const walletsRoot = walletsEntry.slice(
@@ -66,7 +67,13 @@ if (network === "testnet") {
     walletsEntry.indexOf("/node_modules/@aztec-rc/wallets/") + "/node_modules/@aztec-rc/wallets/".length
   );
   const internalFieldsPath = walletsRoot + "node_modules/@aztec/aztec.js/dest/api/fields.js";
-  ({ Fr } = await import(internalFieldsPath));
+  // If npm deduplicated the package (no nested copy), fall back to the root-level alias.
+  // Deduplication means all @aztec/aztec.js imports share one module instance, so instanceof works.
+  if (existsSync(internalFieldsPath)) {
+    ({ Fr } = await import(internalFieldsPath));
+  } else {
+    ({ Fr } = await import(`${SDK}/aztec.js/fields`));
+  }
 } else {
   ({ Fr } = await import(`${SDK}/aztec.js/fields`));
 }

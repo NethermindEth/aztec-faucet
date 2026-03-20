@@ -68,7 +68,7 @@ _needs_install=0
 [ -z "$(_pkg_ver "@aztec-rc/aztec.js")" ] && _needs_install=1
 
 if [ "$_needs_install" = "1" ]; then
-  [ ! -f package.json ] && printf '{"type":"module"}' > package.json
+  printf '{"type":"module"}' > package.json
   rm -rf node_modules/@aztec-rc 2>/dev/null || true
   npm install --no-package-lock \
     "@aztec-rc/aztec.js@npm:@aztec/aztec.js@$AZTEC_SDK_NPM_TAG_TESTNET" \
@@ -79,7 +79,7 @@ if [ "$_needs_install" = "1" ]; then
 fi
 
 curl -fsSL "$REPO_RAW/scripts/check-fee-juice-balance.mjs" \
-  -o ~/.aztec-devtools/check-fee-juice-balance.mjs 2>/dev/null
+  -o ~/.aztec-devtools/check-fee-juice-balance.mjs 2>/dev/null || true
 
 if [ "$_has_custom_node" = "0" ]; then
   _extra_args="--node $AZTEC_NODE_URL_TESTNET"

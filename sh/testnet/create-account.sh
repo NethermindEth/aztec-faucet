@@ -51,12 +51,13 @@ AZTEC_NODE_URL_TESTNET="${AZTEC_NODE_URL_TESTNET:-https://rpc.testnet.aztec-labs
 # Print installed version of a package, empty string if missing or unreadable
 _pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }
 
-# Testnet packages are installed as @aztec-rc/* aliases
+# Testnet packages are installed as @aztec-rc/* aliases so create-aztec-account.mjs
+# can import them from that scope without conflicting with devnet @aztec/* packages
 _needs_install=0
 [ -z "$(_pkg_ver "@aztec-rc/wallets")" ] && _needs_install=1
 
 if [ "$_needs_install" = "1" ]; then
-  [ ! -f package.json ] && printf '{"type":"module"}' > package.json
+  printf '{"type":"module"}' > package.json
   rm -rf node_modules/@aztec-rc 2>/dev/null || true
   npm install --no-package-lock \
     "@aztec-rc/wallets@npm:@aztec/wallets@$AZTEC_SDK_NPM_TAG_TESTNET" \
@@ -67,7 +68,7 @@ if [ "$_needs_install" = "1" ]; then
 fi
 
 curl -fsSL "$REPO_RAW/scripts/create-aztec-account.mjs" \
-  -o ~/.aztec-devtools/create-aztec-account.mjs 2>/dev/null
+  -o ~/.aztec-devtools/create-aztec-account.mjs 2>/dev/null || true
 
 _out=$(mktemp)
 node ~/.aztec-devtools/create-aztec-account.mjs "$@" --network testnet --node-url "$AZTEC_NODE_URL_TESTNET" > "$_out" 2>&1 &

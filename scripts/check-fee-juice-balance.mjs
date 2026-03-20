@@ -6,6 +6,34 @@
  *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS --network testnet
  *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS --node https://...
  */
+process.env.LOG_LEVEL = process.env.LOG_LEVEL || "silent";
+
+// ── progress spinner ─────────────────────────────────────────────────────────
+const _F = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+const _C = { cy:'\x1b[36m', gr:'\x1b[32m', rd:'\x1b[31m', di:'\x1b[2m', rs:'\x1b[0m' };
+let _sp = null;
+function spin(label) {
+  let i = 0, t, s = Date.now();
+  t = setInterval(() => {
+    const e = Math.floor((Date.now() - s) / 1000);
+    process.stdout.write(`\r  ${_C.cy}${_F[i++ % 10]}${_C.rs}  ${label}  ${_C.di}${e}s${_C.rs}`);
+  }, 80);
+  return (_sp = {
+    ok(note = '') {
+      clearInterval(t); _sp = null;
+      const d = ((Date.now() - s) / 1000).toFixed(1);
+      const n = note ? `  ${_C.di}${note}${_C.rs}` : '';
+      process.stdout.write(`\r\x1b[K  ${_C.gr}✓${_C.rs}  ${label}${n}  ${_C.di}${d}s${_C.rs}\n`);
+    },
+    fail(note = '') {
+      clearInterval(t); _sp = null;
+      const n = note ? `  ${_C.di}${note}${_C.rs}` : '';
+      process.stdout.write(`\r\x1b[K  ${_C.rd}✗${_C.rs}  ${label}${n}\n`);
+    },
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function getArg(name) {
   const idx = process.argv.indexOf(`--${name}`);
   if (idx === -1 || idx + 1 >= process.argv.length) return undefined;
@@ -53,7 +81,11 @@ if (!/^0x[0-9a-fA-F]{64}$/.test(address)) {
   process.exit(1);
 }
 
+console.log(`\n  Aztec Fee Juice Balance  ·  ${network}\n`);
+
 try {
+  const sp = spin('Fetching balance');
+
   const node = createAztecNodeClient(nodeUrl);
   const owner = AztecAddress.fromString(address);
 
@@ -63,23 +95,26 @@ try {
   const balanceField = await node.getPublicStorageAt("latest", feeJuiceAddress, balanceSlot);
   const balance = balanceField.toBigInt();
 
+  const balanceFormatted = `${formatFeeJuice(balance)} Fee Juice`;
+  sp.ok(balanceFormatted);
+
   console.log(`
-  Fee Juice Balance
-  -----------------
-  Address: ${address}
-  Node:    ${nodeUrl}
-  Balance: ${formatFeeJuice(balance)} Fee Juice (${balance.toString()} raw)
+  ${_C.di}address${_C.rs}  ${address}
+  ${_C.di}node${_C.rs}     ${nodeUrl}
+  ${_C.di}balance${_C.rs}  ${_C.gr}${balanceFormatted}${_C.rs}
 `);
 
   if (balance === 0n) {
     console.log(`  No balance found. Possible reasons:
     - Haven't requested Fee Juice from the faucet yet
     - L1→L2 bridge is still pending (~2 minutes)
-    - Haven't claimed yet (run claim-fee-juice.mjs)
+    - Haven't claimed yet (run the claim command from the faucet UI)
     - Fee Juice was already spent on transactions
 `);
   }
 } catch (err) {
+  if (_sp) _sp.fail();
+
   const msg = err.message || String(err);
 
   if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {

@@ -18,6 +18,45 @@
 // Suppress all SDK logs — only our own output is shown
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "silent";
 
+// ── progress spinner ─────────────────────────────────────────────────────────
+const _F = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+const _C = { cy:'\x1b[36m', gr:'\x1b[32m', rd:'\x1b[31m', di:'\x1b[2m', rs:'\x1b[0m' };
+let _sp = null;
+function spin(label) {
+  let i = 0, t, s = Date.now();
+  t = setInterval(() => {
+    const e = Math.floor((Date.now() - s) / 1000);
+    process.stdout.write(`\r  ${_C.cy}${_F[i++ % 10]}${_C.rs}  ${label}  ${_C.di}${e}s${_C.rs}`);
+  }, 80);
+  return (_sp = {
+    ok(note = '') {
+      clearInterval(t); _sp = null;
+      const d = ((Date.now() - s) / 1000).toFixed(1);
+      const n = note ? `  ${_C.di}${note}${_C.rs}` : '';
+      process.stdout.write(`\r\x1b[K  ${_C.gr}✓${_C.rs}  ${label}${n}  ${_C.di}${d}s${_C.rs}\n`);
+    },
+    fail(note = '') {
+      clearInterval(t); _sp = null;
+      const n = note ? `  ${_C.di}${note}${_C.rs}` : '';
+      process.stdout.write(`\r\x1b[K  ${_C.rd}✗${_C.rs}  ${label}${n}\n`);
+    },
+  });
+}
+// OSC 8 hyperlink with explicit underline + cyan so it looks clickable even
+// in terminals that don't render OSC 8 hover effects (e.g. macOS Terminal.app).
+// Cmd+click (Terminal.app) or click (iTerm2/Ghostty/Warp) opens the URL.
+const link = (url, text = url) =>
+  `\x1b]8;;${url}\x1b\\\x1b[4;36m${text}\x1b[0m\x1b]8;;\x1b\\`;
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Format a raw Fee Juice bigint (18 decimals) as "x.xxxx FJ"
+function formatFJ(raw) {
+  try {
+    const s = BigInt(raw).toString().padStart(19, "0");
+    return `${s.slice(0, s.length - 18) || "0"}.${s.slice(s.length - 18, s.length - 14)} FJ`;
+  } catch { return raw ?? "n/a"; }
+}
+
 function getArg(name) {
   const idx = process.argv.indexOf(`--${name}`);
   if (idx === -1 || idx + 1 >= process.argv.length) return undefined;
@@ -80,6 +119,7 @@ const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
 let Fr;
 if (network === "testnet") {
   const { createRequire } = await import("module");
+  const { existsSync } = await import("fs");
   const _req = createRequire(import.meta.url);
   // Wallets entry path: .../node_modules/@aztec-rc/wallets/dest/embedded/entrypoints/node.js
   // Its nested aztec.js lives at: .../node_modules/@aztec-rc/wallets/node_modules/@aztec/aztec.js/
@@ -88,23 +128,27 @@ if (network === "testnet") {
     "/node_modules/@aztec-rc/wallets/".length);
   // Use absolute path import to bypass package exports restrictions
   const internalFieldsPath = walletsRoot + "node_modules/@aztec/aztec.js/dest/api/fields.js";
-  ({ Fr } = await import(internalFieldsPath));
+  // If npm deduplicated the package (no nested copy), fall back to the root-level alias.
+  // Deduplication means all @aztec/aztec.js imports share one module instance, so instanceof works.
+  if (existsSync(internalFieldsPath)) {
+    ({ Fr } = await import(internalFieldsPath));
+  } else {
+    ({ Fr } = await import(`${SDK}/aztec.js/fields`));
+  }
 } else {
   ({ Fr } = await import(`${SDK}/aztec.js/fields`));
 }
 
 console.log(`
-  Aztec Fee Juice Claim
-  ---------------------
-  Network:      ${network}
-  Node:         ${nodeUrl}
-  Claim Amount: ${claimAmountStr}
-  Leaf Index:   ${messageLeafIndexStr}
+  Aztec Fee Juice Claim  ·  ${network}
+  ${_C.di}node${_C.rs}    ${nodeUrl}
+  ${_C.di}amount${_C.rs}  ${claimAmountStr}
+  ${_C.di}leaf${_C.rs}    ${messageLeafIndexStr}
 `);
 
 try {
   // Step 1: Create wallet and derive account
-  process.stdout.write("  [1/3] Initializing wallet and account...");
+  const s1 = spin('Initializing wallet');
   const wallet = await EmbeddedWallet.create(nodeUrl, {
     ephemeral: true,
     pxeConfig: { proverEnabled: true },
@@ -112,14 +156,13 @@ try {
   const secretKey = Fr.fromHexString(accountSecret);
   const accountManager = await wallet.createSchnorrAccount(secretKey, Fr.ZERO);
   const address = accountManager.address;
-  console.log(" done");
-  console.log(`        Address: ${address.toString()}`);
+  s1.ok(address.toString().slice(0, 20) + '…');
 
   // Step 2: Check deployment status
-  process.stdout.write("  [2/3] Checking account status...");
+  const s2 = spin('Checking account status');
   const metadata = await wallet.getContractMetadata(address);
   const isDeployed = metadata.isContractInitialized;
-  console.log(isDeployed ? " deployed" : " not deployed");
+  s2.ok(isDeployed ? 'deployed' : 'not yet deployed');
 
   // Prepare claim and gas settings
   const claim = {
@@ -137,7 +180,7 @@ try {
     // Deploy + claim in one tx.
     // wait: { returnReceipt: true } is required — without it DeployMethod.send()
     // returns the deployed contract instance, not the TxReceipt.
-    process.stdout.write("  [3/3] Deploying account + claiming Fee Juice (proving ~10s)...");
+    const s3 = spin('Deploying account and claiming Fee Juice');
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
     const deployMethod = await accountManager.getDeployMethod();
 
@@ -151,18 +194,21 @@ try {
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
-    console.log(" done\n");
-    console.log("  Result");
-    console.log("  ------");
-    console.log(`  Tx Hash: ${txHash}`);
-    console.log(`  Status:  ${receipt?.status ?? "unknown"}`);
-    console.log(`  Block:   ${receipt?.blockNumber ?? "n/a"}`);
-    console.log(`  Fee:     ${receipt?.transactionFee?.toString() ?? "n/a"}`);
-    if (txHash !== "n/a") console.log(`  Explorer: ${EXPLORER_TX_URLS[network]}/${txHash}`);
-    console.log(`\n  Account deployed and Fee Juice claimed successfully.`);
+    const statusStr = receipt?.status ?? "unknown";
+    s3.ok(statusStr);
+
+    const explorerUrl = `${EXPLORER_TX_URLS[network]}/${txHash}`;
+    const statusClr = ['checkpointed','success','mined'].includes(statusStr) ? _C.gr : '';
+    console.log(`
+  ${_C.di}tx${_C.rs}      ${txHash}
+  ${_C.di}status${_C.rs}  ${statusClr}${statusStr}${_C.rs}
+  ${_C.di}block${_C.rs}   ${receipt?.blockNumber ?? "n/a"}
+  ${_C.di}fee${_C.rs}     ${formatFJ(receipt?.transactionFee?.toString())}
+`);
+    if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   } else {
     // Claim directly on already-deployed account
-    process.stdout.write("  [3/3] Claiming Fee Juice (proving ~10s)...");
+    const s3 = spin('Claiming Fee Juice');
     const { FeeJuiceContract } = await import(`${SDK}/aztec.js/protocol`);
 
     // FeeJuiceContract.at() takes only the wallet — protocol address is hardcoded
@@ -173,23 +219,26 @@ try {
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
-    console.log(" done\n");
-    console.log("  Result");
-    console.log("  ------");
-    console.log(`  Tx Hash: ${txHash}`);
-    console.log(`  Status:  ${receipt?.status ?? "unknown"}`);
-    console.log(`  Block:   ${receipt?.blockNumber ?? "n/a"}`);
-    console.log(`  Fee:     ${receipt?.transactionFee?.toString() ?? "n/a"}`);
-    if (txHash !== "n/a") console.log(`  Explorer: ${EXPLORER_TX_URLS[network]}/${txHash}`);
-    console.log(`\n  Fee Juice claimed successfully.`);
+    const statusStr = receipt?.status ?? "unknown";
+    s3.ok(statusStr);
+
+    const explorerUrl = `${EXPLORER_TX_URLS[network]}/${txHash}`;
+    const statusClr = ['checkpointed','success','mined'].includes(statusStr) ? _C.gr : '';
+    console.log(`
+  ${_C.di}tx${_C.rs}      ${txHash}
+  ${_C.di}status${_C.rs}  ${statusClr}${statusStr}${_C.rs}
+  ${_C.di}block${_C.rs}   ${receipt?.blockNumber ?? "n/a"}
+  ${_C.di}fee${_C.rs}     ${formatFJ(receipt?.transactionFee?.toString())}
+`);
+    if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   }
 
-  console.log(`\n  Check balance:\n    curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
+  console.log(`  ${_C.di}check balance${_C.rs}\n  curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
 
   await wallet.stop();
   process.exit(0);
 } catch (err) {
-  console.log(" failed\n");
+  if (_sp) _sp.fail();
 
   const msg = err.message || String(err);
 

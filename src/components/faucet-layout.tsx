@@ -157,7 +157,7 @@ export function FaucetLayout({ footer, onGoToAccount, network, onDripActiveChang
                   />
                 ) : (
                   <>
-                    <ConfettiBurst />
+                    <ConfettiBurst network={network} />
                     <ClaimTracker
                       claimId={rightPanel.claimId}
                       initialClaimData={rightPanel.initialClaimData}

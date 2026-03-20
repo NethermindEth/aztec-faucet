@@ -16,16 +16,27 @@ set -e
 REPO_BRANCH="main"
 REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/$REPO_BRANCH"
 
-# spin <pid> <message> — shows a spinner until <pid> exits, then prints a checkmark
+# spin <pid> <message> — animated braille spinner; prints ✓ or ✗ on completion
 spin() {
-  _pid=$1 _msg=$2 _i=0
+  _pid=$1 _msg=$2 _i=0 _s=$(date +%s)
   while kill -0 "$_pid" 2>/dev/null; do
-    _i=$(( (_i + 1) % 4 ))
-    case $_i in 0) _c='-' ;; 1) _c='\\' ;; 2) _c='|' ;; *) _c='/' ;; esac
-    printf '\r  \033[2m%s\033[0m  %s' "$_c" "$_msg"
+    _i=$(( (_i + 1) % 10 ))
+    case $_i in
+      0) _c='⠋' ;; 1) _c='⠙' ;; 2) _c='⠹' ;; 3) _c='⠸' ;; 4) _c='⠼' ;;
+      5) _c='⠴' ;; 6) _c='⠦' ;; 7) _c='⠧' ;; 8) _c='⠇' ;; *) _c='⠏' ;;
+    esac
+    _e=$(( $(date +%s) - _s ))
+    printf '\r  \033[36m%s\033[0m  %s  \033[2m%ds\033[0m' "$_c" "$_msg" "$_e"
     sleep 0.1
   done
-  printf '\r  \033[32m✓\033[0m  %-50s\n' "$_msg"
+  wait "$_pid" 2>/dev/null && _ok=0 || _ok=$?
+  _e=$(( $(date +%s) - _s ))
+  if [ "$_ok" = "0" ]; then
+    printf '\r\033[K  \033[32m✓\033[0m  %s  \033[2m%ds\033[0m\n' "$_msg" "$_e"
+  else
+    printf '\r\033[K  \033[31m✗\033[0m  %s\n' "$_msg"
+  fi
+  return "$_ok"
 }
 
 # Detect if caller passed --node (custom node override)
@@ -59,10 +70,9 @@ _needs_install=0
 if [ "$_needs_install" = "1" ]; then
   [ ! -f package.json ] && printf '{"type":"module"}' > package.json
   rm -rf node_modules/@aztec 2>/dev/null || true
-  npm install --no-package-lock "@aztec/aztec.js@devnet" "@aztec/stdlib@devnet" --silent > /dev/null 2>&1 &
+  npm install --no-package-lock --no-audit "@aztec/aztec.js@devnet" "@aztec/stdlib@devnet" --silent > /dev/null 2>&1 &
   _npm_pid=$!
-  spin $_npm_pid "Installing packages (@devnet)"
-  wait $_npm_pid
+  spin $_npm_pid "Installing packages (@devnet)" || exit 1
 fi
 
 curl -fsSL "$REPO_RAW/scripts/check-fee-juice-balance.mjs" \
@@ -78,7 +88,7 @@ _out=$(mktemp)
 node ~/.aztec-devtools/check-fee-juice-balance.mjs "$@" $_extra_args > "$_out" 2>&1 &
 _node_pid=$!
 spin $_node_pid "Fetching balance from Aztec devnet"
-wait $_node_pid && _code=0 || _code=$?
+_code=$?
 cat "$_out"
 rm -f "$_out"
 exit $_code

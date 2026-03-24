@@ -25,5 +25,5 @@ jobs:
       ignore_trivy: true
       context: .
       dockerfile_path: ./Dockerfile
-      docker_build_args: ${{ github.ref_name == 'dev' && 'NEXT_PUBLIC_GITHUB_BRANCH=dev' || '' }}
+      docker_build_args: ${{ github.ref_name == 'dev' && 'NEXT_PUBLIC_GITHUB_BRANCH=dev' || 'NEXT_PUBLIC_CLARITY_TAG_ID=vywrwh5efv' }}
       push: ${{ github.event_name != 'pull_request' }}

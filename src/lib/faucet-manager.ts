@@ -57,27 +57,6 @@ function readPackageVersion(pkgPath: string): string {
 const DEVNET_SDK_VERSION = readPackageVersion("node_modules/@aztec/aztec.js/package.json");
 const TESTNET_SDK_VERSION = readPackageVersion("node_modules/@aztec-rc/aztec.js/package.json");
 
-// Cache the npm registry lookups — TTL 1 hour
-let _devnetNpmCache: { version: string; fetchedAt: number } | null = null;
-let _testnetNpmCache: { version: string; fetchedAt: number } | null = null;
-
-async function fetchLatestNpmVersion(tag: "devnet" | "rc"): Promise<string | null> {
-  const cache = tag === "devnet" ? _devnetNpmCache : _testnetNpmCache;
-  const now = Date.now();
-  if (cache && now - cache.fetchedAt < 3_600_000) return cache.version;
-  try {
-    const res = await fetch(`https://registry.npmjs.org/@aztec/aztec.js/${tag}`, {
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (!res.ok) return null;
-    const data = await res.json() as { version: string };
-    const entry = { version: data.version, fetchedAt: now };
-    if (tag === "devnet") _devnetNpmCache = entry; else _testnetNpmCache = entry;
-    return data.version;
-  } catch {
-    return null;
-  }
-}
 
 // Use globalThis so the singleton survives Next.js HMR module reloads in dev.
 // Without this, each hot-reload resets the module-level variable and the
@@ -239,14 +218,26 @@ export class FaucetManager {
     }
   }
 
+  private async fetchNodeVersion(): Promise<string | null> {
+    try {
+      const res = await fetch(`${this.claimStore.nodeUrl}/node-info`, {
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as { nodeVersion: string };
+      return data.nodeVersion ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async getStatus(): Promise<FaucetStatus> {
-    const npmTag = this.network === "testnet" ? "rc" : "devnet";
     const faucetVersion = this.network === "testnet" ? TESTNET_SDK_VERSION : DEVNET_SDK_VERSION;
 
-    const [l1Balance, feeJuiceRaw, latestVersion] = await Promise.all([
+    const [l1Balance, feeJuiceRaw, nodeVersion] = await Promise.all([
       this.l1Faucet.getBalance(),
       this.l2Faucet.getL1FeeJuiceBalance(this.l1Faucet.address),
-      fetchLatestNpmVersion(npmTag),
+      this.fetchNodeVersion(),
     ]);
 
     const l1FeeJuiceBalance = feeJuiceRaw !== null ? formatEther(feeJuiceRaw) : null;
@@ -266,8 +257,8 @@ export class FaucetManager {
       },
       sdk: {
         faucetVersion,
-        latestVersion,
-        outdated: latestVersion !== null && latestVersion !== faucetVersion,
+        latestVersion: nodeVersion,
+        outdated: nodeVersion !== null && isSDKBehindNode(faucetVersion, nodeVersion),
       },
     };
   }
@@ -301,6 +292,23 @@ function parseBigIntEnv(name: string): bigint {
   } catch {
     throw new Error(`Invalid bigint for environment variable ${name}: "${raw}"`);
   }
+}
+
+/**
+ * Returns true if the SDK version is behind the node version.
+ * Extracts the base version (e.g. "4.1.1" from "4.1.1-rc.1") and compares.
+ * SDK is "behind" if its base version is older than the node's base version.
+ */
+function isSDKBehindNode(sdkVersion: string, nodeVersion: string): boolean {
+  const sdkBase = sdkVersion.replace(/-.*$/, "").split(".").map(Number);
+  const nodeBase = nodeVersion.replace(/-.*$/, "").split(".").map(Number);
+  for (let i = 0; i < Math.max(sdkBase.length, nodeBase.length); i++) {
+    const s = sdkBase[i] ?? 0;
+    const n = nodeBase[i] ?? 0;
+    if (s < n) return true;
+    if (s > n) return false;
+  }
+  return false;
 }
 
 export { ThrottleError };

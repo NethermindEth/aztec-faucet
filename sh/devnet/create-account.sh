@@ -71,6 +71,6 @@ node ~/.aztec-devtools/create-aztec-account.mjs "$@" --node-url "$AZTEC_NODE_URL
 _node_pid=$!
 spin $_node_pid "Generating devnet account"
 _code=$?
-sed 's/.*\r//' "$_out"
+sed "s/.*$(printf '\r')//" "$_out"
 rm -f "$_out"
 exit $_code

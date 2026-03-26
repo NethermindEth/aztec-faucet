@@ -63,6 +63,6 @@ node ~/.aztec-devtools/check-eth-balance.mjs "$@" > "$_out" 2>&1 &
 _node_pid=$!
 spin $_node_pid "Fetching ETH balance from Sepolia"
 _code=$?
-cat "$_out"
+sed 's/.*\r//' "$_out"
 rm -f "$_out"
 exit $_code

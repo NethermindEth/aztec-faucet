@@ -92,6 +92,6 @@ node ~/.aztec-devtools/check-fee-juice-balance.mjs "$@" --network testnet $_extr
 _node_pid=$!
 spin $_node_pid "Fetching balance from Aztec testnet"
 _code=$?
-cat "$_out"
+sed 's/.*\r//' "$_out"
 rm -f "$_out"
 exit $_code

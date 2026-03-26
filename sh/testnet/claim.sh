@@ -81,6 +81,7 @@ node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --network testnet --node-url "$A
 _node_pid=$!
 spin $_node_pid "Claiming Fee Juice on Aztec testnet (this may take 1-2 min)"
 _code=$?
-cat "$_out"
+# Strip spinner \r frames so only the final state of each line is visible
+sed 's/.*\r//' "$_out"
 rm -f "$_out"
 exit $_code

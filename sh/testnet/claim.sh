@@ -82,6 +82,6 @@ _node_pid=$!
 spin $_node_pid "Claiming Fee Juice on Aztec testnet (this may take 1-2 min)"
 _code=$?
 # Strip spinner \r frames so only the final state of each line is visible
-sed 's/.*\r//' "$_out"
+sed "s/.*$(printf '\r')//" "$_out"
 rm -f "$_out"
 exit $_code

@@ -14,7 +14,7 @@
 
 set -e
 
-REPO_BRANCH="main"
+REPO_BRANCH="dev"
 REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/$REPO_BRANCH"
 
 # spin <pid> <message> — animated braille spinner; prints ✓ or ✗ on completion

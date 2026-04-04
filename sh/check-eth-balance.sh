@@ -59,10 +59,19 @@ curl -fsSL "$REPO_RAW/scripts/check-eth-balance.mjs" \
   -o ~/.aztec-devtools/check-eth-balance.mjs 2>/dev/null
 
 _out=$(mktemp)
-node ~/.aztec-devtools/check-eth-balance.mjs "$@" > "$_out" 2>&1 &
+node ~/.aztec-devtools/check-eth-balance.mjs "$@" < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
+set +e
 spin $_node_pid "Fetching ETH balance from Sepolia"
 _code=$?
-sed "s/.*$(printf '\r')//" "$_out"
+set -e
+if [ "$_code" = "0" ]; then
+  sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
+else
+  _err=$(grep -a "Error:" "$_out" | sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g")
+  if [ -n "$_err" ]; then
+    printf '\n%s\n\n' "$_err"
+  fi
+fi
 rm -f "$_out"
 exit $_code

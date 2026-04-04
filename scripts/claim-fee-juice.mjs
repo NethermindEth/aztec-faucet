@@ -207,15 +207,20 @@ try {
 `);
     if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   } else {
-    // Claim directly on already-deployed account
+    // Claim on already-deployed account.
+    // FeeJuicePaymentMethodWithClaim internally calls claim_and_end_setup() in the
+    // non-revertible setup phase, so we must NOT also call FeeJuice.claim() (that would
+    // double-consume the L1→L2 message = duplicate nullifier error).
+    // Instead, send check_balance(0n) as a noop — same pattern used in Aztec's own
+    // e2e tests (fee_juice_payments.test.ts). The payment method handles the actual claim.
     const s3 = spin('Claiming Fee Juice');
+    const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
     const { FeeJuiceContract } = await import(`${SDK}/aztec.js/protocol`);
 
-    // FeeJuiceContract.at() takes only the wallet — protocol address is hardcoded
     const feeJuice = FeeJuiceContract.at(wallet);
     const raw = await feeJuice.methods
-      .claim(address, claim.claimAmount, claim.claimSecret, new Fr(claim.messageLeafIndex))
-      .send({ from: address, fee: { gasSettings } });
+      .check_balance(0n)
+      .send({ from: address, fee: { gasSettings, paymentMethod } });
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";

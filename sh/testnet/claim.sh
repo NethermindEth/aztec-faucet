@@ -77,11 +77,22 @@ curl -fsSL "$REPO_RAW/scripts/claim-fee-juice.mjs" \
   -o ~/.aztec-devtools/claim-fee-juice.mjs 2>/dev/null || true
 
 _out=$(mktemp)
-node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --network testnet --node-url "$AZTEC_NODE_URL_TESTNET" > "$_out" 2>&1 &
+node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --network testnet --node-url "$AZTEC_NODE_URL_TESTNET" < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
+set +e
 spin $_node_pid "Claiming Fee Juice on Aztec testnet (this may take 1-2 min)"
 _code=$?
-# Strip spinner \r frames so only the final state of each line is visible
-sed "s/.*$(printf '\r')//" "$_out"
+set -e
+# On success: show the full node output (spinner frames stripped).
+# On failure: extract just the error message from the captured output.
+if [ "$_code" = "0" ]; then
+  sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
+else
+  # grep for Error: lines, strip ANSI codes, and print
+  _err=$(grep -a "Error:" "$_out" | sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g")
+  if [ -n "$_err" ]; then
+    printf '\n%s\n\n' "$_err"
+  fi
+fi
 rm -f "$_out"
 exit $_code

@@ -67,10 +67,19 @@ curl -fsSL "$REPO_RAW/scripts/create-aztec-account.mjs" \
   -o ~/.aztec-devtools/create-aztec-account.mjs 2>/dev/null
 
 _out=$(mktemp)
-node ~/.aztec-devtools/create-aztec-account.mjs "$@" --node-url "$AZTEC_NODE_URL_DEVNET" > "$_out" 2>&1 &
+node ~/.aztec-devtools/create-aztec-account.mjs "$@" --node-url "$AZTEC_NODE_URL_DEVNET" < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
+set +e
 spin $_node_pid "Generating devnet account"
 _code=$?
-sed "s/.*$(printf '\r')//" "$_out"
+set -e
+if [ "$_code" = "0" ]; then
+  sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
+else
+  _err=$(grep -a "Error:" "$_out" | sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g")
+  if [ -n "$_err" ]; then
+    printf '\n%s\n\n' "$_err"
+  fi
+fi
 rm -f "$_out"
 exit $_code

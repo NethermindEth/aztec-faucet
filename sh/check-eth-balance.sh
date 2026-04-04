@@ -59,7 +59,7 @@ curl -fsSL "$REPO_RAW/scripts/check-eth-balance.mjs" \
   -o ~/.aztec-devtools/check-eth-balance.mjs 2>/dev/null
 
 _out=$(mktemp)
-node ~/.aztec-devtools/check-eth-balance.mjs "$@" > "$_out" 2>&1 &
+node ~/.aztec-devtools/check-eth-balance.mjs "$@" < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
 spin $_node_pid "Fetching ETH balance from Sepolia"
 _code=$?

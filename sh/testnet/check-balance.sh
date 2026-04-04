@@ -88,7 +88,7 @@ else
 fi
 
 _out=$(mktemp)
-node ~/.aztec-devtools/check-fee-juice-balance.mjs "$@" --network testnet $_extra_args > "$_out" 2>&1 &
+node ~/.aztec-devtools/check-fee-juice-balance.mjs "$@" --network testnet $_extra_args < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
 spin $_node_pid "Fetching balance from Aztec testnet"
 _code=$?

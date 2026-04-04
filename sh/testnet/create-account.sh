@@ -71,7 +71,7 @@ curl -fsSL "$REPO_RAW/scripts/create-aztec-account.mjs" \
   -o ~/.aztec-devtools/create-aztec-account.mjs 2>/dev/null || true
 
 _out=$(mktemp)
-node ~/.aztec-devtools/create-aztec-account.mjs "$@" --network testnet --node-url "$AZTEC_NODE_URL_TESTNET" > "$_out" 2>&1 &
+node ~/.aztec-devtools/create-aztec-account.mjs "$@" --network testnet --node-url "$AZTEC_NODE_URL_TESTNET" < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
 spin $_node_pid "Generating testnet account"
 _code=$?

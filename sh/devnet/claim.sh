@@ -73,7 +73,7 @@ curl -fsSL "$REPO_RAW/scripts/claim-fee-juice.mjs" \
   -o ~/.aztec-devtools/claim-fee-juice.mjs 2>/dev/null || true
 
 _out=$(mktemp)
-node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --node-url "$AZTEC_NODE_URL_DEVNET" > "$_out" 2>&1 &
+node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --node-url "$AZTEC_NODE_URL_DEVNET" < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
 spin $_node_pid "Claiming Fee Juice on Aztec devnet (this may take 1-2 min)"
 _code=$?

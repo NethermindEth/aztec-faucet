@@ -81,7 +81,7 @@ node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --network testnet --node-url "$A
 _node_pid=$!
 spin $_node_pid "Claiming Fee Juice on Aztec testnet (this may take 1-2 min)"
 _code=$?
-# Strip spinner \r frames so only the final state of each line is visible
-sed "s/.*$(printf '\r')//" "$_out"
+# Strip spinner \r frames and Node.js warnings so only meaningful output is shown
+sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
 rm -f "$_out"
 exit $_code

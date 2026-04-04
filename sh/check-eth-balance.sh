@@ -63,6 +63,6 @@ node ~/.aztec-devtools/check-eth-balance.mjs "$@" > "$_out" 2>&1 &
 _node_pid=$!
 spin $_node_pid "Fetching ETH balance from Sepolia"
 _code=$?
-sed "s/.*$(printf '\r')//" "$_out"
+sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
 rm -f "$_out"
 exit $_code

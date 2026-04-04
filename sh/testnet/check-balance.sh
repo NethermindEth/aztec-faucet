@@ -90,8 +90,10 @@ fi
 _out=$(mktemp)
 node ~/.aztec-devtools/check-fee-juice-balance.mjs "$@" --network testnet $_extra_args < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
+set +e
 spin $_node_pid "Fetching balance from Aztec testnet"
 _code=$?
+set -e
 if [ "$_code" = "0" ]; then
   sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
 else

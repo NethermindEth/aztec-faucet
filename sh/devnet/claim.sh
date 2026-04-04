@@ -77,6 +77,13 @@ node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --node-url "$AZTEC_NODE_URL_DEVN
 _node_pid=$!
 spin $_node_pid "Claiming Fee Juice on Aztec devnet (this may take 1-2 min)"
 _code=$?
-sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
+if [ "$_code" = "0" ]; then
+  sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
+else
+  _err=$(grep -a "Error:" "$_out" | sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g")
+  if [ -n "$_err" ]; then
+    printf '\n%s\n\n' "$_err"
+  fi
+fi
 rm -f "$_out"
 exit $_code

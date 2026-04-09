@@ -28,27 +28,36 @@ ARG NEXT_PUBLIC_CLARITY_TAG_ID
 ENV NEXT_PUBLIC_CLARITY_TAG_ID=$NEXT_PUBLIC_CLARITY_TAG_ID
 RUN npm run build
 
-# --- Run ---
-FROM base AS runner
+# --- Run with Bun ---
+# Bun defines `typeof self === 'object'` in its main thread, which makes
+# @aztec/foundation's IS_BROWSER check evaluate to true. This routes
+# poseidon2Hash through BarretenbergSync (no worker threads) instead of
+# the async Barretenberg path that spawns WASM workers without error
+# handlers — fixing the process crash in containers.
+FROM ubuntu:24.04 AS runner
 WORKDIR /app
+
+# Install Bun
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl unzip ca-certificates && \
+    curl -fsSL https://bun.sh/install | bash && \
+    rm -rf /var/lib/apt/lists/*
+ENV PATH="/root/.bun/bin:$PATH"
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 # Suppress pino transport initialization (prevents pino-pretty worker threads)
 ENV LOG_LEVEL=silent
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
 COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 # Overlay full node_modules so dynamically-loaded packages (pino transports
 # and other deps not traced by Next.js standalone) are always available
 COPY --from=deps /app/node_modules ./node_modules
 
-USER nextjs
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["node", "server.js"]
+CMD ["bun", "server.js"]

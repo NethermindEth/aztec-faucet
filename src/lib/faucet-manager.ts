@@ -81,15 +81,8 @@ export class FaucetManager {
     const l1RpcUrl = requireEnv("L1_RPC_URL");
     const l1ChainId = parseIntEnv("L1_CHAIN_ID", 11155111);
 
-    const aztecNodeUrl =
-      network === "testnet"
-        ? (process.env.TESTNET_AZTEC_NODE_URL ?? NODE_URLS.testnet)
-        : (process.env.DEVNET_AZTEC_NODE_URL ?? process.env.AZTEC_NODE_URL ?? NODE_URLS.devnet);
-
-    const sponsoredFpcAddress =
-      network === "testnet"
-        ? (process.env.TESTNET_SPONSORED_FPC_ADDRESS ?? SPONSORED_FPC_ADDRESSES.testnet)
-        : (process.env.DEVNET_SPONSORED_FPC_ADDRESS ?? process.env.SPONSORED_FPC_ADDRESS ?? SPONSORED_FPC_ADDRESSES.devnet);
+    const aztecNodeUrl = NODE_URLS[network];
+    const sponsoredFpcAddress = SPONSORED_FPC_ADDRESSES[network];
 
     this.l1Faucet = new L1Faucet({
       rpcUrl: l1RpcUrl,

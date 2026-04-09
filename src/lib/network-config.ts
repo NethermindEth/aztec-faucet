@@ -1,7 +1,7 @@
 export type Network = "devnet" | "testnet";
 
-// Public defaults — these are well-known public endpoints.
-// Override via env vars if you run a private node or want to point to a different RPC.
+// Single source of truth for Aztec network config.
+// These values change with network upgrades, so they live in code, not env vars.
 export const NODE_URLS: Record<Network, string> = {
   devnet: "https://v4-devnet-3.aztec-labs.com/",
   testnet: "https://rpc.testnet.aztec-labs.com",
@@ -13,18 +13,9 @@ export const SPONSORED_FPC_ADDRESSES: Record<Network, string> = {
 };
 
 export function getNodeUrl(network: Network): string {
-  if (network === "testnet") {
-    return process.env.TESTNET_AZTEC_NODE_URL ?? NODE_URLS.testnet;
-  }
-  return (
-    process.env.DEVNET_AZTEC_NODE_URL ??
-    process.env.AZTEC_NODE_URL ??
-    NODE_URLS.devnet
-  );
+  return NODE_URLS[network];
 }
 
-// Testnet is always available — public defaults exist for all network vars.
-// Set TESTNET_AZTEC_NODE_URL to override the default endpoint.
 export function isTestnetAvailable(): boolean {
   return true;
 }

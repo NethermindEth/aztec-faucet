@@ -3,7 +3,7 @@ export type Network = "devnet" | "testnet";
 // Public defaults — these are well-known public endpoints.
 // Override via env vars if you run a private node or want to point to a different RPC.
 export const NODE_URLS: Record<Network, string> = {
-  devnet: "https://v4-devnet-2.aztec-labs.com/",
+  devnet: "https://v4-devnet-3.aztec-labs.com/",
   testnet: "https://rpc.testnet.aztec-labs.com",
 };
 

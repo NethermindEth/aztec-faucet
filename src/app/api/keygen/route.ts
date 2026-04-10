@@ -5,7 +5,7 @@ import { SchnorrAccountContract } from "@aztec/accounts/schnorr";
 import { deriveKeys, deriveSigningKey } from "@aztec/stdlib/keys";
 import { computeInitializationHash, computeContractAddressFromInstance } from "@aztec/stdlib/contract";
 import { Throttle, ThrottleError } from "@/lib/throttle";
-import { SCHNORR_CLASS_ID } from "@/lib/network-config";
+import { SCHNORR_CLASS_ID, KEYGEN_INTERVAL_MS, KEYGEN_MAX_PER_IP } from "@/lib/network-config";
 
 /**
  * Computes the Schnorr account address using the testnet class ID.
@@ -33,8 +33,7 @@ async function getSchnorrAddress(secret: Fr): Promise<AztecAddress> {
   return computeContractAddressFromInstance(instance);
 }
 
-// 10 keypair generations per 24 hours per IP
-const keygenThrottle = new Throttle(86_400_000, 10);
+const keygenThrottle = new Throttle(KEYGEN_INTERVAL_MS, KEYGEN_MAX_PER_IP);
 
 export async function GET(request: Request) {
   const forwarded = request.headers.get("x-forwarded-for");

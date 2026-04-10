@@ -3,7 +3,16 @@ import { L1Faucet } from "./l1-faucet";
 import { L2Faucet, type FeeJuiceClaimData } from "./l2-faucet";
 import { Throttle, ThrottleError } from "./throttle";
 import { ClaimStore, type StoredClaim } from "./claim-store";
-import { NODE_URL, SPONSORED_FPC_ADDRESS } from "./network-config";
+import {
+  NODE_URL,
+  SPONSORED_FPC_ADDRESS,
+  L1_CHAIN_ID,
+  ETH_DRIP_AMOUNT,
+  FEE_JUICE_DRIP_AMOUNT,
+  DRIP_INTERVAL_MS,
+  DRIP_MAX_PER_ADDRESS,
+  DRIP_MAX_PER_IP,
+} from "./network-config";
 
 export type Asset = "eth" | "fee-juice";
 
@@ -74,42 +83,30 @@ export class FaucetManager {
   private constructor() {
     const l1PrivateKey = requireEnv("FAUCET_PRIVATE_KEY") as Hex;
     const l1RpcUrl = requireEnv("L1_RPC_URL");
-    const l1ChainId = parseIntEnv("L1_CHAIN_ID", 11155111);
-
-    const aztecNodeUrl = NODE_URL;
-    const sponsoredFpcAddress = SPONSORED_FPC_ADDRESS;
 
     this.l1Faucet = new L1Faucet({
       rpcUrl: l1RpcUrl,
-      chainId: l1ChainId,
+      chainId: L1_CHAIN_ID,
       privateKey: l1PrivateKey,
-      ethDripAmount: process.env.ETH_DRIP_AMOUNT ?? "0.001",
+      ethDripAmount: ETH_DRIP_AMOUNT,
     });
 
-    const feeJuiceDripAmount = process.env.FEE_JUICE_DRIP_AMOUNT
-      ? BigInt(process.env.FEE_JUICE_DRIP_AMOUNT)
-      : 100_000_000_000_000_000_000n; // default: 100 FJ
-
     this.l2Faucet = new L2Faucet({
-      aztecNodeUrl,
+      aztecNodeUrl: NODE_URL,
       l1RpcUrl,
-      l1ChainId,
+      l1ChainId: L1_CHAIN_ID,
       l1PrivateKey,
-      sponsoredFpcAddress,
-      feeJuiceDripAmount,
+      sponsoredFpcAddress: SPONSORED_FPC_ADDRESS,
+      feeJuiceDripAmount: FEE_JUICE_DRIP_AMOUNT,
       mintFirst: false,
     });
 
-    // Dev defaults: 3x more generous than prod (8h vs 24h, 3 vs 1 per address, 6 vs 2 per IP)
-    const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 28800000);
-    const addrMaxCount = parseIntEnv("DRIP_MAX_COUNT", 3);
-    this.throttle = new Throttle(intervalMs, addrMaxCount);
+    // Disable rate limits in local dev (NODE_ENV is "production" in Docker)
+    const isDev = process.env.NODE_ENV !== "production";
+    this.throttle = new Throttle(isDev ? 0 : DRIP_INTERVAL_MS, isDev ? Infinity : DRIP_MAX_PER_ADDRESS);
+    this.ipThrottle = new Throttle(isDev ? 0 : DRIP_INTERVAL_MS, isDev ? Infinity : DRIP_MAX_PER_IP);
 
-    const ipIntervalMs = parseIntEnv("IP_DRIP_INTERVAL_MS", intervalMs);
-    const ipMaxCount = parseIntEnv("IP_DRIP_MAX_COUNT", 6);
-    this.ipThrottle = new Throttle(ipIntervalMs, ipMaxCount);
-
-    this.claimStore = new ClaimStore(aztecNodeUrl);
+    this.claimStore = new ClaimStore(NODE_URL);
   }
 
   static getInstance(): FaucetManager {
@@ -219,7 +216,7 @@ export class FaucetManager {
         { name: "fee-juice", available: true },
       ],
       network: {
-        l1ChainId: parseInt(process.env.L1_CHAIN_ID ?? "11155111", 10),
+        l1ChainId: L1_CHAIN_ID,
         aztecNodeUrl: this.claimStore.nodeUrl,
       },
       sdk: {
@@ -237,16 +234,6 @@ function requireEnv(name: string): string {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
-}
-
-function parseIntEnv(name: string, defaultValue: number): number {
-  const raw = process.env[name];
-  if (!raw) return defaultValue;
-  const parsed = parseInt(raw, 10);
-  if (isNaN(parsed)) {
-    throw new Error(`Invalid integer for environment variable ${name}: "${raw}"`);
-  }
-  return parsed;
 }
 
 /**

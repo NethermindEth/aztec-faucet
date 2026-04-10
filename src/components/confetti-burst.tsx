@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const COLORS_DEVNET  = ["#D4FF28", "#e8ff80", "#ffffff", "#c0ff50", "#a8e820", "#f5f5f5", "#ffeb3b"];
-const COLORS_TESTNET = ["#A78BFA", "#c4b5fd", "#ffffff", "#7c3aed", "#ddd6fe", "#f5f5f5", "#e9d5ff"];
+const COLORS = ["#A78BFA", "#c4b5fd", "#ffffff", "#7c3aed", "#ddd6fe", "#f5f5f5", "#e9d5ff"];
 
 type Particle = {
   x: number;
@@ -39,8 +38,8 @@ function makeBurst(ox: number, oy: number, angleMinDeg: number, angleMaxDeg: num
   });
 }
 
-function ConfettiCanvas({ network }: { network?: string }) {
-  const colors = network === "testnet" ? COLORS_TESTNET : COLORS_DEVNET;
+function ConfettiCanvas() {
+  const colors = COLORS;
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -104,7 +103,7 @@ function ConfettiCanvas({ network }: { network?: string }) {
   );
 }
 
-export function ConfettiBurst({ network }: { network?: string }) {
+export function ConfettiBurst() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -114,5 +113,5 @@ export function ConfettiBurst({ network }: { network?: string }) {
   if (!mounted) return null;
 
   // Portal to document.body so no transformed ancestor can cage the fixed canvas
-  return createPortal(<ConfettiCanvas network={network} />, document.body);
+  return createPortal(<ConfettiCanvas />, document.body);
 }

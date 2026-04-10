@@ -56,7 +56,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export function StatusView({ network, onBack }: { network: string; onBack: () => void }) {
+export function StatusView({ onBack }: { onBack: () => void }) {
   const [data, setData] = useState<StatusData | null>(null);
   const [error, setError] = useState(false);
 
@@ -64,7 +64,7 @@ export function StatusView({ network, onBack }: { network: string; onBack: () =>
     setData(null);
     setError(false);
     const controller = new AbortController();
-    fetch(`/api/status?network=${network}`, { signal: controller.signal })
+    fetch("/api/status", { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error();
         return r.json();
@@ -75,7 +75,7 @@ export function StatusView({ network, onBack }: { network: string; onBack: () =>
         setError(true);
       });
     return () => controller.abort();
-  }, [network]);
+  }, []);
 
   const loading = !data && !error;
   const assets = data?.assets ?? SKELETON_ASSETS;

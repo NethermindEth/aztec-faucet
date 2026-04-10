@@ -10,38 +10,19 @@
   },
   "dependencies": {
     "@azguardwallet/client": "^0.8.0",
-    "@aztec-rc/aztec.js": "npm:@aztec/aztec.js@4.1.2-rc.1",
-    "@aztec-rc/stdlib": "npm:@aztec/stdlib@4.1.2-rc.1",
-    "@aztec-rc/wallets": "npm:@aztec/wallets@4.1.2-rc.1",
-    "@aztec/accounts": "4.2.0-aztecnr-rc.2",
-    "@aztec/aztec.js": "4.2.0-aztecnr-rc.2",
-    "@aztec/ethereum": "4.2.0-aztecnr-rc.2",
-    "@aztec/foundation": "4.2.0-aztecnr-rc.2",
-    "@aztec/kv-store": "4.2.0-aztecnr-rc.2",
-    "@aztec/l1-artifacts": "4.2.0-aztecnr-rc.2",
-    "@aztec/noir-contracts.js": "4.2.0-aztecnr-rc.2",
-    "@aztec/pxe": "4.2.0-aztecnr-rc.2",
-    "@aztec/stdlib": "4.2.0-aztecnr-rc.2",
-    "@aztec/bb.js": "4.2.0-aztecnr-rc.2",
-    "@aztec/wallets": "4.2.0-aztecnr-rc.2",
+    "@aztec/accounts": "4.1.2-rc.1",
+    "@aztec/aztec.js": "4.1.2-rc.1",
+    "@aztec/bb.js": "4.1.2-rc.1",
+    "@aztec/ethereum": "4.1.2-rc.1",
+    "@aztec/foundation": "4.1.2-rc.1",
+    "@aztec/l1-artifacts": "4.1.2-rc.1",
+    "@aztec/stdlib": "4.1.2-rc.1",
+    "@aztec/wallets": "4.1.2-rc.1",
     "async-mutex": "^0.5.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "viem": "^2.46.3"
-  },
-  "overrides": {
-    "@aztec-rc/wallets": {
-      "@aztec/foundation": "4.1.2-rc.1",
-      "@aztec/stdlib": "4.1.2-rc.1",
-      "@aztec/aztec.js": "4.1.2-rc.1"
-    },
-    "@aztec-rc/aztec.js": {
-      "@aztec/foundation": "4.1.2-rc.1"
-    },
-    "@aztec-rc/stdlib": {
-      "@aztec/foundation": "4.1.2-rc.1"
-    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

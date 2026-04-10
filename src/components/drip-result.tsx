@@ -2,24 +2,23 @@
 
 import { useState, useCallback } from "react";
 import { ConfettiBurst } from "./confetti-burst";
-import type { Network } from "@/lib/network-config";
-import { NODE_URLS, NPM_TAGS, EXPLORER_TX_URLS } from "@/lib/network-config";
+import { NODE_URL, NPM_TAG, EXPLORER_TX_URL } from "@/lib/network-config";
 
 const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
-export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string, network: "devnet" | "testnet" = "devnet"): string {
-  return `curl -fsSL ${GITHUB_RAW}/sh/${network}/claim.sh | sh -s -- \\
+export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
+  return `curl -fsSL ${GITHUB_RAW}/sh/testnet/claim.sh | sh -s -- \\
   --secret <YOUR_SECRET_KEY> \\
   --claim-amount ${claimAmount} \\
   --claim-secret ${claimSecretHex} \\
   --message-leaf-index ${messageLeafIndex}`;
 }
 
-export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string, nodeUrl: string, npmTag: string, explorerTxUrl?: string): string {
+export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
   return `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
 echo '{"type":"module"}' > package.json && \\
-npm install --no-package-lock @aztec/wallets@${npmTag} @aztec/aztec.js@${npmTag} @aztec/stdlib@${npmTag} --silent && \\
+npm install --no-package-lock @aztec/wallets@${NPM_TAG} @aztec/aztec.js@${NPM_TAG} @aztec/stdlib@${NPM_TAG} --silent && \\
 LOG_LEVEL=silent node --input-type=module << 'AZTEC_EOF'
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
@@ -32,7 +31,7 @@ const SECRET = "YOUR_SECRET_KEY";           // ← paste your secret key here
 const AMOUNT = ${claimAmount}n;
 const CLAIM_SECRET = Fr.fromHexString("${claimSecretHex}");
 const LEAF = ${messageLeafIndex}n;
-const NODE_URL = "${nodeUrl}";
+const NODE_URL = "${NODE_URL}";
 
 const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true, pxeConfig: { proverEnabled: true } });
 const mgr = await wallet.createSchnorrAccount(Fr.fromHexString(SECRET), Fr.ZERO);
@@ -48,34 +47,33 @@ if (!isDeployed) {
     fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
     wait: { returnReceipt: true },
   });
-  const receipt = raw?.receipt ?? raw; // devnet: receipt at top; testnet @rc: nested under .receipt
+  const receipt = raw?.receipt ?? raw;
   const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
-  ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
+  if (txHash) console.log("View on explorer: ${EXPLORER_TX_URL}/" + txHash);
 } else {
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   console.log("Claiming into existing account (proving ~10s)...");
   const raw = await FeeJuiceContract.at(wallet).methods
     .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
     .send({ from: addr, fee: { gasSettings } });
-  const receipt = raw?.receipt ?? raw; // devnet: receipt at top; testnet @rc: nested under .receipt
+  const receipt = raw?.receipt ?? raw;
   const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
-  ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
+  if (txHash) console.log("View on explorer: ${EXPLORER_TX_URL}/" + txHash);
 }
 await wallet.stop();
 process.exit(0);
 AZTEC_EOF`;
 }
 
-export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex, network = "devnet" }: {
+export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }: {
   claimAmount: string;
   claimSecretHex: string;
   messageLeafIndex: string;
-  network?: Network;
 }) {
-  const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex, network);
-  const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex, NODE_URLS[network], NPM_TAGS[network], EXPLORER_TX_URLS[network]);
+  const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex);
+  const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex);
   return (
     <div className="space-y-2">
       <div className="rounded-xl border border-white/6 bg-white/2">
@@ -126,7 +124,6 @@ type DripResultProps = {
   error: string | null;
   retryAfter: number | null;
   onReset?: () => void;
-  network?: Network;
 };
 
 function formatMs(ms: number): string {
@@ -216,11 +213,11 @@ function ResetButton({ onReset }: { onReset: () => void }) {
   );
 }
 
-function EthResult({ txHash, onReset, network }: { txHash: string; onReset?: () => void; network?: string }) {
+function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }) {
   const [showFullHash, setShowFullHash] = useState(false);
   return (
     <div className="flex flex-col gap-5">
-      <ConfettiBurst network={network} />
+      <ConfettiBurst />
       {/* Top section */}
       <div className="space-y-5">
         {/* Header row */}
@@ -310,7 +307,7 @@ function EthResult({ txHash, onReset, network }: { txHash: string; onReset?: () 
 }
 
 
-export function DripResult({ result, error, retryAfter, onReset, network = "devnet" }: DripResultProps) {
+export function DripResult({ result, error, retryAfter, onReset }: DripResultProps) {
   if (error) {
     return (
       <div className="rounded-xl border border-red-500/20 bg-red-500/6 p-4">
@@ -327,7 +324,7 @@ export function DripResult({ result, error, retryAfter, onReset, network = "devn
   if (!result) return null;
 
   if (result.asset === "eth" && result.txHash) {
-    return <EthResult txHash={result.txHash} onReset={onReset} network={network} />;
+    return <EthResult txHash={result.txHash} onReset={onReset} />;
   }
 
   // fee-juice fallback
@@ -366,7 +363,6 @@ export function DripResult({ result, error, retryAfter, onReset, network = "devn
               claimAmount={result.claimData.claimAmount}
               claimSecretHex={result.claimData.claimSecretHex}
               messageLeafIndex={result.claimData.messageLeafIndex}
-              network={network}
             />
           </div>
         )}

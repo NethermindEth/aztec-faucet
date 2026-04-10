@@ -3,7 +3,7 @@
 import { useState } from "react";
 import React from "react";
 import { FaucetForm } from "./faucet-form";
-import type { Network } from "@/lib/network-config";
+
 import { DripResult, type DripResultData } from "./drip-result";
 import { ClaimTracker } from "./claim-tracker";
 import { ConfettiBurst } from "./confetti-burst";
@@ -33,7 +33,7 @@ const PENDING_SUBS: Record<string, string> = {
   "fee-juice": "Initiating L1→L2 bridge deposit.",
 };
 
-function PendingPanel({ asset, network }: { asset: string; network: Network }) {
+function PendingPanel({ asset }: { asset: string }) {
   return (
     <div className="flex h-full flex-col justify-between gap-5">
       <div className="space-y-5">
@@ -62,7 +62,7 @@ function PendingPanel({ asset, network }: { asset: string; network: Network }) {
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-chartreuse" />
           </span>
           <span className="text-xs text-zinc-400">
-            {asset === "eth" ? "Sepolia Testnet" : `Aztec L2 ${network === "testnet" ? "Testnet" : "Devnet"}`}
+            {asset === "eth" ? "Sepolia Testnet" : "Aztec L2 Testnet"}
           </span>
           {asset === "eth" && (
             <span className="ml-auto font-mono text-xs text-zinc-600">11155111</span>
@@ -88,7 +88,7 @@ function PendingPanel({ asset, network }: { asset: string; network: Network }) {
   );
 }
 
-export function FaucetLayout({ footer, onGoToAccount, network, onDripActiveChange }: { footer?: React.ReactNode; onGoToAccount?: () => void; network: Network; onDripActiveChange?: (active: boolean) => void }) {
+export function FaucetLayout({ footer, onGoToAccount, onDripActiveChange }: { footer?: React.ReactNode; onGoToAccount?: () => void; onDripActiveChange?: (active: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
 
   const handlePending = (asset: string) => {
@@ -136,7 +136,6 @@ export function FaucetLayout({ footer, onGoToAccount, network, onDripActiveChang
             onError={handleError}
             locked={isSplit}
             onGoToAccount={onGoToAccount}
-            network={network}
           />
         </div>
 
@@ -146,24 +145,22 @@ export function FaucetLayout({ footer, onGoToAccount, network, onDripActiveChang
             <div className={`glass-card rounded-2xl p-6 ${rightPanel.kind === "pending" ? "flex flex-col h-full overflow-x-hidden" : ""}`}>
               <div key={rightPanel.kind} className="flex flex-col animate-panel-state-in">
                 {rightPanel.kind === "pending" ? (
-                  <PendingPanel asset={rightPanel.asset} network={network} />
+                  <PendingPanel asset={rightPanel.asset} />
                 ) : rightPanel.kind === "result" ? (
                   <DripResult
                     result={rightPanel.data}
                     error={null}
                     retryAfter={null}
                     onReset={handleReset}
-                    network={network}
                   />
                 ) : (
                   <>
-                    <ConfettiBurst network={network} />
+                    <ConfettiBurst />
                     <ClaimTracker
                       claimId={rightPanel.claimId}
                       initialClaimData={rightPanel.initialClaimData}
                       l1TxHash={rightPanel.initialClaimData?.l1TxHash}
                       onReset={handleReset}
-                      network={network}
                     />
                   </>
                 )}

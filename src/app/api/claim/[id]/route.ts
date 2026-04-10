@@ -36,8 +36,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const messageHash = searchParams.get("messageHash");
 
-  const network = searchParams.get("network") === "testnet" ? "testnet" : "devnet";
-  const manager = FaucetManager.getInstance(network as "devnet" | "testnet");
+  const manager = FaucetManager.getInstance();
   const claim = manager.getClaim(id);
 
   if (!claim) {
@@ -46,8 +45,8 @@ export async function GET(
     // requests land on different server pods.
     if (messageHash) {
       try {
-        const { getNodeUrl } = await import("@/lib/network-config");
-        const aztecNodeUrl = getNodeUrl(network as "devnet" | "testnet");
+        const { NODE_URL } = await import("@/lib/network-config");
+        const aztecNodeUrl = NODE_URL;
         if (aztecNodeUrl) {
           const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
           const { Fr } = await import("@aztec/aztec.js/fields");

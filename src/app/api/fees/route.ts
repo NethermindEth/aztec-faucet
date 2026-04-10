@@ -8,10 +8,8 @@ const corsHeaders = {
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const network = searchParams.get("network") === "testnet" ? "testnet" : "devnet";
-    const { getNodeUrl } = await import("@/lib/network-config");
-    const nodeUrl = getNodeUrl(network);
+    const { NODE_URL } = await import("@/lib/network-config");
+    const nodeUrl = NODE_URL;
     const node = createAztecNodeClient(nodeUrl);
 
     const [fees, blockNumber] = await Promise.all([

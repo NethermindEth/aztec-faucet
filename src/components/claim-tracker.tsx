@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { CopyButton, DataField, ClaimCommands } from "./drip-result";
-import type { Network } from "@/lib/network-config";
 
 type ClaimStatus = "bridging" | "ready" | "expired";
 
@@ -48,13 +47,11 @@ export function ClaimTracker({
   initialClaimData,
   l1TxHash,
   onReset,
-  network = "devnet",
 }: {
   claimId: string;
   initialClaimData?: ClaimData;
   l1TxHash?: string;
   onReset: () => void;
-  network?: Network;
 }) {
   const [status, setStatus] = useState<ClaimStatus>("bridging");
   const [elapsed, setElapsed] = useState(0);
@@ -70,9 +67,10 @@ export function ClaimTracker({
       // Pass messageHash so the server can fall back to a stateless L2 node
       // check if the claim isn't in its local memory (multi-instance deployments).
       const msgHash = initialClaimData?.messageHashHex;
-      const params = new URLSearchParams({ network });
+      const params = new URLSearchParams();
       if (msgHash) params.set("messageHash", msgHash);
-      const url = `/api/claim/${claimId}?${params.toString()}`;
+      const qs = params.toString();
+      const url = `/api/claim/${claimId}${qs ? `?${qs}` : ""}`;
       const res = await fetch(url);
       if (!res.ok) {
         if (res.status === 404) {
@@ -100,7 +98,7 @@ export function ClaimTracker({
     } catch {
       // Silently retry on network errors
     }
-  }, [claimId, initialClaimData?.messageHashHex, network]);
+  }, [claimId, initialClaimData?.messageHashHex, l1TxHash]);
 
   // Poll the backend while bridging
   useEffect(() => {
@@ -198,7 +196,6 @@ export function ClaimTracker({
                 claimAmount={claimData.claimAmount}
                 claimSecretHex={claimData.claimSecretHex}
                 messageLeafIndex={claimData.messageLeafIndex}
-                network={network}
               />
             </div>
           )}
@@ -232,7 +229,7 @@ export function ClaimTracker({
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-chartreuse/60" style={{ animationDuration: "1.5s" }} />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-chartreuse" />
             </span>
-            <span className="text-xs text-zinc-400">Aztec L2 {network === "testnet" ? "Testnet" : "Devnet"}</span>
+            <span className="text-xs text-zinc-400">Aztec L2 Testnet</span>
           </div>
 
           {/* Progress bar */}
@@ -300,7 +297,7 @@ export function ClaimTracker({
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orchid/60" style={{ animationDuration: "2.5s" }} />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-orchid" />
           </span>
-          <span className="text-xs text-zinc-400">Aztec L2 {network === "testnet" ? "Testnet" : "Devnet"}</span>
+          <span className="text-xs text-zinc-400">Aztec L2 Testnet</span>
           {expiresIn !== null && (
             <span className={`ml-auto font-mono text-xs ${expiryCritical ? "text-red-400 font-semibold" : "text-red-400"}`}>
               {expiresIn === 0 ? "Expired" : `Expires ${formatElapsed(expiresIn)}`}
@@ -349,7 +346,6 @@ export function ClaimTracker({
             claimAmount={claimData.claimAmount}
             claimSecretHex={claimData.claimSecretHex}
             messageLeafIndex={claimData.messageLeafIndex}
-            network={network}
           />
         )}
       </div>

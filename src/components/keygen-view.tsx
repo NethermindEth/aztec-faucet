@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { CopyButton } from "./drip-result";
-import type { Network } from "@/lib/network-config";
-import { NETWORK_LABELS } from "@/lib/network-config";
+import { NETWORK_LABEL } from "@/lib/network-config";
 
 type KeypairState =
   | { status: "idle" }
@@ -12,28 +11,13 @@ type KeypairState =
   | { status: "saved"; address: string }
   | { status: "error"; message: string };
 
-export function KeygenView({ network = "devnet" }: { network?: Network }) {
-  const networkLabel = NETWORK_LABELS[network];
+export function KeygenView() {
+  const networkLabel = NETWORK_LABEL;
   const [state, setState] = useState<KeypairState>({ status: "idle" });
   const [leaving, setLeaving] = useState(false);
   const [entering, setEntering] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [rateLimitOpen, setRateLimitOpen] = useState(false);
-  const prevNetwork = useRef(network);
-
-  // Reset keypair when network switches — devnet and testnet derive different addresses
-  // from the same secret key, so a stale keypair would be wrong on the new network.
-  useEffect(() => {
-    if (prevNetwork.current === network) return;
-    prevNetwork.current = network;
-    if (state.status !== "idle") {
-      setLeaving(true);
-      setTimeout(() => {
-        setState({ status: "idle" });
-        setLeaving(false);
-      }, 300);
-    }
-  }, [network, state.status]);
 
   function destroy() {
     setLeaving(true);
@@ -54,7 +38,7 @@ export function KeygenView({ network = "devnet" }: { network?: Network }) {
   async function generate() {
     setState({ status: "loading" });
     try {
-      const res = await fetch(`/api/keygen?network=${network}`);
+      const res = await fetch("/api/keygen");
       const data = await res.json() as { secretKey: string; address: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Failed to generate keypair");
       setEntering(true);

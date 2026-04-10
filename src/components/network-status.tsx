@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Network } from "@/lib/network-config";
-
 type StatusData = {
   healthy: boolean;
   faucetAddress: string;
@@ -20,7 +18,7 @@ type StatusData = {
   };
 };
 
-export function NetworkStatus({ network }: { network: Network }) {
+export function NetworkStatus() {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [error, setError] = useState(false);
 
@@ -32,7 +30,7 @@ export function NetworkStatus({ network }: { network: Network }) {
       const startedAt = Date.now();
       const timeout = setTimeout(() => controller.abort(), 10_000);
 
-      fetch(`/api/status?network=${network}`, { signal: controller.signal })
+      fetch("/api/status", { signal: controller.signal })
         .then((res) => {
           if (!res.ok) throw new Error(`Status API returned ${res.status}`);
           return res.json();
@@ -62,7 +60,7 @@ export function NetworkStatus({ network }: { network: Network }) {
     return () => {
       if (pollTimer) clearInterval(pollTimer);
     };
-  }, [network]);
+  }, []);
 
   if (error) {
     return (
@@ -118,7 +116,7 @@ export function NetworkStatus({ network }: { network: Network }) {
           <span className="hidden sm:inline">Chain {status.network.l1ChainId}</span>
           <span className="hidden sm:inline text-zinc-600">·</span>
           <span className="font-normal">{Number(status.l1BalanceEth).toFixed(4)} <span style={{ color: "var(--accent)" }}>ETH</span></span>
-          {network === "testnet" && status.l1FeeJuiceBalance !== null && status.l1FeeJuiceBalance !== undefined && Number(status.l1FeeJuiceBalance) > 0 && (
+          {status.l1FeeJuiceBalance !== null && status.l1FeeJuiceBalance !== undefined && Number(status.l1FeeJuiceBalance) > 0 && (
             <>
               <span className="hidden sm:inline text-zinc-600">·</span>
               <span className="hidden sm:inline font-normal" title="L1 Fee Juice ERC20 balance held by the faucet wallet">

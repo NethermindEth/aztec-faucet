@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { FaucetLayout } from "@/components/faucet-layout";
 import { NetworkStatus } from "@/components/network-status";
@@ -10,7 +10,6 @@ import { FaqView } from "@/components/faq-view";
 import { NetworkView } from "@/components/network-view";
 import { KeygenView } from "@/components/keygen-view";
 import { DonateView } from "@/components/donate-view";
-import type { Network } from "@/lib/network-config";
 
 type View = "faucet" | "balance" | "faq" | "status" | "network" | "keys" | "donate";
 
@@ -19,30 +18,7 @@ export default function Home() {
   const [view, setView] = useState<View>("faucet");
   const [leaving, setLeaving] = useState<View | null>(null);
   const [howOpen, setHowOpen] = useState(false);
-  const [network, setNetwork] = useState<Network>("devnet");
-  const [testnetAvailable, setTestnetAvailable] = useState(false);
   const [dripActive, setDripActive] = useState(false);
-  const [rippleColor, setRippleColor] = useState<string | null>(null);
-  const rippleTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  useEffect(() => {
-    fetch("/api/networks")
-      .then((r) => r.json())
-      .then((d: { testnet: boolean }) => { if (d.testnet) setTestnetAvailable(true); })
-      .catch(() => {});
-  }, []);
-
-  function handleNetworkSwitch(newNetwork: Network) {
-    if (newNetwork === network || rippleColor !== null) return;
-    if (dripActive) return;
-    if (newNetwork === "testnet" && !testnetAvailable) return;
-    const color = newNetwork === "testnet" ? "#A78BFA" : "#D4FF28";
-    setRippleColor(color);
-    // Change theme when ripple reaches center of screen (~275ms into 550ms animation)
-    rippleTimers.current.push(setTimeout(() => setNetwork(newNetwork), 275));
-    // Clear overlay after animation completes
-    rippleTimers.current.push(setTimeout(() => setRippleColor(null), 600));
-  }
 
   function switchTab(target: View) {
     if (target === view || leaving !== null) return;
@@ -54,64 +30,12 @@ export default function Home() {
   }
 
   return (
-    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-24 sm:pt-10 pb-4" data-network={network}>
+    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-24 sm:pt-10 pb-4">
       <div className="relative z-10 w-full">
 
         {/* Network status bar — fixed top-left */}
         <div className="fixed top-4 left-4 z-50 animate-fade-up">
-          <NetworkStatus network={network} />
-        </div>
-
-        {/* Network switcher — fixed top-right */}
-        <div className="fixed top-4 right-4 z-50 animate-fade-up">
-          <div className="relative group/switcher">
-            <div
-              className="flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md"
-            >
-              <button
-                type="button"
-                onClick={() => handleNetworkSwitch("devnet")}
-                disabled={dripActive && network !== "devnet"}
-                className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
-                  network === "devnet"
-                    ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
-                    : dripActive
-                      ? "cursor-not-allowed text-zinc-700"
-                      : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                Devnet
-              </button>
-              <div className="relative group/testnet-btn">
-                <button
-                  type="button"
-                  onClick={() => handleNetworkSwitch("testnet")}
-                  disabled={(dripActive && network !== "testnet") || !testnetAvailable}
-                  className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
-                    network === "testnet"
-                      ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
-                      : dripActive
-                        ? "cursor-not-allowed text-zinc-700"
-                        : testnetAvailable
-                          ? "text-zinc-500 hover:text-zinc-300"
-                          : "cursor-not-allowed text-zinc-700"
-                  }`}
-                >
-                  Testnet
-                </button>
-                {!testnetAvailable && (
-                  <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 opacity-0 shadow-lg transition-opacity duration-0 group-hover/testnet-btn:opacity-100">
-                    Not configured
-                  </div>
-                )}
-              </div>
-            </div>
-            {dripActive && (
-              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 opacity-0 shadow-lg transition-opacity duration-0 group-hover/switcher:opacity-100">
-                Locked while a drip is in progress
-              </div>
-            )}
-          </div>
+          <NetworkStatus />
         </div>
 
         {/* Header — static, never re-renders */}
@@ -123,17 +47,13 @@ export default function Home() {
               width={44}
               height={44}
               className="rounded-lg"
-              style={{
-                filter: network === "testnet" ? "hue-rotate(191deg) saturate(0.85) brightness(1.15)" : "none",
-                transition: "filter 0.35s ease",
-              }}
             />
           </div>
           <h1 className="font-display text-5xl text-white">
             Aztec <span className="text-chartreuse transition-colors duration-350">Faucet</span>
           </h1>
           <p className="mt-3 text-sm text-zinc-500">
-            Fee Juice for building on the <span className="text-chartreuse transition-colors duration-350">{network === "testnet" ? "TESTNET" : "DEVNET"}</span>
+            Fee Juice for building on the <span className="text-chartreuse transition-colors duration-350">TESTNET</span>
           </p>
         </div>
 
@@ -221,7 +141,6 @@ export default function Home() {
           {/* Split-panel faucet form + footer (footer hidden when split) */}
           <div className="mt-2">
             <FaucetLayout
-              network={network}
               onGoToAccount={() => switchTab("keys")}
               onDripActiveChange={setDripActive}
               footer={
@@ -298,35 +217,27 @@ export default function Home() {
           view === "keys" ? "animate-panel-state-in" :
           "hidden"
         }>
-          <KeygenView network={network} />
+          <KeygenView />
         </div>
 
         {/* All other views — remount on each switch for the entry animation */}
         {(view !== "faucet" && view !== "keys") || (leaving !== null && leaving !== "faucet" && leaving !== "keys") ? (
           <div key={leaving ?? view} className={leaving !== null && leaving !== "faucet" && leaving !== "keys" ? "animate-panel-state-out" : "animate-panel-state-in"}>
             {(leaving ?? view) === "balance" ? (
-              <BalanceView network={network} />
+              <BalanceView />
             ) : (leaving ?? view) === "faq" ? (
               <FaqView />
             ) : (leaving ?? view) === "network" ? (
-              <NetworkView network={network} />
+              <NetworkView />
             ) : (leaving ?? view) === "donate" ? (
-              <DonateView network={network} />
+              <DonateView />
             ) : (
-              <StatusView network={network} onBack={() => switchTab("faucet")} />
+              <StatusView onBack={() => switchTab("faucet")} />
             )}
           </div>
         ) : null}
 
       </div>
-
-      {/* Network switch ripple bloom */}
-      {rippleColor && (
-        <div
-          className="ripple-overlay"
-          style={{ "--ripple-color": rippleColor } as React.CSSProperties}
-        />
-      )}
     </main>
   );
 }

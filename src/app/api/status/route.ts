@@ -8,9 +8,7 @@ export async function GET(request: Request) {
   };
 
   try {
-    const { searchParams } = new URL(request.url);
-    const network = searchParams.get("network") === "testnet" ? "testnet" : "devnet";
-    const manager = FaucetManager.getInstance(network);
+    const manager = FaucetManager.getInstance();
     const status = await manager.getStatus();
     return NextResponse.json(status, { headers: corsHeaders });
   } catch (err) {

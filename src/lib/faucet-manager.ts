@@ -96,7 +96,6 @@ export class FaucetManager {
       l1ChainId: L1_CHAIN_ID,
       l1PrivateKey,
       feeJuiceDripAmount: FEE_JUICE_DRIP_AMOUNT,
-      mintFirst: false,
     });
 
     // Disable rate limits in local dev (NODE_ENV is "production" in Docker)

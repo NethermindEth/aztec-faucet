@@ -15,7 +15,6 @@ type L2FaucetConfig = {
   l1PrivateKey: Hex;
   feeJuiceDripAmount?: bigint;
   /** Whether to mint L1 Fee Juice before bridging. False for testnet (pre-funded wallet). */
-  mintFirst?: boolean;
 };
 
 export type FeeJuiceClaimData = {
@@ -137,7 +136,7 @@ export class L2Faucet {
       claim = await portalManager.bridgeTokensPublic(
         recipient,
         this.config.feeJuiceDripAmount,
-        this.config.mintFirst ?? true, // testnet: use pre-funded wallet balance
+        false, // testnet: use pre-funded wallet balance (no open mint)
       );
     } catch (err) {
       console.error("[faucet] Bridge tx failed:", err);

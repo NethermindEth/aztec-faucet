@@ -100,11 +100,12 @@ export class FaucetManager {
       mintFirst: false,
     });
 
-    const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 86400000);
+    // Dev defaults: 3x more generous than prod (8h vs 24h, 6 vs 2 IP drips)
+    const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 28800000);
     this.throttle = new Throttle(intervalMs, 1);
 
     const ipIntervalMs = parseIntEnv("IP_DRIP_INTERVAL_MS", intervalMs);
-    const ipMaxCount = parseIntEnv("IP_DRIP_MAX_COUNT", 2);
+    const ipMaxCount = parseIntEnv("IP_DRIP_MAX_COUNT", 6);
     this.ipThrottle = new Throttle(ipIntervalMs, ipMaxCount);
 
     this.claimStore = new ClaimStore(aztecNodeUrl);

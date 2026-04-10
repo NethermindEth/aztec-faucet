@@ -5,7 +5,6 @@ import { Throttle, ThrottleError } from "./throttle";
 import { ClaimStore, type StoredClaim } from "./claim-store";
 import {
   NODE_URL,
-  SPONSORED_FPC_ADDRESS,
   L1_CHAIN_ID,
   ETH_DRIP_AMOUNT,
   FEE_JUICE_DRIP_AMOUNT,
@@ -96,7 +95,6 @@ export class FaucetManager {
       l1RpcUrl,
       l1ChainId: L1_CHAIN_ID,
       l1PrivateKey,
-      sponsoredFpcAddress: SPONSORED_FPC_ADDRESS,
       feeJuiceDripAmount: FEE_JUICE_DRIP_AMOUNT,
       mintFirst: false,
     });

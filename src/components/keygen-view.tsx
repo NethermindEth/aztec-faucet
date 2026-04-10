@@ -169,7 +169,7 @@ export function KeygenView() {
                   </>
                 )}
 
-                {/* Saved — secret key cleared, address kept (devnet only) */}
+                {/* Saved — secret key cleared, address kept */}
                 {state.status === "saved" && (
                   <>
                     <div className="rounded-xl border border-chartreuse/20 bg-chartreuse/3 p-4">

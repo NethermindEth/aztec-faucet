@@ -99,7 +99,7 @@ export function NetworkStatus() {
         </div>
       )}
 
-      {/* Network status pill — outer shell matches devnet/testnet toggle */}
+      {/* Network status pill — outer shell matches accent color */}
       <div
         className="flex items-center rounded-full border bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md"
         style={{ borderColor: "color-mix(in srgb, var(--accent) 28%, transparent)" }}

@@ -16,7 +16,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Why does it take a minute or two to receive Fee Juice?",
     answer:
-      "When the faucet bridges Fee Juice, it sends a message through the Fee Juice Portal on L1. That message sits in a pending state until the next Aztec rollup block is processed. Once a rollup is proven and submitted, the message moves from pending to ready and you can claim it. On devnet this typically takes one to two minutes depending on block timing.",
+      "When the faucet bridges Fee Juice, it sends a message through the Fee Juice Portal on L1. That message sits in a pending state until the next Aztec rollup block is processed. Once a rollup is proven and submitted, the message moves from pending to ready and you can claim it. On testnet this typically takes one to two minutes depending on block timing.",
   },
   {
     question: "My claim proof seems to have expired. What happened?",
@@ -41,7 +41,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Will these tokens work on Aztec mainnet?",
     answer:
-      "No. These are testnet tokens only and have no real value. They work on the Aztec devnet for building and testing. Never use a wallet with real funds on this faucet.",
+      "No. These are testnet tokens only and have no real value. They work on the Aztec testnet for building and testing. Never use a wallet with real funds on this faucet.",
   },
   {
     question: "I already deployed my account. Can I still claim Fee Juice?",
@@ -56,7 +56,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "What are the fee numbers in the Network tab?",
     answer:
-      "The fee rates show the current minimum Fee Juice per mana for DA and L2 dimensions. Fee Juice uses 18 decimal places, the same as ETH, so the values shown are in base units. To convert to whole Fee Juice, divide by 10^18. The faucet sends you 1,000 Fee Juice, enough to cover many transactions on the devnet.",
+      "The fee rates show the current minimum Fee Juice per mana for DA and L2 dimensions. Fee Juice uses 18 decimal places, the same as ETH, so the values shown are in base units. To convert to whole Fee Juice, divide by 10^18. The faucet sends you 1,000 Fee Juice, enough to cover many transactions on the testnet.",
   },
   {
     question: "Can I send Fee Juice to another address?",

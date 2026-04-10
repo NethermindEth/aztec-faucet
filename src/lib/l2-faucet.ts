@@ -13,9 +13,8 @@ export type L2FaucetConfig = {
   l1RpcUrl: string;
   l1ChainId: number;
   l1PrivateKey: Hex;
-  sponsoredFpcAddress: string;
   feeJuiceDripAmount?: bigint;
-  /** Whether to mint L1 Fee Juice before bridging. True for devnet (open mint), false for testnet (pre-funded wallet). */
+  /** Whether to mint L1 Fee Juice before bridging. False for testnet (pre-funded wallet). */
   mintFirst?: boolean;
 };
 
@@ -30,7 +29,6 @@ export type FeeJuiceClaimData = {
 
 export class L2Faucet {
   private aztecNode;
-  private fpcAddress: AztecAddress;
   // Cached per-instance — contract addresses and L1 client never change at runtime
   private _l1Client: ReturnType<typeof createExtendedL1Client> | null = null;
   private _portalManagerPromise: Promise<L1FeeJuicePortalManager> | null = null;
@@ -38,7 +36,6 @@ export class L2Faucet {
 
   constructor(private config: L2FaucetConfig) {
     this.aztecNode = createAztecNodeClient(config.aztecNodeUrl);
-    this.fpcAddress = AztecAddress.fromString(config.sponsoredFpcAddress);
   }
 
   private getL1Client(): ReturnType<typeof createExtendedL1Client> {
@@ -140,7 +137,7 @@ export class L2Faucet {
       claim = await portalManager.bridgeTokensPublic(
         recipient,
         this.config.feeJuiceDripAmount,
-        this.config.mintFirst ?? true, // devnet: mint first (open mint); testnet: use pre-funded wallet balance
+        this.config.mintFirst ?? true, // testnet: use pre-funded wallet balance
       );
     } catch (err) {
       console.error("[faucet] Bridge tx failed:", err);

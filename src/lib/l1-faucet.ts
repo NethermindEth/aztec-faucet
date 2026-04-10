@@ -3,7 +3,6 @@ import {
   createWalletClient,
   http,
   parseEther,
-  getContract,
   type Hex,
   type Chain,
   type HttpTransport,
@@ -11,8 +10,6 @@ import {
 } from "viem";
 import { type PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
 import { sepolia, foundry } from "viem/chains";
-import { TestERC20Abi } from "@aztec/l1-artifacts";
-
 export type L1FaucetConfig = {
   rpcUrl: string;
   chainId: number;
@@ -72,15 +69,4 @@ export class L1Faucet {
     return hash;
   }
 
-  async mintERC20(to: Hex, tokenAddress: Hex, amount: bigint): Promise<Hex> {
-    const token = getContract({
-      address: tokenAddress,
-      abi: TestERC20Abi,
-      client: this.walletClient,
-    });
-
-    const hash = await token.write.mint([to, amount]);
-    await this.publicClient.waitForTransactionReceipt({ hash });
-    return hash;
-  }
 }

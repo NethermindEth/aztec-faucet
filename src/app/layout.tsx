@@ -22,7 +22,7 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "Aztec Faucet",
-  description: "Get test tokens for the Aztec devnet",
+  description: "Get test tokens for the Aztec testnet",
 };
 
 export default function RootLayout({

@@ -3,7 +3,7 @@
 :root {
   --background: #06060a;
   --foreground: #e8e6df;
-  --accent: #D4FF28;           /* chartreuse — devnet */
+  --accent: #D4FF28;           /* chartreuse — testnet */
   --accent-rgb: 212, 255, 40;
 }
 
@@ -97,7 +97,7 @@ body {
   position: relative;
 }
 
-/* Devnet glow — chartreuse */
+/* Accent glow — chartreuse */
 .bg-atmosphere::before {
   content: '';
   position: fixed;

@@ -147,8 +147,8 @@ export default function Home() {
           "hidden"
         }>
           <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-center h-full">
-            {/* Left: Editorial branding — hidden on mobile and when result panel is showing */}
-            <div className={`${faucetSplit ? "hidden" : "hidden lg:flex"} lg:col-span-5 flex-col gap-3 justify-center`}>
+            {/* Left: Editorial branding — hidden when result panel is showing */}
+            <div className={`${faucetSplit ? "hidden" : "flex"} lg:col-span-5 flex-col gap-3 justify-center`}>
               <div className="flex items-center gap-3">
                 <span className="w-8 h-px bg-accent" />
                 <span className="font-label text-[10px] tracking-[0.3em] uppercase text-accent">

@@ -22,7 +22,7 @@ export class AddressValidationError extends Error {
   }
 }
 
-export type DripResult = {
+type DripResult = {
   success: true;
   asset: Asset;
   txHash?: string;
@@ -31,7 +31,7 @@ export type DripResult = {
   claimStatus?: "bridging" | "ready" | "expired";
 };
 
-export type FaucetStatus = {
+type FaucetStatus = {
   healthy: boolean;
   faucetAddress: string;
   l1BalanceEth: string;

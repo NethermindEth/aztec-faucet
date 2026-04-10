@@ -3,7 +3,7 @@ import { Fr } from "@aztec/aztec.js/fields";
 
 import type { FeeJuiceClaimData } from "./l2-faucet";
 
-export type ClaimStatus = "bridging" | "ready" | "expired";
+type ClaimStatus = "bridging" | "ready" | "expired";
 
 export type StoredClaim = {
   id: string;
@@ -19,7 +19,6 @@ export const CLAIM_EXPIRY_MS = 30 * 60 * 1_000; // 30 minutes
 
 export class ClaimStore {
   private claims = new Map<string, StoredClaim>();
-  private addressIndex = new Map<string, string[]>();
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private aztecNode: any;
@@ -43,23 +42,11 @@ export class ClaimStore {
       createdAt: Date.now(),
     });
 
-    const existing = this.addressIndex.get(normalized) ?? [];
-    existing.push(id);
-    this.addressIndex.set(normalized, existing);
-
     return id;
   }
 
   get(id: string): StoredClaim | undefined {
     return this.claims.get(id);
-  }
-
-  getByAddress(address: string): StoredClaim[] {
-    const normalized = address.toLowerCase();
-    const ids = this.addressIndex.get(normalized) ?? [];
-    return ids
-      .map((id) => this.claims.get(id))
-      .filter((c): c is StoredClaim => !!c);
   }
 
   private startPolling() {
@@ -134,23 +121,8 @@ export class ClaimStore {
     for (const [id, claim] of this.claims) {
       if (now - claim.createdAt > 2 * CLAIM_EXPIRY_MS) {
         this.claims.delete(id);
-        const ids = this.addressIndex.get(claim.address);
-        if (ids) {
-          const filtered = ids.filter((i) => i !== id);
-          if (filtered.length === 0) {
-            this.addressIndex.delete(claim.address);
-          } else {
-            this.addressIndex.set(claim.address, filtered);
-          }
-        }
       }
     }
   }
 
-  destroy() {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-  }
 }

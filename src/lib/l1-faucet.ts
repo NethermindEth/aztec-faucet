@@ -10,7 +10,7 @@ import {
 } from "viem";
 import { type PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
 import { sepolia, foundry } from "viem/chains";
-export type L1FaucetConfig = {
+type L1FaucetConfig = {
   rpcUrl: string;
   chainId: number;
   privateKey: Hex;

@@ -88,12 +88,11 @@ function PendingPanel({ asset }: { asset: string }) {
   );
 }
 
-export function FaucetLayout({ footer, onGoToAccount, onDripActiveChange }: { footer?: React.ReactNode; onGoToAccount?: () => void; onDripActiveChange?: (active: boolean) => void }) {
+export function FaucetLayout({ footer, onGoToAccount }: { footer?: React.ReactNode; onGoToAccount?: () => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
 
   const handlePending = (asset: string) => {
     setRightPanel({ kind: "pending", asset });
-    onDripActiveChange?.(true);
   };
 
   const handleSuccess = (data: DripResultData) => {
@@ -106,12 +105,10 @@ export function FaucetLayout({ footer, onGoToAccount, onDripActiveChange }: { fo
 
   const handleError = () => {
     setRightPanel(null);
-    onDripActiveChange?.(false);
   };
 
   const handleReset = () => {
     setRightPanel(null);
-    onDripActiveChange?.(false);
   };
 
   const isSplit = rightPanel !== null;

@@ -8,7 +8,7 @@ import { createPublicClient, http, type Hex, parseAbiItem } from "viem";
 import { sepolia, foundry } from "viem/chains";
 import type { Chain } from "viem";
 
-export type L2FaucetConfig = {
+type L2FaucetConfig = {
   aztecNodeUrl: string;
   l1RpcUrl: string;
   l1ChainId: number;

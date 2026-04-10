@@ -18,7 +18,7 @@ export default function Home() {
   const [view, setView] = useState<View>("faucet");
   const [leaving, setLeaving] = useState<View | null>(null);
   const [howOpen, setHowOpen] = useState(false);
-  const [dripActive, setDripActive] = useState(false);
+
 
   function switchTab(target: View) {
     if (target === view || leaving !== null) return;
@@ -142,7 +142,7 @@ export default function Home() {
           <div className="mt-2">
             <FaucetLayout
               onGoToAccount={() => switchTab("keys")}
-              onDripActiveChange={setDripActive}
+
               footer={
                 <div className="mx-auto mt-5 max-w-lg space-y-3">
                   <div className="glass-card rounded-xl overflow-hidden">

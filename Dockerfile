@@ -35,6 +35,10 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 # Suppress pino transport initialization (prevents pino-pretty worker threads)
 ENV LOG_LEVEL=silent
+# Force single-thread WASM for all @aztec/bb.js instances (native bb binary
+# exits with code 1 in containers; HARDWARE_CONCURRENCY=1 ensures the WASM
+# fallback uses 1 thread, avoiding worker spawning issues)
+ENV HARDWARE_CONCURRENCY=1
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs

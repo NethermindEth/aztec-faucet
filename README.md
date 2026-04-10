@@ -34,20 +34,11 @@ The Aztec Sponsored FPC can cover your very first account deployment, but it giv
 
 ## Screenshots
 
-### Desktop
-
 ![Faucet tab](./images/faucet.png)
 
 ![Account tab](./images/account.png)
 
 ![Network tab](./images/network.png)
-
-### Mobile
-
-<p align="center">
-  <img src="./images/mobile-faucet.png" width="300" alt="Mobile faucet" />
-  <img src="./images/mobile-menu.png" width="300" alt="Mobile menu" />
-</p>
 
 ---
 

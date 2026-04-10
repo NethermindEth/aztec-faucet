@@ -67,22 +67,22 @@ export function BalanceView() {
   const isZero = result?.balanceRaw === "0";
 
   return (
-    <div className="mx-auto w-full max-w-lg">
-      <div className="glass-card rounded-2xl p-6">
-        <div className="mb-5">
-          <h2 className="text-base font-semibold text-white">Check Fee Juice Balance</h2>
-          <p className="mt-1 text-xs text-zinc-500">
+    <div className="mx-auto w-full max-w-xl">
+      <div className="bg-surface-container p-5 sm:p-8 shadow-2xl">
+        <div className="mb-6 border-b border-outline-variant pb-6">
+          <h2 className="font-headline text-2xl uppercase tracking-tight text-on-surface">Check Fee Juice Balance</h2>
+          <p className="mt-1 font-label text-xs text-on-surface-variant opacity-60 uppercase tracking-wider">
             Fee Juice is public state, readable directly from the Aztec node.
           </p>
         </div>
 
         {/* Address input */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+            <label className="mb-2 block font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
               Aztec Address
             </label>
-            <div className="relative">
+            <div className="focus-glow-line relative">
               <input
                 type="text"
                 value={address}
@@ -90,13 +90,7 @@ export function BalanceView() {
                 onKeyDown={(e) => { if (e.key === "Enter") handleCheck(); }}
                 placeholder="0x + 64 hex characters"
                 spellCheck={false}
-                className={`w-full rounded-xl border bg-white/3 py-3 pl-4 pr-16 font-mono text-sm text-white placeholder-zinc-600 outline-none transition-colors focus:bg-white/5 ${
-                  isDirty && !isValid
-                    ? "border-red-500/40 focus:border-red-500/60"
-                    : isValid
-                      ? "border-chartreuse/30 focus:border-chartreuse/50"
-                      : "border-white/8 focus:border-white/20"
-                }`}
+                className="stitch-input text-sm sm:text-base pr-20! sm:pr-28!"
               />
               <button
                 type="button"
@@ -104,13 +98,13 @@ export function BalanceView() {
                   const text = await navigator.clipboard.readText().catch(() => "");
                   if (text) { setAddress(text.trim()); setResult(null); setError(null); }
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-white/8 px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:border-chartreuse/25 hover:text-chartreuse"
+                className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 border border-outline-variant bg-surface-high px-2 sm:px-3 py-1.5 font-label text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
               >
                 Paste
               </button>
             </div>
             {isDirty && !isValid && (
-              <p className="mt-1.5 text-[11px] text-red-400">
+              <p className="mt-1.5 font-label text-[11px] text-red-400">
                 Must be 0x followed by exactly 64 hex characters.
               </p>
             )}
@@ -120,7 +114,7 @@ export function BalanceView() {
             type="button"
             onClick={handleCheck}
             disabled={!isValid || loading}
-            className="btn-primary w-full rounded-xl px-4 py-3 text-sm"
+            className="btn-primary w-full py-4 text-base"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -128,67 +122,67 @@ export function BalanceView() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                 </svg>
-                Fetching balance...
+                FETCHING BALANCE...
               </span>
-            ) : "Check Balance"}
+            ) : "CHECK BALANCE"}
           </button>
         </div>
 
         {/* Error state */}
         {error && (
-          <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/6 px-4 py-3 animate-panel-state-in">
-            <p className="text-sm font-medium text-red-400">Failed to fetch balance</p>
-            <p className="mt-0.5 text-xs text-red-400/70">{error}</p>
+          <div className="mt-5 border-l-4 border-red-500 bg-red-500/10 p-4 animate-panel-state-in">
+            <p className="font-label text-sm text-red-400">Failed to fetch balance</p>
+            <p className="mt-0.5 font-label text-xs text-red-400/70">{error}</p>
           </div>
         )}
 
         {/* Result */}
         {result && (
-          <div className="mt-5 space-y-3 animate-panel-state-in">
+          <div className="mt-6 space-y-4 animate-panel-state-in">
             {/* Balance card */}
-            <div className="rounded-xl border border-white/6 bg-white/2 p-5">
+            <div className="bg-surface-low p-5">
               {/* Network row */}
               <div className="mb-4 flex items-center gap-2">
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orchid/60" style={{ animationDuration: "2.5s" }} />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-orchid" />
+                  <span className="absolute inline-flex h-full w-full animate-ping bg-accent/60" style={{ animationDuration: "2.5s" }} />
+                  <span className="relative inline-flex h-1.5 w-1.5 bg-accent" />
                 </span>
-                <span className="text-xs text-zinc-500">Aztec L2 Testnet</span>
+                <span className="font-label text-xs uppercase tracking-wider text-on-surface-variant opacity-60">Aztec L2 Testnet</span>
               </div>
 
               {/* Balance number */}
               <div className="flex items-baseline gap-2">
-                <span className={`font-mono text-4xl font-semibold tracking-tight ${isZero ? "text-zinc-500" : "text-white"}`}>
+                <span className={`font-headline text-3xl sm:text-4xl italic tracking-tight break-all ${isZero ? "text-on-surface-variant opacity-50" : "text-on-surface"}`}>
                   {result.balanceFormatted}
                 </span>
-                <span className="text-sm text-zinc-500">Fee Juice</span>
+                <span className="font-label text-sm text-on-surface-variant opacity-60">Fee Juice</span>
               </div>
 
               {isZero && (
-                <p className="mt-2 text-xs text-zinc-600">
+                <p className="mt-2 font-label text-xs text-on-surface-variant opacity-40">
                   Zero balance. If you just bridged, wait ~2 min for the L1 to L2 message to land.
                 </p>
               )}
 
               {/* Checked address + deployment status */}
-              <div className="mt-4 space-y-2 border-t border-white/5 pt-3">
+              <div className="mt-4 space-y-2 border-t border-outline-variant/30 pt-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">Address</span>
-                  <code className="font-mono text-[11px] text-zinc-500">
-                    {checkedAddress?.slice(0, 10)}…{checkedAddress?.slice(-8)}
+                  <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Address</span>
+                  <code className="font-label text-[11px] text-on-surface-variant">
+                    {checkedAddress?.slice(0, 10)}...{checkedAddress?.slice(-8)}
                   </code>
                 </div>
                 {result.isDeployed !== undefined && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">Status</span>
+                    <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Status</span>
                     {result.isDeployed ? (
-                      <span className="flex items-center gap-1.5 text-[11px] text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      <span className="flex items-center gap-1.5 font-label text-[11px] text-emerald-400">
+                        <span className="h-1.5 w-1.5 bg-emerald-400" />
                         Deployed
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1.5 text-[11px] text-amber-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      <span className="flex items-center gap-1.5 font-label text-[11px] text-amber-400">
+                        <span className="h-1.5 w-1.5 bg-amber-400" />
                         Not Deployed
                       </span>
                     )}
@@ -197,24 +191,24 @@ export function BalanceView() {
               </div>
             </div>
 
-            {/* CLI command — collapsible */}
-            <details className="group rounded-xl border border-white/6 bg-white/2">
-              <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-300">
+            {/* CLI command */}
+            <details className="group bg-surface-low">
+              <summary className="cursor-pointer px-5 py-3 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent">
                 Run this from your terminal instead
               </summary>
-              <div className="border-t border-white/5 space-y-0">
-                <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
+              <div className="border-t border-outline-variant/30 space-y-0">
+                <div className="flex items-center justify-between border-b border-outline-variant/20 px-4 py-2">
+                  <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
                   <CopyButton text={makeBalanceCurl(trimmed)} />
                 </div>
-                <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
+                <pre className="overflow-x-auto px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
                   <code>{makeBalanceCurl(trimmed)}</code>
                 </pre>
-                <div className="flex items-center justify-between border-t border-b border-white/5 px-3 py-2">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
+                <div className="flex items-center justify-between border-t border-b border-outline-variant/20 px-4 py-2">
+                  <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
                   <CopyButton text={makeBalanceCmd(trimmed)} />
                 </div>
-                <pre className="max-h-40 overflow-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
+                <pre className="max-h-40 overflow-auto px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
                   <code>{makeBalanceCmd(trimmed)}</code>
                 </pre>
               </div>

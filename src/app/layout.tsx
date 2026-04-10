@@ -1,22 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
-import Image from "next/image";
+import { Newsreader, Manrope, Space_Grotesk } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+});
+
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const instrumentSerif = Instrument_Serif({
-  variable: "--font-instrument-serif",
-  weight: "400",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
 });
 
@@ -33,20 +32,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${instrumentSerif.variable} antialiased overflow-x-hidden min-h-screen flex flex-col`}
+        className={`${newsreader.variable} ${manrope.variable} ${spaceGrotesk.variable} antialiased overflow-x-hidden min-h-screen flex flex-col font-[family-name:var(--font-manrope)] text-[var(--on-surface)] select-none`}
         suppressHydrationWarning
       >
+        {/* Grain texture overlay */}
+        <div className="grain" />
         {children}
-        <footer className="flex flex-col items-center gap-2 pb-8 pt-4">
-          <Image
-            src="/powered-by-nethermind-dark.svg"
-            alt="Powered by Nethermind"
-            width={160}
-            height={22}
-          />
-          <p className="text-[11px] text-zinc-600">Released under the MIT License.</p>
-          <p className="text-[11px] text-zinc-600">© 2026 Nethermind. All Rights Reserved</p>
-        </footer>
         {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js"

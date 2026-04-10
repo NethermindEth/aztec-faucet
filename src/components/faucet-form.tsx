@@ -35,18 +35,21 @@ const ASSETS: {
   label: string;
   description: string;
   addressType: "ethereum" | "aztec";
+  tag: string;
 }[] = [
+  {
+    value: "fee-juice",
+    label: "FEE JUICE",
+    description: "L2 gas token",
+    addressType: "aztec",
+    tag: "TESTNET",
+  },
   {
     value: "eth",
     label: "ETH",
-    description: "L1 Ethereum for gas fees",
+    description: "L1 Ethereum",
     addressType: "ethereum",
-  },
-  {
-    value: "fee-juice",
-    label: "Fee Juice",
-    description: "L2 gas token (bridged from L1)",
-    addressType: "aztec",
+    tag: "WRAP",
   },
 ];
 
@@ -171,7 +174,6 @@ export function FaucetForm({
 
       if (!res.ok) {
         setError(data.error ?? "Request failed");
-        // retryAfter from server, or default to 24h for any rate-limit response
         const retryMs = data.retryAfter || (res.status === 429 ? 86_400_000 : null);
         if (retryMs) setRetryAfter(retryMs);
         onError();
@@ -201,153 +203,29 @@ export function FaucetForm({
     : "0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Asset selector */}
-      <div>
-        <label className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-zinc-500">
-          Select Token
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          {ASSETS.map((a) => (
-            <button
-              key={a.value}
-              type="button"
-              disabled={locked}
-              onClick={() => {
-                if (locked) return;
-                setAsset(a.value);
-                setError(null);
-              }}
-              className={`rounded-xl border p-3 text-left transition-all ${
-                locked
-                  ? asset === a.value
-                    ? a.value === "eth"
-                      ? "cursor-not-allowed border-blue-400/20 bg-blue-400/4 text-zinc-400"
-                      : "cursor-not-allowed border-chartreuse/20 bg-chartreuse/4 text-zinc-400"
-                    : "cursor-not-allowed border-white/4 bg-white/1 text-zinc-600"
-                  : asset === a.value
-                  ? a.value === "eth"
-                    ? "border-blue-400/40 bg-blue-400/8 text-white"
-                    : "border-chartreuse/30 bg-chartreuse/6 text-white"
-                  : "border-white/6 bg-white/2 text-zinc-500 hover:border-white/10 hover:text-zinc-300"
-              }`}
-            >
-              <span className="block text-sm font-medium">{a.label}</span>
-              <span className="mt-0.5 block text-xs opacity-60">
-                {a.description}
-              </span>
-            </button>
-          ))}
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* Form Header */}
+      <div className="flex justify-between items-end border-b border-outline-variant pb-3">
+        <div>
+          <h2 className="font-headline text-xl md:text-2xl text-on-surface uppercase tracking-tight">
+            Claim Tokens
+          </h2>
+          <p className="font-label text-[10px] text-on-surface-variant mt-0.5">
+            ESTIMATED ARRIVAL: <span className="text-accent">{asset === "eth" ? "~24 SECONDS" : "~1-2 MINUTES"}</span>
+          </p>
         </div>
+        <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-accent shrink-0">
+          <path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8z" />
+        </svg>
       </div>
 
-      {/* Fee Juice helper dropdowns */}
-      {asset === "fee-juice" && (
-        <div className="space-y-2">
-          {/* Don't have an Aztec address accordion */}
-          <div className="rounded-xl border border-white/6 bg-white/2 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleAccordion("address")}
-              className="flex w-full items-center justify-between px-4 py-3 text-left"
-            >
-              <span className="text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-300">
-                Don&apos;t have an Aztec address yet?
-              </span>
-              <span className={`shrink-0 text-zinc-600 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${openAccordion === "address" ? "rotate-45" : ""}`}>
-                <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
-                  <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </span>
-            </button>
-            <div
-              className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-              style={{ gridTemplateRows: openAccordion === "address" ? "1fr" : "0fr" }}
-            >
-              <div className="overflow-hidden">
-                <div className="border-t border-white/6 px-4 pb-4 pt-3 space-y-2">
-                  <p className="text-xs text-zinc-500">
-                    Prints your secret key and address. Nothing leaves your machine.
-                    {onGoToAccount && (
-                      <>
-                        {" "}Or{" "}
-                        <button
-                          type="button"
-                          onClick={onGoToAccount}
-                          className="text-chartreuse/70 transition-colors hover:text-chartreuse underline underline-offset-2"
-                        >
-                          generate a throwaway account in the Account tab
-                        </button>
-                        {" "}with no CLI needed.
-                      </>
-                    )}
-                  </p>
-                  <div className="rounded-lg border border-white/5 bg-black/30">
-                    <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
-                      <CopyButton text={makeCreateAccountOneLiner()} />
-                    </div>
-                    <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                      <code>{makeCreateAccountOneLiner()}</code>
-                    </pre>
-                  </div>
-                  <div className="rounded-lg border border-white/5 bg-black/30">
-                    <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
-                      <CopyButton text={makeCreateAccountSelfContained()} />
-                    </div>
-                    <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                      <code>{makeCreateAccountSelfContained()}</code>
-                    </pre>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Why Fee Juice takes 1-2 minutes accordion */}
-          <div className="rounded-xl border border-chartreuse/10 bg-chartreuse/4 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => toggleAccordion("timing")}
-              className="flex w-full items-center justify-between px-4 py-3 text-left"
-            >
-              <span className="text-xs font-medium text-chartreuse/80 transition-colors hover:text-chartreuse">
-                Why does Fee Juice take 1-2 minutes?
-              </span>
-              <span className={`shrink-0 text-chartreuse/60 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${openAccordion === "timing" ? "rotate-45" : ""}`}>
-                <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
-                  <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </span>
-            </button>
-            <div
-              className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-              style={{ gridTemplateRows: openAccordion === "timing" ? "1fr" : "0fr" }}
-            >
-              <div className="overflow-hidden">
-                <div className="border-t border-chartreuse/10 px-4 pb-4 pt-3">
-                  <p className="text-xs text-chartreuse/50">
-                    Fee Juice must be <strong className="text-chartreuse/70">bridged from L1 to L2</strong>. The faucet sends an L1 transaction to the Fee Juice Portal contract, then the Aztec sequencer picks up that message and includes it in an L2 block. That relay step takes 1-2 minutes. Once ready, you&apos;ll get claim data to use when deploying your account.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Address input */}
-      <div>
-        <label
-          htmlFor="address"
-          className="mb-2 block text-[11px] font-medium uppercase tracking-wider text-zinc-500"
-        >
-          Recipient Address
+      {/* Wallet Address Input */}
+      <div className="flex flex-col gap-1.5">
+        <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+          Wallet Address
         </label>
-        <div className="relative">
+        <div className="focus-glow-line relative">
           <input
-            id="address"
             type="text"
             value={address}
             onChange={(e) => {
@@ -359,10 +237,8 @@ export function FaucetForm({
             placeholder={placeholder}
             spellCheck={false}
             autoComplete="off"
-            className={`w-full rounded-xl border py-3 pl-4 pr-20 font-mono text-sm placeholder-zinc-600 outline-none transition-all ${
-              locked
-                ? "cursor-not-allowed border-white/4 bg-white/2 text-zinc-500 select-none"
-                : "border-white/6 bg-white/3 text-white focus:border-chartreuse/40 focus:ring-1 focus:ring-chartreuse/20"
+            className={`stitch-input text-sm py-3! pr-20! sm:pr-28! ${
+              locked ? "cursor-not-allowed opacity-50" : ""
             }`}
           />
           {!locked && (
@@ -374,25 +250,71 @@ export function FaucetForm({
                   setAddress(text.trim());
                   if (error) setError(null);
                 } catch {
-                  // clipboard permission denied — silently ignore
+                  // clipboard permission denied
                 }
               }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-lg border border-white/8 bg-white/4 px-2.5 py-1.5 text-[11px] text-zinc-500 transition-all hover:border-chartreuse/30 hover:text-chartreuse"
+              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 border border-outline-variant bg-surface-high px-2 sm:px-3 py-1.5 font-label text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
               title="Paste from clipboard"
             >
-              <svg viewBox="0 0 14 14" fill="none" className="h-3 w-3">
-                <rect x="4" y="1" width="8" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
-                <path d="M2 4H1.5A1.5 1.5 0 000 5.5v7A1.5 1.5 0 001.5 14H8a1.5 1.5 0 001.5-1.5V12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
-              </svg>
               Paste
             </button>
           )}
         </div>
-        <p className="mt-1.5 text-xs text-zinc-600">
+        <p className="font-label text-[10px] text-on-surface-variant opacity-60 uppercase tracking-wider">
           {isEthAddress
             ? "Ethereum address (0x + 40 hex chars)"
             : "Aztec address (0x + 64 hex chars)"}
         </p>
+      </div>
+
+      {/* Asset Selection */}
+      <div className="flex flex-col gap-1.5">
+        <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+          Select Asset
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          {ASSETS.map((a) => (
+            <button
+              key={a.value}
+              type="button"
+              disabled={locked}
+              onClick={() => {
+                if (locked) return;
+                setAsset(a.value);
+                setError(null);
+              }}
+              className={`flex items-center justify-between p-3 transition-colors overflow-hidden ${
+                locked
+                  ? asset === a.value
+                    ? "bg-surface-high border-2 border-accent/30 cursor-not-allowed"
+                    : "bg-surface-low border-2 border-transparent cursor-not-allowed"
+                  : asset === a.value
+                    ? "bg-surface-high hover:bg-surface-highest border-2 border-accent"
+                    : "bg-surface-low hover:bg-surface-high border-2 border-transparent"
+              }`}
+            >
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center shrink-0 ${
+                  asset === a.value ? "bg-accent" : "bg-surface-highest"
+                }`}>
+                  {a.value === "fee-juice" ? (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className={`h-4 w-4 ${asset === a.value ? "text-surface" : "text-on-surface"}`}>
+                      <path d="M11 15H6l7-14v8h5l-7 14v-8z" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="currentColor" className={`h-4 w-4 ${asset === a.value ? "text-surface" : "text-on-surface"}`}>
+                      <path d="M12 2L2 12l10 10 10-10L12 2zm0 3.5L18.5 12 12 18.5 5.5 12 12 5.5z" />
+                    </svg>
+                  )}
+                </div>
+                <span className={`font-label text-sm sm:text-base uppercase font-bold truncate ${
+                  asset === a.value ? "text-on-surface" : "text-on-surface opacity-50"
+                }`}>{a.label}</span>
+              </div>
+              <span className="font-label text-[10px] sm:text-xs opacity-40 shrink-0">{a.tag}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Turnstile CAPTCHA */}
@@ -402,16 +324,16 @@ export function FaucetForm({
         </div>
       )}
 
-      {/* Submit */}
+      {/* Submit Button */}
       <button
         type="submit"
         disabled={loading || locked}
-        className="btn-primary w-full rounded-xl px-4 py-3 text-sm"
+        className="btn-primary w-full py-3.5 text-sm"
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
             <svg
-              className="h-4 w-4 animate-spin"
+              className="h-5 w-5 animate-spin"
               viewBox="0 0 24 24"
               fill="none"
             >
@@ -430,25 +352,126 @@ export function FaucetForm({
               />
             </svg>
             {asset === "fee-juice"
-              ? "Bridging Fee Juice..."
-              : "Sending ETH..."}
+              ? "BRIDGING FEE JUICE..."
+              : "SENDING ETH..."}
           </span>
         ) : (
-          `Request ${currentAsset.label}`
+          `REQUEST ${currentAsset.label}`
         )}
       </button>
 
-      {/* Inline error display */}
+      {/* Error display */}
       {error && (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/6 p-4">
-          <p className="text-sm font-medium text-red-400">{error}</p>
+        <div className="border-l-4 border-red-500 bg-red-500/10 p-4">
+          <p className="text-sm font-label text-red-400">{error}</p>
           {retryAfter && (
-            <p className="mt-1 text-xs text-red-400/70">
+            <p className="mt-1 font-label text-xs text-red-400/70">
               Try again in {formatRetryAfter(retryAfter)}
             </p>
           )}
         </div>
       )}
     </form>
+  );
+}
+
+export function FeeJuiceHelpers({ onGoToAccount }: { onGoToAccount?: () => void }) {
+  const [openAccordion, setOpenAccordion] = useState<"address" | "timing" | null>(null);
+  const toggleAccordion = (name: "address" | "timing") =>
+    setOpenAccordion((prev) => (prev === name ? null : name));
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Don't have an Aztec address */}
+      <div className="border border-outline-variant/40 bg-surface-low overflow-hidden">
+        <button
+          type="button"
+          onClick={() => toggleAccordion("address")}
+          className="flex w-full items-center justify-between px-4 py-2 text-left"
+        >
+          <span className="font-label text-[10px] uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent">
+            Don&apos;t have an Aztec address yet?
+          </span>
+          <span className={`shrink-0 text-on-surface-variant transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${openAccordion === "address" ? "rotate-45" : ""}`}>
+            <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+        </button>
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{ gridTemplateRows: openAccordion === "address" ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="border-t border-outline-variant/40 px-4 pb-4 pt-3 space-y-2">
+              <p className="text-[11px] text-on-surface-variant opacity-70">
+                Prints your secret key and address. Nothing leaves your machine.
+                {onGoToAccount && (
+                  <>
+                    {" "}Or{" "}
+                    <button
+                      type="button"
+                      onClick={onGoToAccount}
+                      className="text-accent/70 transition-colors hover:text-accent underline underline-offset-2"
+                    >
+                      generate in the Account tab
+                    </button>
+                    .
+                  </>
+                )}
+              </p>
+              <div className="border border-outline-variant/30 bg-surface-lowest">
+                <div className="flex items-center justify-between border-b border-outline-variant/30 px-3 py-2">
+                  <span className="font-label text-[9px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
+                  <CopyButton text={makeCreateAccountOneLiner()} />
+                </div>
+                <pre className="overflow-x-auto px-3 py-2 text-[10px] leading-relaxed text-on-surface-variant font-label">
+                  <code>{makeCreateAccountOneLiner()}</code>
+                </pre>
+              </div>
+              <div className="border border-outline-variant/30 bg-surface-lowest">
+                <div className="flex items-center justify-between border-b border-outline-variant/30 px-3 py-2">
+                  <span className="font-label text-[9px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
+                  <CopyButton text={makeCreateAccountSelfContained()} />
+                </div>
+                <pre className="overflow-x-auto px-3 py-2 text-[10px] leading-relaxed text-on-surface-variant font-label max-h-40 overflow-y-auto">
+                  <code>{makeCreateAccountSelfContained()}</code>
+                </pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Why Fee Juice takes time */}
+      <div className="border border-accent/20 bg-accent/5 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => toggleAccordion("timing")}
+          className="flex w-full items-center justify-between px-4 py-2 text-left"
+        >
+          <span className="font-label text-[10px] uppercase tracking-wider text-accent/80 transition-colors hover:text-accent">
+            Why does Fee Juice take 1-2 minutes?
+          </span>
+          <span className={`shrink-0 text-accent/60 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${openAccordion === "timing" ? "rotate-45" : ""}`}>
+            <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+        </button>
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{ gridTemplateRows: openAccordion === "timing" ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="border-t border-accent/20 px-4 pb-3 pt-2">
+              <p className="text-[11px] text-accent/50">
+                Fee Juice must be <strong className="text-accent/70">bridged from L1 to L2</strong>. The faucet sends an L1 transaction to the Fee Juice Portal contract, then the Aztec sequencer picks up that message and includes it in an L2 block. That relay step takes 1-2 minutes.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

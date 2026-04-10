@@ -75,30 +75,30 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
   const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex);
   const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex);
   return (
-    <div className="space-y-2">
-      <div className="rounded-xl border border-white/6 bg-white/2">
-        <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
+    <div className="space-y-3">
+      <div className="border border-outline-variant/40 bg-surface-lowest">
+        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
-            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-400">Recommended</span>
+            <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
+            <span className="bg-emerald-500/15 px-2 py-0.5 font-label text-[9px] font-bold uppercase tracking-widest text-emerald-400">Recommended</span>
           </div>
           <CopyButton text={oneLiner} />
         </div>
-        <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
+        <pre className="overflow-x-auto px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
           <code>{oneLiner}</code>
         </pre>
       </div>
-      <div className="rounded-xl border border-white/6 bg-white/2">
-        <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
+      <div className="border border-outline-variant/40 bg-surface-lowest">
+        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2.5">
+          <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
           <CopyButton text={selfContained} />
         </div>
-        <pre className="max-h-48 overflow-x-auto overflow-y-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
+        <pre className="max-h-48 overflow-x-auto overflow-y-auto px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
           <code>{selfContained}</code>
         </pre>
       </div>
-      <p className="text-[11px] text-zinc-600">
-        Replace <code className="rounded bg-white/6 px-1 text-zinc-500">&lt;YOUR_SECRET_KEY&gt;</code> with your account secret from the create-account step. All other values are pre-filled.
+      <p className="font-label text-[11px] text-on-surface-variant opacity-50">
+        Replace <code className="bg-surface-highest px-1 text-on-surface-variant">&lt;YOUR_SECRET_KEY&gt;</code> with your account secret from the create-account step. All other values are pre-filled.
       </p>
     </div>
   );
@@ -160,7 +160,7 @@ export function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={copy}
-      className="shrink-0 rounded-md border border-white/8 px-2 py-1 text-xs text-zinc-500 transition-all hover:border-chartreuse/30 hover:text-chartreuse"
+      className="shrink-0 border border-outline-variant px-2 py-1 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
       title="Copy to clipboard"
     >
       {copied ? (
@@ -179,10 +179,10 @@ export function DataField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">{label}</p>
+        <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">{label}</p>
         <CopyButton text={value} />
       </div>
-      <code className="block break-all rounded-lg border border-white/5 bg-white/3 px-3 py-2 text-xs leading-relaxed text-zinc-300">
+      <code className="block break-all bg-surface-lowest px-3 py-2 font-label text-xs leading-relaxed text-on-surface">
         {value}
       </code>
     </div>
@@ -206,7 +206,7 @@ function ResetButton({ onReset }: { onReset: () => void }) {
     <button
       type="button"
       onClick={onReset}
-      className="w-full rounded-xl border border-white/8 px-4 py-2.5 text-sm text-zinc-400 transition-all hover:border-white/15 hover:bg-white/4 hover:text-white"
+      className="w-full border border-outline-variant px-4 py-3 font-label text-sm uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
     >
       Request another drip
     </button>
@@ -218,50 +218,49 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
   return (
     <div className="flex flex-col gap-5">
       <ConfettiBurst />
-      {/* Top section */}
       <div className="space-y-5">
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-aqua/30 bg-aqua/10">
-              <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-aqua">
+            <div className="flex h-7 w-7 items-center justify-center border border-accent/30 bg-accent/10">
+              <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-accent">
                 <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-white">ETH Sent</span>
+            <span className="font-label text-sm font-bold uppercase tracking-wider text-on-surface">ETH Sent</span>
           </div>
-          <span className="rounded-full border border-aqua/20 bg-aqua/8 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest text-aqua">
+          <span className="border border-accent/30 bg-accent/10 px-2.5 py-0.5 font-label text-[10px] font-bold uppercase tracking-widest text-accent">
             Confirmed
           </span>
         </div>
 
         {/* Network row */}
-        <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/2 px-3 py-2">
+        <div className="flex items-center gap-2 border border-outline-variant/30 bg-surface-low px-3 py-2">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-chartreuse/60" style={{ animationDuration: "2.5s" }} />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-chartreuse" />
+            <span className="absolute inline-flex h-full w-full animate-ping bg-accent/60" style={{ animationDuration: "2.5s" }} />
+            <span className="relative inline-flex h-1.5 w-1.5 bg-accent" />
           </span>
-          <span className="text-xs text-zinc-400">Sepolia Testnet</span>
-          <span className="ml-auto font-mono text-xs text-zinc-600">11155111</span>
+          <span className="font-label text-xs uppercase tracking-wider text-on-surface-variant opacity-60">Sepolia Testnet</span>
+          <span className="ml-auto font-label text-xs text-on-surface-variant opacity-40">11155111</span>
         </div>
 
         {/* Transaction hash */}
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
               Transaction Hash
             </p>
             <CopyButton text={txHash} />
           </div>
-          <div className="rounded-xl border border-white/6 bg-white/2 px-3 py-2.5">
-            <code className="block font-mono text-sm text-zinc-200">
+          <div className="bg-surface-low px-3 py-2.5">
+            <code className="block font-label text-sm text-on-surface">
               {truncateHash(txHash)}
             </code>
             <div className="mt-1.5">
               <button
                 type="button"
                 onClick={() => setShowFullHash((v) => !v)}
-                className="flex items-center gap-1.5 text-[10px] text-zinc-600 transition-colors hover:text-zinc-400"
+                className="flex items-center gap-1.5 font-label text-[10px] text-on-surface-variant opacity-50 transition-colors hover:opacity-80"
               >
                 <span className={`transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${showFullHash ? "rotate-45" : ""}`}>
                   <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
@@ -275,7 +274,7 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
                 style={{ gridTemplateRows: showFullHash ? "1fr" : "0fr" }}
               >
                 <div className="overflow-hidden">
-                  <code className="mt-1.5 block break-all text-[11px] leading-relaxed text-zinc-500">
+                  <code className="mt-1.5 block break-all font-label text-[11px] leading-relaxed text-on-surface-variant opacity-60">
                     {txHash}
                   </code>
                 </div>
@@ -289,18 +288,17 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
           href={`${SEPOLIA_ETHERSCAN}/${txHash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex items-center justify-between rounded-xl border border-white/8 bg-white/2 px-4 py-3 text-sm transition-all hover:border-aqua/30 hover:bg-aqua/5"
+          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-3 font-label text-sm uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
         >
-          <span className="text-zinc-400 transition-colors group-hover:text-white">
+          <span className="text-on-surface-variant transition-colors group-hover:text-on-surface">
             View on Sepolia Etherscan
           </span>
-          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-aqua">
+          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-on-surface-variant opacity-50 transition-all group-hover:translate-x-0.5 group-hover:text-accent">
             <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </a>
       </div>
 
-      {/* Bottom — reset button pinned to bottom */}
       {onReset && <ResetButton onReset={onReset} />}
     </div>
   );
@@ -310,10 +308,10 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
 export function DripResult({ result, error, retryAfter, onReset }: DripResultProps) {
   if (error) {
     return (
-      <div className="rounded-xl border border-red-500/20 bg-red-500/6 p-4">
-        <p className="text-sm font-medium text-red-400">{error}</p>
+      <div className="border-l-4 border-red-500 bg-red-500/10 p-4">
+        <p className="font-label text-sm text-red-400">{error}</p>
         {retryAfter && (
-          <p className="mt-1 text-xs text-red-400/70">
+          <p className="mt-1 font-label text-xs text-red-400/70">
             Try again in {formatMs(retryAfter)}
           </p>
         )}
@@ -334,21 +332,21 @@ export function DripResult({ result, error, retryAfter, onReset }: DripResultPro
     <div className="flex flex-col gap-5">
       <div className="space-y-5">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-aqua/30 bg-aqua/10">
-            <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-aqua">
+          <div className="flex h-7 w-7 items-center justify-center border border-accent/30 bg-accent/10">
+            <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-accent">
               <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <span className="text-sm font-semibold text-white">{assetLabel} Sent</span>
+          <span className="font-label text-sm font-bold uppercase tracking-wider text-on-surface">{assetLabel} Sent</span>
         </div>
 
         {result.txHash && <DataField label="Transaction Hash" value={result.txHash} />}
 
         {result.claimData && (
           <div className="space-y-3">
-            <div className="rounded-lg border border-orchid/15 bg-orchid/4 px-3 py-2.5">
-              <p className="text-xs font-medium text-orchid">Action required: Claim on L2</p>
-              <p className="mt-1 text-xs text-orchid/60">
+            <div className="border border-secondary/20 bg-secondary/5 px-4 py-3">
+              <p className="font-label text-xs font-bold uppercase tracking-wider text-secondary">Action required: Claim on L2</p>
+              <p className="mt-1 font-body text-xs text-secondary/60">
                 Bridge is complete. Use the script or SDK to claim.
               </p>
             </div>

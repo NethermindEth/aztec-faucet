@@ -100,9 +100,10 @@ export class FaucetManager {
       mintFirst: false,
     });
 
-    // Dev defaults: 3x more generous than prod (8h vs 24h, 6 vs 2 IP drips)
+    // Dev defaults: 3x more generous than prod (8h vs 24h, 3 vs 1 per address, 6 vs 2 per IP)
     const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 28800000);
-    this.throttle = new Throttle(intervalMs, 1);
+    const addrMaxCount = parseIntEnv("DRIP_MAX_COUNT", 3);
+    this.throttle = new Throttle(intervalMs, addrMaxCount);
 
     const ipIntervalMs = parseIntEnv("IP_DRIP_INTERVAL_MS", intervalMs);
     const ipMaxCount = parseIntEnv("IP_DRIP_MAX_COUNT", 6);

@@ -41,12 +41,15 @@ works fine in `node:24-slim` (GLIBC 2.36).
 - **Result**: Pod went into CrashLoopBackOff. Bun can't run Next.js standalone server.js.
 - **Verdict**: FAILED. Bun is incompatible with Next.js standalone output.
 
-### Attempt 4: Ubuntu 24.04 base image (CURRENT)
+### Attempt 4: Ubuntu 24.04 base image -- SUCCESS
 - **What**: Replace `node:24-slim` (GLIBC 2.36) with `ubuntu:24.04` + Node.js 24 (GLIBC 2.39)
 - **Theory**: Native bb binary works with correct GLIBC. No workarounds needed.
 - **Commit**: `631408d`
-- **Result**: AWAITING CI + DEPLOYMENT TEST
-- **Verdict**: PENDING
+- **Result**: ALL ENDPOINTS WORK on dev deployment (2026-04-10)
+  - Keygen: 200 OK (testnet address generated)
+  - Status: 200 OK (healthy, testnet RPC, SDK 4.1.2-rc.1)
+  - Drip fee-juice: 200 OK (claimId returned)
+- **Verdict**: SUCCESS. No workarounds needed (no self polyfill, no HARDWARE_CONCURRENCY).
 
 ---
 
@@ -71,8 +74,10 @@ curl -sS -X POST "$BASE/api/drip" \
   -d '{"address":"0x2C9F64Bf28F858A914Be93Bc3Bd791CDbAD80B03","asset":"eth"}'
 ```
 
-## If Attempt 4 fails, next steps
-1. Add back `instrumentation.ts` (self polyfill) + `HARDWARE_CONCURRENCY=1` on top of Ubuntu 24.04
-2. Check if NodeSource Node.js 24 package on Ubuntu 24.04 actually provides GLIBC 2.39 (it should, since Ubuntu 24.04 ships it)
-3. Check container architecture matches binary (amd64 vs arm64)
-4. Try explicit `BB_BINARY_PATH` env var pointing to the binary
+## Resolution
+Ubuntu 24.04 base image provides GLIBC 2.39, which is what the @aztec/bb.js
+native binary requires. No application-level workarounds needed. The native
+binary runs directly, giving better performance than WASM fallback.
+
+Key lesson: always match the container GLIBC version to the bb.js binary
+requirements. Check with `strings node_modules/@aztec/bb.js/build/amd64-linux/bb | grep GLIBC_2. | sort -V | tail -1`.

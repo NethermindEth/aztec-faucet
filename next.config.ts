@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
     "@aztec/l1-artifacts",
     "@aztec/foundation",
     "@aztec/stdlib",
+    "@aztec/bb.js",
+    "@aztec/native",
     // pino transport packages — loaded dynamically so not auto-traced
     "pino",
     "pino-pretty",

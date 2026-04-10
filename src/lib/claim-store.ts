@@ -19,7 +19,6 @@ export const CLAIM_EXPIRY_MS = 30 * 60 * 1_000; // 30 minutes
 
 export class ClaimStore {
   private claims = new Map<string, StoredClaim>();
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private aztecNode: any;
   readonly nodeUrl: string;
@@ -50,7 +49,7 @@ export class ClaimStore {
   }
 
   private startPolling() {
-    this.pollTimer = setInterval(() => {
+    setInterval(() => {
       this.pollAll().catch((err) => {
         console.error("ClaimStore polling error:", err);
       });

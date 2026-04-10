@@ -14,7 +14,6 @@ type L2FaucetConfig = {
   l1ChainId: number;
   l1PrivateKey: Hex;
   feeJuiceDripAmount?: bigint;
-  /** Whether to mint L1 Fee Juice before bridging. False for testnet (pre-funded wallet). */
 };
 
 export type FeeJuiceClaimData = {

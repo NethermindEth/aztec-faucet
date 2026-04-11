@@ -18,14 +18,13 @@ const ASSET_LABELS: Record<string, string> = {
   "fee-juice": "Fee Juice",
 };
 
-// Default skeleton structure — matches the shape of real data
 const SKELETON_ASSETS = [
   { name: "eth", available: false },
   { name: "fee-juice", available: false },
 ];
 
 function Sk({ w = "w-24", h = "h-3" }: { w?: string; h?: string }) {
-  return <span className={`skeleton inline-block ${w} ${h} rounded`} />;
+  return <span className={`skeleton inline-block ${w} ${h}`} />;
 }
 
 function CopyInline({ text }: { text: string }) {
@@ -38,7 +37,7 @@ function CopyInline({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="ml-1.5 rounded border border-white/8 px-1.5 py-0.5 text-[10px] text-zinc-600 transition-colors hover:border-chartreuse/25 hover:text-chartreuse"
+      className="ml-1.5 border border-outline-variant px-2 py-0.5 font-label text-[10px] uppercase tracking-wider text-on-surface-variant transition-colors hover:border-accent hover:text-accent"
     >
       {copied ? "Copied" : "Copy"}
     </button>
@@ -47,16 +46,16 @@ function CopyInline({ text }: { text: string }) {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/4 py-3 last:border-0">
-      <span className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+    <div className="flex items-center justify-between gap-4 border-b border-outline-variant/20 py-3 last:border-0">
+      <span className="shrink-0 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
         {label}
       </span>
-      <span className="text-right text-xs text-zinc-300">{children}</span>
+      <span className="text-right font-label text-xs text-on-surface">{children}</span>
     </div>
   );
 }
 
-export function StatusView({ network, onBack }: { network: string; onBack: () => void }) {
+export function StatusView({ onBack }: { onBack: () => void }) {
   const [data, setData] = useState<StatusData | null>(null);
   const [error, setError] = useState(false);
 
@@ -64,7 +63,7 @@ export function StatusView({ network, onBack }: { network: string; onBack: () =>
     setData(null);
     setError(false);
     const controller = new AbortController();
-    fetch(`/api/status?network=${network}`, { signal: controller.signal })
+    fetch("/api/status", { signal: controller.signal })
       .then((r) => {
         if (!r.ok) throw new Error();
         return r.json();
@@ -75,18 +74,18 @@ export function StatusView({ network, onBack }: { network: string; onBack: () =>
         setError(true);
       });
     return () => controller.abort();
-  }, [network]);
+  }, []);
 
   const loading = !data && !error;
   const assets = data?.assets ?? SKELETON_ASSETS;
 
   return (
-    <div className="mx-auto w-full max-w-lg">
+    <div className="mx-auto w-full max-w-md">
       {/* Back button */}
       <button
         type="button"
         onClick={onBack}
-        className="mb-6 flex items-center gap-2 text-sm text-zinc-500 transition-colors hover:text-white"
+        className="mb-6 flex items-center gap-2 font-label text-sm uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent"
       >
         <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
           <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -94,22 +93,22 @@ export function StatusView({ network, onBack }: { network: string; onBack: () =>
         Back to Faucet
       </button>
 
-      <div className="glass-card rounded-2xl p-6">
+      <div className="bg-surface-container p-5 sm:p-8 shadow-2xl">
         {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">API Status</h2>
+        <div className="mb-6 flex items-center justify-between border-b border-outline-variant pb-6">
+          <h2 className="font-headline text-2xl uppercase tracking-tight text-on-surface">API Status</h2>
           {error ? (
-            <span className="flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/8 px-2.5 py-1 text-[10px] font-medium uppercase tracking-widest text-red-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+            <span className="flex items-center gap-1.5 border border-red-500/30 bg-red-500/10 px-2.5 py-1 font-label text-[10px] font-bold uppercase tracking-widest text-red-400">
+              <span className="h-1.5 w-1.5 bg-red-400" />
               Unreachable
             </span>
           ) : data ? (
-            <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-widest ${
+            <span className={`flex items-center gap-1.5 border px-2.5 py-1 font-label text-[10px] font-bold uppercase tracking-widest ${
               data.healthy
-                ? "border-chartreuse/20 bg-chartreuse/8 text-chartreuse"
-                : "border-red-500/20 bg-red-500/8 text-red-400"
+                ? "border-accent/30 bg-accent/10 text-accent"
+                : "border-red-500/30 bg-red-500/10 text-red-400"
             }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${data.healthy ? "bg-chartreuse" : "bg-red-400"}`} />
+              <span className={`h-1.5 w-1.5 ${data.healthy ? "bg-accent" : "bg-red-400"}`} />
               {data.healthy ? "Healthy" : "Degraded"}
             </span>
           ) : (
@@ -118,51 +117,51 @@ export function StatusView({ network, onBack }: { network: string; onBack: () =>
         </div>
 
         {error && (
-          <p className="mb-4 text-sm text-red-400">
+          <p className="mb-4 font-body text-sm text-red-400">
             Could not reach the faucet API. Check server configuration.
           </p>
         )}
 
-        {/* Faucet section — always rendered */}
-        <div className="mb-1 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+        {/* Faucet section */}
+        <div className="mb-1 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
           Faucet
         </div>
-        <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+        <div className="bg-surface-low px-4">
           <Row label="Address">
             {loading ? (
               <Sk w="w-48" h="h-3" />
             ) : data ? (
               <>
-                <span className="font-mono text-[11px]">
-                  {data.faucetAddress.slice(0, 10)}…{data.faucetAddress.slice(-8)}
+                <span className="font-label text-[11px]">
+                  {data.faucetAddress.slice(0, 10)}...{data.faucetAddress.slice(-8)}
                 </span>
                 <CopyInline text={data.faucetAddress} />
               </>
-            ) : "—"}
+            ) : null}
           </Row>
           <Row label="L1 Balance">
             {loading ? (
               <Sk w="w-28" h="h-3" />
             ) : data ? (
               `${Number(data.l1BalanceEth).toFixed(6)} ETH`
-            ) : "—"}
+            ) : null}
           </Row>
         </div>
 
-        {/* Assets section — always rendered */}
-        <div className="mb-1 mt-5 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+        {/* Assets section */}
+        <div className="mb-1 mt-5 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
           Assets
         </div>
-        <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+        <div className="bg-surface-low px-4">
           {assets.filter((a) => a.name !== "test-token").map((a) => (
             <Row key={a.name} label={ASSET_LABELS[a.name] ?? a.name}>
               {loading ? (
                 <Sk w="w-20" h="h-5" />
               ) : (
-                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider ${
+                <span className={`border px-2 py-0.5 font-label text-[10px] font-bold uppercase tracking-wider ${
                   a.available
-                    ? "border-chartreuse/20 bg-chartreuse/8 text-chartreuse"
-                    : "border-white/8 bg-white/4 text-zinc-600"
+                    ? "border-accent/30 bg-accent/10 text-accent"
+                    : "border-outline-variant bg-surface-highest text-on-surface-variant opacity-50"
                 }`}>
                   {a.available ? "Available" : "Unavailable"}
                 </span>
@@ -171,26 +170,26 @@ export function StatusView({ network, onBack }: { network: string; onBack: () =>
           ))}
         </div>
 
-        {/* Network section — always rendered */}
-        <div className="mb-1 mt-5 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+        {/* Network section */}
+        <div className="mb-1 mt-5 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
           Network
         </div>
-        <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+        <div className="bg-surface-low px-4">
           <Row label="L1 Chain ID">
             {loading ? (
               <Sk w="w-16" h="h-3" />
             ) : data ? (
-              <span className="font-mono">{data.network.l1ChainId}</span>
-            ) : "—"}
+              <span className="font-label">{data.network.l1ChainId}</span>
+            ) : null}
           </Row>
           <Row label="Aztec Node">
             {loading ? (
               <Sk w="w-40" h="h-3" />
             ) : data ? (
-              <span className="max-w-[16rem] break-all font-mono text-[11px] text-zinc-400">
+              <span className="max-w-[10rem] sm:max-w-[16rem] break-all font-label text-[11px] text-on-surface-variant">
                 {data.network.aztecNodeUrl}
               </span>
-            ) : "—"}
+            ) : null}
           </Row>
         </div>
       </div>

@@ -1,58 +1,70 @@
 @import "tailwindcss";
 
 :root {
-  --background: #06060a;
-  --foreground: #e8e6df;
-  --accent: #D4FF28;           /* chartreuse — devnet */
-  --accent-rgb: 212, 255, 40;
-}
+  --background: #161312;
+  --foreground: #e9e1de;
+  --accent: #E1FF00;
+  --accent-rgb: 225, 255, 0;
+  --accent-dim: #b9d200;
 
-[data-network="testnet"] {
-  --accent: #A78BFA;           /* violet — testnet */
-  --accent-rgb: 167, 139, 250;
-}
+  /* Stitch surface hierarchy */
+  --surface: #161312;
+  --surface-dim: #161312;
+  --surface-bright: #3d3837;
+  --surface-container-lowest: #110d0c;
+  --surface-container-low: #1e1b1a;
+  --surface-container: #221f1e;
+  --surface-container-high: #2d2928;
+  --surface-container-highest: #383432;
 
-/* Remap every chartreuse utility to violet on testnet.
-   Tailwind v4 registers --color-chartreuse via @property { inherits: false },
-   so we override the generated class values directly. */
-[data-network="testnet"] [class*="text-chartreuse"] {
-  color: var(--accent) !important;
-  transition: color 0.35s ease;
-}
-[data-network="testnet"] [class*="bg-chartreuse"] {
-  background-color: color-mix(in srgb, var(--accent) 12%, transparent) !important;
-  transition: background-color 0.35s ease;
-}
-[data-network="testnet"] .bg-chartreuse {
-  background-color: var(--accent) !important;
-}
-[data-network="testnet"] [class*="border-chartreuse"] {
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent) !important;
-  transition: border-color 0.35s ease;
-}
-[data-network="testnet"] [class*="shadow-chartreuse"] {
-  --tw-shadow-color: var(--accent);
-}
-[data-network="testnet"] [class*="ring-chartreuse"] {
-  --tw-ring-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  /* Semantic colors */
+  --on-surface: #e9e1de;
+  --on-surface-variant: #c6c9ab;
+  --outline: #909378;
+  --outline-variant: #464932;
+  --primary-container: #d4f000;
+  --secondary: #ffb59a;
+  --secondary-container: #ff5e07;
+  --tertiary-container: #ffd7f5;
 }
 
 
-/* Custom color tokens — use @theme (not @theme inline) so Tailwind
-   generates text, bg, and border utilities with opacity modifier support */
+/* Custom color tokens */
 @theme {
-  --color-chartreuse: #D4FF28;
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim, #b9d200);
+  --color-secondary: #ffb59a;
+  --color-secondary-container: #ff5e07;
+  --color-tertiary-container: #ffd7f5;
+
+  /* Surface hierarchy */
+  --color-surface: #161312;
+  --color-surface-dim: #161312;
+  --color-surface-bright: #3d3837;
+  --color-surface-lowest: #110d0c;
+  --color-surface-low: #1e1b1a;
+  --color-surface-container: #221f1e;
+  --color-surface-high: #2d2928;
+  --color-surface-highest: #383432;
+
+  --color-on-surface: #e9e1de;
+  --color-on-surface-variant: #c6c9ab;
+  --color-outline: #909378;
+  --color-outline-variant: #464932;
+
+  /* Legacy compat */
+  --color-chartreuse: #E1FF00;
   --color-orchid: #FF2DF4;
   --color-aqua: #2BFAE9;
 }
 
-/* Font references — @theme inline reuses existing CSS vars from next/font */
+/* Font references */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-instrument-serif);
+  --font-headline: var(--font-newsreader);
+  --font-body: var(--font-manrope);
+  --font-label: var(--font-space-grotesk);
 }
 
 html {
@@ -60,11 +72,57 @@ html {
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image: radial-gradient(circle at 2px 2px, rgba(225, 255, 0, 0.05) 1px, transparent 0);
+  background-size: 40px 40px;
   color: var(--foreground);
 }
 
-/* Dark scrollbars — prevent white native scrollbars from jarring the dark UI */
+/* Grain texture overlay */
+.grain {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Renaissance overlay — faint classical art overlay */
+.renaissance-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 60%;
+  height: 100%;
+  background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCDM8WdqsrPYcFoE2Y9QO8k5tmGXc6fwEyCuFRQ2fzVwplhm6XT2K31yzfiwp2WSGS0gCQRL63M8sFCqFDL_DJ1fK2UtrYGga3CKvt2B2fSz6Ndv6FLb8hNJHutg_v4Dd0spUN-OtjtG5BNoiZgehsuQ9vPNB1w2YVETtd3jrtqyuM1GJrOCwEG2BhXCsLBnjvKN9X0XXMxwayi7CObJvpHr8j1covWi2gZUpBjFAY1BkbNwmeL5fB1FqaXlgNcrxxQvveoO76PPrzG");
+  background-size: cover;
+  background-position: center;
+  mask-image: linear-gradient(to left, black 20%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to left, black 20%, transparent 100%);
+  opacity: 0.15;
+  mix-blend-mode: luminosity;
+  pointer-events: none;
+}
+
+/* Ambient glow for elevated cards */
+.custom-glow {
+  box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.1);
+}
+
+/* ETH-mode accent override — scoped to faucet panel */
+[data-asset="eth"] {
+  --accent: #627EEA;
+  --accent-rgb: 98, 126, 234;
+  --accent-dim: #4a63c0;
+  --color-accent: #627EEA;
+  --color-accent-dim: #4a63c0;
+}
+
+/* Dark scrollbars */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
@@ -92,96 +150,88 @@ body {
   background: transparent;
 }
 
-/* Atmospheric background with radial glows */
-.bg-atmosphere {
-  position: relative;
+/* Surface card — replaces glass-card */
+.surface-card {
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6);
 }
 
-/* Devnet glow — chartreuse */
-.bg-atmosphere::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(212, 255, 40, 0.13), transparent 70%),
-    radial-gradient(ellipse 50% 50% at 85% 60%, rgba(255, 45, 244, 0.06), transparent 70%),
-    radial-gradient(ellipse 40% 40% at 15% 80%, rgba(43, 250, 233, 0.04), transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-  opacity: 1;
-  transition: opacity 0.35s ease;
-}
-
-/* Testnet glow — violet */
-.bg-atmosphere::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(167, 139, 250, 0.13), transparent 70%),
-    radial-gradient(ellipse 50% 50% at 85% 60%, rgba(255, 45, 244, 0.06), transparent 70%),
-    radial-gradient(ellipse 40% 40% at 15% 80%, rgba(212, 255, 40, 0.04), transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0;
-  transition: opacity 0.35s ease;
-}
-
-[data-network="testnet"].bg-atmosphere::before { opacity: 0; }
-[data-network="testnet"].bg-atmosphere::after  { opacity: 1; }
-
-/* Network switch — ripple bloom from toggle */
-@keyframes ripple-expand {
-  0%  { clip-path: circle(0%   at calc(100% - 88px) 32px); opacity: 1; }
-  62% { clip-path: circle(160% at calc(100% - 88px) 32px); opacity: 1; }
-  100%{ clip-path: circle(160% at calc(100% - 88px) 32px); opacity: 0; }
-}
-
-.ripple-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 9998;
-  background: radial-gradient(
-    ellipse 90% 80% at calc(100% - 88px) 32px,
-    color-mix(in srgb, var(--ripple-color) 22%, transparent)  0%,
-    color-mix(in srgb, var(--ripple-color) 10%, transparent) 38%,
-    color-mix(in srgb, var(--ripple-color)  3%, transparent) 62%,
-    transparent 78%
-  );
-  animation: ripple-expand 0.55s cubic-bezier(0.2, 0, 0.3, 1) forwards;
-  will-change: clip-path, opacity;
-}
-
-/* Glass card */
+/* Glass card — legacy, maps to surface-card */
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(24px);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.02),
-    0 25px 60px -12px rgba(0, 0, 0, 0.6);
+  background: var(--surface-container);
+  border: 1px solid var(--outline-variant);
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.6);
 }
 
-/* Primary button — uses --accent CSS variable for network-aware theming */
+/* Primary button */
 .btn-primary {
   background-color: var(--accent);
-  color: #0a0a0f;
-  font-weight: 600;
-  transition: background-color 0.35s ease, box-shadow 0.35s ease, filter 0.2s ease;
-  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.15);
+  color: #161312;
+  font-weight: 700;
+  font-family: var(--font-label);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transition: background-color 0.2s ease, letter-spacing 0.3s ease, transform 0.1s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 0 32px rgba(var(--accent-rgb), 0.3);
+  letter-spacing: 0.2em;
   filter: brightness(1.06);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  box-shadow: none;
   filter: none;
+}
+
+/* Ghost button — Stitch secondary style */
+.btn-ghost {
+  border: 1px solid var(--outline-variant);
+  background: transparent;
+  color: var(--on-surface);
+  font-family: var(--font-label);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transition: border-color 0.3s ease;
+}
+
+.btn-ghost:hover {
+  border-color: var(--accent);
+}
+
+/* Input — Stitch style with glow line */
+.stitch-input {
+  background: var(--surface-container-lowest);
+  border: none;
+  padding: 1.25rem;
+  font-family: var(--font-label);
+  color: var(--accent);
+  outline: none;
+  width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.stitch-input::placeholder {
+  color: var(--outline-variant);
+}
+
+/* Marquee animation — translates exactly half (two identical sets) for seamless loop */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
 }
 
 /* Split-panel slide-in for result panel */
@@ -197,7 +247,6 @@ body {
 }
 
 .animate-slide-in-right {
-  /* delay slightly so the container starts expanding first */
   animation: slide-in-right 0.45s 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -217,17 +266,6 @@ body {
   animation: fade-up 0.6s ease-out both;
 }
 
-.animate-delay-1 {
-  animation-delay: 100ms;
-}
-
-.animate-delay-2 {
-  animation-delay: 200ms;
-}
-
-.animate-delay-3 {
-  animation-delay: 300ms;
-}
 
 /* Skeleton shimmer for loading placeholders */
 @keyframes shimmer {
@@ -244,10 +282,9 @@ body {
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s ease-in-out infinite;
-  border-radius: 4px;
 }
 
-/* Right-panel state transition (pending → confirmed → etc.) */
+/* Right-panel state transition */
 @keyframes panel-state-in {
   from {
     opacity: 0;
@@ -277,4 +314,92 @@ body {
 .animate-panel-state-out {
   animation: panel-state-out 0.17s cubic-bezier(0.4, 0, 1, 1) both;
   pointer-events: none;
+}
+
+/* Ghost border — subtle container edge for accessibility */
+.ghost-border {
+  border: 1px solid rgba(70, 73, 50, 0.15);
+}
+
+/* Walking character — vertical bob during walk */
+@keyframes walk-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.animate-walk-bob {
+  animation: walk-bob 0.4s ease-in-out infinite;
+}
+
+/* Walking character — arrival bounce */
+@keyframes walk-arrive {
+  0% { transform: scale(1) translateY(0); }
+  40% { transform: scale(1.15) translateY(-4px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+.animate-walk-arrive {
+  animation: walk-arrive 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Walking character — running (faster bob) */
+@keyframes walk-run {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-walk-run {
+  animation: walk-run 0.2s ease-in-out infinite;
+}
+
+/* Walking character — celebration jump */
+@keyframes walk-celebrate {
+  0% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-12px) scale(1.1); }
+  40% { transform: translateY(0) scale(1); }
+  55% { transform: translateY(-8px) scale(1.05); }
+  70% { transform: translateY(0) scale(1); }
+  82% { transform: translateY(-4px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.animate-walk-celebrate {
+  animation: walk-celebrate 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Walking character — jump (onto/off bridge) */
+@keyframes walk-jump {
+  0% { transform: translateY(0) scale(1); }
+  35% { transform: translateY(-10px) scale(1.05); }
+  65% { transform: translateY(-10px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.animate-walk-jump {
+  animation: walk-jump 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Touch-friendly scrolling for code blocks on mobile */
+pre {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Focus glow line — animated bottom border on focus */
+.focus-glow-line {
+  position: relative;
+}
+
+.focus-glow-line::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.5s ease;
+}
+
+.focus-glow-line:focus-within::after {
+  width: 100%;
 }

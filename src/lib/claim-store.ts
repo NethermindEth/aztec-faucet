@@ -3,7 +3,7 @@ import { Fr } from "@aztec/aztec.js/fields";
 
 import type { FeeJuiceClaimData } from "./l2-faucet";
 
-export type ClaimStatus = "bridging" | "ready" | "expired";
+type ClaimStatus = "bridging" | "ready" | "expired";
 
 export type StoredClaim = {
   id: string;
@@ -19,8 +19,6 @@ export const CLAIM_EXPIRY_MS = 30 * 60 * 1_000; // 30 minutes
 
 export class ClaimStore {
   private claims = new Map<string, StoredClaim>();
-  private addressIndex = new Map<string, string[]>();
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private aztecNode: any;
   readonly nodeUrl: string;
@@ -43,10 +41,6 @@ export class ClaimStore {
       createdAt: Date.now(),
     });
 
-    const existing = this.addressIndex.get(normalized) ?? [];
-    existing.push(id);
-    this.addressIndex.set(normalized, existing);
-
     return id;
   }
 
@@ -54,16 +48,8 @@ export class ClaimStore {
     return this.claims.get(id);
   }
 
-  getByAddress(address: string): StoredClaim[] {
-    const normalized = address.toLowerCase();
-    const ids = this.addressIndex.get(normalized) ?? [];
-    return ids
-      .map((id) => this.claims.get(id))
-      .filter((c): c is StoredClaim => !!c);
-  }
-
   private startPolling() {
-    this.pollTimer = setInterval(() => {
+    setInterval(() => {
       this.pollAll().catch((err) => {
         console.error("ClaimStore polling error:", err);
       });
@@ -75,7 +61,6 @@ export class ClaimStore {
     const bridgingClaims: StoredClaim[] = [];
 
     for (const [, claim] of this.claims) {
-      // Expire old claims
       if (now - claim.createdAt > CLAIM_EXPIRY_MS) {
         if (claim.status === "bridging") {
           claim.status = "expired";
@@ -89,43 +74,20 @@ export class ClaimStore {
 
     if (bridgingClaims.length === 0) return;
 
-    // Get current block once for all claims
-    let currentBlock: number;
-    try {
-      currentBlock = await this.aztecNode.getBlockNumber();
-    } catch (err) {
-      console.error("Failed to get block number:", err);
-      return;
-    }
-
     for (const claim of bridgingClaims) {
       try {
         const messageHash = Fr.fromHexString(claim.claimData.messageHashHex);
-        let isReady = false;
+        // Uses getL1ToL2MessageCheckpoint (4.1.2-rc.1 SDK method) to check
+        // if the bridge message has been included in an L2 checkpoint.
+        const checkpointNumber = await this.aztecNode.getL1ToL2MessageCheckpoint(messageHash);
+        const ready = checkpointNumber !== undefined &&
+          (await this.aztecNode.getBlock("latest"))?.checkpointNumber >= checkpointNumber;
 
-        try {
-          const messageBlock = await this.aztecNode.getL1ToL2MessageBlock(messageHash);
-          isReady = messageBlock !== undefined && currentBlock >= messageBlock;
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          if (msg.includes("Method not found")) {
-            // Newer nodes (rc+) removed getL1ToL2MessageBlock.
-            // getL1ToL2MessageMembershipWitness('latest') returns a witness only when
-            // the message is finalized in the L2 Merkle tree — the true prerequisite
-            // for claiming. isL1ToL2MessageSynced is deprecated and returns true too early.
-            const witness = await this.aztecNode.getL1ToL2MessageMembershipWitness("latest", messageHash);
-            isReady = witness !== undefined;
-          } else {
-            throw err;
-          }
-        }
-
-        if (isReady) {
+        if (ready) {
           claim.status = "ready";
           claim.readyAt = Date.now();
         }
       } catch (err) {
-        // Don't change status on error — retry next cycle
         console.error(`Polling claim ${claim.id} failed:`, err);
       }
     }
@@ -134,23 +96,8 @@ export class ClaimStore {
     for (const [id, claim] of this.claims) {
       if (now - claim.createdAt > 2 * CLAIM_EXPIRY_MS) {
         this.claims.delete(id);
-        const ids = this.addressIndex.get(claim.address);
-        if (ids) {
-          const filtered = ids.filter((i) => i !== id);
-          if (filtered.length === 0) {
-            this.addressIndex.delete(claim.address);
-          } else {
-            this.addressIndex.set(claim.address, filtered);
-          }
-        }
       }
     }
   }
 
-  destroy() {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-  }
 }

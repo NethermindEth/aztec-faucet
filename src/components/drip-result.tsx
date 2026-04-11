@@ -2,24 +2,23 @@
 
 import { useState, useCallback } from "react";
 import { ConfettiBurst } from "./confetti-burst";
-import type { Network } from "@/lib/network-config";
-import { NODE_URLS, NPM_TAGS, EXPLORER_TX_URLS } from "@/lib/network-config";
+import { NODE_URL, NPM_TAG, EXPLORER_TX_URL } from "@/lib/network-config";
 
 const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
-export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string, network: "devnet" | "testnet" = "devnet"): string {
-  return `curl -fsSL ${GITHUB_RAW}/sh/${network}/claim.sh | sh -s -- \\
+export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
+  return `curl -fsSL ${GITHUB_RAW}/sh/testnet/claim.sh | sh -s -- \\
   --secret <YOUR_SECRET_KEY> \\
   --claim-amount ${claimAmount} \\
   --claim-secret ${claimSecretHex} \\
   --message-leaf-index ${messageLeafIndex}`;
 }
 
-export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string, nodeUrl: string, npmTag: string, explorerTxUrl?: string): string {
+export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
   return `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
 echo '{"type":"module"}' > package.json && \\
-npm install --no-package-lock @aztec/wallets@${npmTag} @aztec/aztec.js@${npmTag} @aztec/stdlib@${npmTag} --silent && \\
+npm install --no-package-lock @aztec/wallets@${NPM_TAG} @aztec/aztec.js@${NPM_TAG} @aztec/stdlib@${NPM_TAG} --silent && \\
 LOG_LEVEL=silent node --input-type=module << 'AZTEC_EOF'
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
@@ -32,7 +31,7 @@ const SECRET = "YOUR_SECRET_KEY";           // ← paste your secret key here
 const AMOUNT = ${claimAmount}n;
 const CLAIM_SECRET = Fr.fromHexString("${claimSecretHex}");
 const LEAF = ${messageLeafIndex}n;
-const NODE_URL = "${nodeUrl}";
+const NODE_URL = "${NODE_URL}";
 
 const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true, pxeConfig: { proverEnabled: true } });
 const mgr = await wallet.createSchnorrAccount(Fr.fromHexString(SECRET), Fr.ZERO);
@@ -48,60 +47,87 @@ if (!isDeployed) {
     fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
     wait: { returnReceipt: true },
   });
-  const receipt = raw?.receipt ?? raw; // devnet: receipt at top; testnet @rc: nested under .receipt
+  const receipt = raw?.receipt ?? raw;
   const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
-  ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
+  if (txHash) console.log("View on explorer: ${EXPLORER_TX_URL}/" + txHash);
 } else {
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   console.log("Claiming into existing account (proving ~10s)...");
   const raw = await FeeJuiceContract.at(wallet).methods
     .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
     .send({ from: addr, fee: { gasSettings } });
-  const receipt = raw?.receipt ?? raw; // devnet: receipt at top; testnet @rc: nested under .receipt
+  const receipt = raw?.receipt ?? raw;
   const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
-  ${explorerTxUrl ? `if (txHash) console.log("View on explorer: ${explorerTxUrl}/" + txHash);` : ""}
+  if (txHash) console.log("View on explorer: ${EXPLORER_TX_URL}/" + txHash);
 }
 await wallet.stop();
 process.exit(0);
 AZTEC_EOF`;
 }
 
-export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex, network = "devnet" }: {
+export function SelfContainedDropdown({ code }: { code: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-outline-variant/40 bg-surface-lowest">
+      <div className="flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors hover:bg-surface-low" onClick={() => setOpen((v) => !v)}>
+        <div className="flex items-center gap-2">
+          <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
+          <span className={`transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "rotate-45" : ""}`}>
+            <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3 text-on-surface-variant opacity-50">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+        </div>
+        <div onClick={(e) => e.stopPropagation()}>
+          <CopyButton text={code} />
+        </div>
+      </div>
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden">
+          <pre className="max-h-48 overflow-x-auto overflow-y-auto border-t border-outline-variant/30 px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
+            <code>{code}</code>
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }: {
   claimAmount: string;
   claimSecretHex: string;
   messageLeafIndex: string;
-  network?: Network;
 }) {
-  const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex, network);
-  const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex, NODE_URLS[network], NPM_TAGS[network], EXPLORER_TX_URLS[network]);
+  const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex);
+  const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex);
   return (
     <div className="space-y-2">
-      <div className="rounded-xl border border-white/6 bg-white/2">
-        <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
+      <div className="border border-outline-variant/40 bg-surface-lowest">
+        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
-            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-400">Recommended</span>
+            <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
+            <span className="bg-emerald-500/15 px-2 py-0.5 font-label text-[9px] font-bold uppercase tracking-widest text-emerald-400">Recommended</span>
           </div>
           <CopyButton text={oneLiner} />
         </div>
-        <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
+        <pre className="overflow-x-auto px-4 py-1.5 text-[11px] leading-relaxed text-on-surface-variant font-label">
           <code>{oneLiner}</code>
         </pre>
       </div>
-      <div className="rounded-xl border border-white/6 bg-white/2">
-        <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
-          <CopyButton text={selfContained} />
-        </div>
-        <pre className="max-h-48 overflow-x-auto overflow-y-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-          <code>{selfContained}</code>
-        </pre>
+      <SelfContainedDropdown code={selfContained} />
+      <div className="flex items-start gap-2 border border-secondary/25 bg-secondary/8 px-3 py-2">
+        <svg viewBox="0 0 16 16" fill="none" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-secondary">
+          <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 5v3.5M8 10.5h.007" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <p className="font-label text-[11px] leading-relaxed text-secondary">
+          Replace <code className="bg-secondary/15 px-1 font-bold text-secondary">&lt;YOUR_SECRET_KEY&gt;</code> with your account secret. All other values are pre-filled.
+        </p>
       </div>
-      <p className="text-[11px] text-zinc-600">
-        Replace <code className="rounded bg-white/6 px-1 text-zinc-500">&lt;YOUR_SECRET_KEY&gt;</code> with your account secret from the create-account step. All other values are pre-filled.
-      </p>
     </div>
   );
 }
@@ -126,7 +152,6 @@ type DripResultProps = {
   error: string | null;
   retryAfter: number | null;
   onReset?: () => void;
-  network?: Network;
 };
 
 function formatMs(ms: number): string {
@@ -163,7 +188,7 @@ export function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={copy}
-      className="shrink-0 rounded-md border border-white/8 px-2 py-1 text-xs text-zinc-500 transition-all hover:border-chartreuse/30 hover:text-chartreuse"
+      className="shrink-0 border border-outline-variant px-2 py-1 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
       title="Copy to clipboard"
     >
       {copied ? (
@@ -181,11 +206,11 @@ export function CopyButton({ text }: { text: string }) {
 export function DataField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between">
-        <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">{label}</p>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">{label}</p>
         <CopyButton text={value} />
       </div>
-      <code className="block break-all rounded-lg border border-white/5 bg-white/3 px-3 py-2 text-xs leading-relaxed text-zinc-300">
+      <code className="block break-all bg-surface-lowest px-3 py-1.5 font-label text-xs leading-relaxed text-on-surface">
         {value}
       </code>
     </div>
@@ -209,62 +234,61 @@ function ResetButton({ onReset }: { onReset: () => void }) {
     <button
       type="button"
       onClick={onReset}
-      className="w-full rounded-xl border border-white/8 px-4 py-2.5 text-sm text-zinc-400 transition-all hover:border-white/15 hover:bg-white/4 hover:text-white"
+      className="w-full bg-tertiary-container px-4 py-2.5 font-label text-sm font-bold uppercase tracking-wider text-on-tertiary-container transition-all hover:brightness-90"
     >
       Request another drip
     </button>
   );
 }
 
-function EthResult({ txHash, onReset, network }: { txHash: string; onReset?: () => void; network?: string }) {
+function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }) {
   const [showFullHash, setShowFullHash] = useState(false);
   return (
     <div className="flex flex-col gap-5">
-      <ConfettiBurst network={network} />
-      {/* Top section */}
+      <ConfettiBurst />
       <div className="space-y-5">
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-aqua/30 bg-aqua/10">
-              <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-aqua">
+            <div className="flex h-7 w-7 items-center justify-center border border-accent/30 bg-accent/10">
+              <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-accent">
                 <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-white">ETH Sent</span>
+            <span className="font-label text-sm font-bold uppercase tracking-wider text-on-surface">ETH Sent</span>
           </div>
-          <span className="rounded-full border border-aqua/20 bg-aqua/8 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest text-aqua">
+          <span className="border border-accent/30 bg-accent/10 px-2.5 py-0.5 font-label text-[10px] font-bold uppercase tracking-widest text-accent">
             Confirmed
           </span>
         </div>
 
         {/* Network row */}
-        <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/2 px-3 py-2">
+        <div className="flex items-center gap-2 border border-outline-variant/30 bg-surface-low px-3 py-2">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-chartreuse/60" style={{ animationDuration: "2.5s" }} />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-chartreuse" />
+            <span className="absolute inline-flex h-full w-full animate-ping bg-accent/60" style={{ animationDuration: "2.5s" }} />
+            <span className="relative inline-flex h-1.5 w-1.5 bg-accent" />
           </span>
-          <span className="text-xs text-zinc-400">Sepolia Testnet</span>
-          <span className="ml-auto font-mono text-xs text-zinc-600">11155111</span>
+          <span className="font-label text-xs uppercase tracking-wider text-on-surface-variant opacity-60">Sepolia Testnet</span>
+          <span className="ml-auto font-label text-xs text-on-surface-variant opacity-40">11155111</span>
         </div>
 
         {/* Transaction hash */}
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
               Transaction Hash
             </p>
             <CopyButton text={txHash} />
           </div>
-          <div className="rounded-xl border border-white/6 bg-white/2 px-3 py-2.5">
-            <code className="block font-mono text-sm text-zinc-200">
+          <div className="bg-surface-low px-3 py-2.5">
+            <code className="block font-label text-sm text-on-surface">
               {truncateHash(txHash)}
             </code>
             <div className="mt-1.5">
               <button
                 type="button"
                 onClick={() => setShowFullHash((v) => !v)}
-                className="flex items-center gap-1.5 text-[10px] text-zinc-600 transition-colors hover:text-zinc-400"
+                className="flex items-center gap-1.5 font-label text-[10px] text-on-surface-variant opacity-50 transition-colors hover:opacity-80"
               >
                 <span className={`transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${showFullHash ? "rotate-45" : ""}`}>
                   <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
@@ -278,7 +302,7 @@ function EthResult({ txHash, onReset, network }: { txHash: string; onReset?: () 
                 style={{ gridTemplateRows: showFullHash ? "1fr" : "0fr" }}
               >
                 <div className="overflow-hidden">
-                  <code className="mt-1.5 block break-all text-[11px] leading-relaxed text-zinc-500">
+                  <code className="mt-1.5 block break-all font-label text-[11px] leading-relaxed text-on-surface-variant opacity-60">
                     {txHash}
                   </code>
                 </div>
@@ -292,31 +316,30 @@ function EthResult({ txHash, onReset, network }: { txHash: string; onReset?: () 
           href={`${SEPOLIA_ETHERSCAN}/${txHash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex items-center justify-between rounded-xl border border-white/8 bg-white/2 px-4 py-3 text-sm transition-all hover:border-aqua/30 hover:bg-aqua/5"
+          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-3 font-label text-sm uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
         >
-          <span className="text-zinc-400 transition-colors group-hover:text-white">
+          <span className="text-on-surface-variant transition-colors group-hover:text-on-surface">
             View on Sepolia Etherscan
           </span>
-          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-aqua">
+          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-on-surface-variant opacity-50 transition-all group-hover:translate-x-0.5 group-hover:text-accent">
             <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </a>
       </div>
 
-      {/* Bottom — reset button pinned to bottom */}
       {onReset && <ResetButton onReset={onReset} />}
     </div>
   );
 }
 
 
-export function DripResult({ result, error, retryAfter, onReset, network = "devnet" }: DripResultProps) {
+export function DripResult({ result, error, retryAfter, onReset }: DripResultProps) {
   if (error) {
     return (
-      <div className="rounded-xl border border-red-500/20 bg-red-500/6 p-4">
-        <p className="text-sm font-medium text-red-400">{error}</p>
+      <div className="border-l-4 border-red-500 bg-red-500/10 p-4">
+        <p className="font-label text-sm text-red-400">{error}</p>
         {retryAfter && (
-          <p className="mt-1 text-xs text-red-400/70">
+          <p className="mt-1 font-label text-xs text-red-400/70">
             Try again in {formatMs(retryAfter)}
           </p>
         )}
@@ -327,7 +350,7 @@ export function DripResult({ result, error, retryAfter, onReset, network = "devn
   if (!result) return null;
 
   if (result.asset === "eth" && result.txHash) {
-    return <EthResult txHash={result.txHash} onReset={onReset} network={network} />;
+    return <EthResult txHash={result.txHash} onReset={onReset} />;
   }
 
   // fee-juice fallback
@@ -337,21 +360,21 @@ export function DripResult({ result, error, retryAfter, onReset, network = "devn
     <div className="flex flex-col gap-5">
       <div className="space-y-5">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-aqua/30 bg-aqua/10">
-            <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-aqua">
+          <div className="flex h-7 w-7 items-center justify-center border border-accent/30 bg-accent/10">
+            <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-accent">
               <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <span className="text-sm font-semibold text-white">{assetLabel} Sent</span>
+          <span className="font-label text-sm font-bold uppercase tracking-wider text-on-surface">{assetLabel} Sent</span>
         </div>
 
         {result.txHash && <DataField label="Transaction Hash" value={result.txHash} />}
 
         {result.claimData && (
           <div className="space-y-3">
-            <div className="rounded-lg border border-orchid/15 bg-orchid/4 px-3 py-2.5">
-              <p className="text-xs font-medium text-orchid">Action required: Claim on L2</p>
-              <p className="mt-1 text-xs text-orchid/60">
+            <div className="border border-secondary/20 bg-secondary/5 px-4 py-3">
+              <p className="font-label text-xs font-bold uppercase tracking-wider text-secondary">Action required: Claim on L2</p>
+              <p className="mt-1 font-body text-xs text-secondary/60">
                 Bridge is complete. Use the script or SDK to claim.
               </p>
             </div>
@@ -366,7 +389,6 @@ export function DripResult({ result, error, retryAfter, onReset, network = "devn
               claimAmount={result.claimData.claimAmount}
               claimSecretHex={result.claimData.claimSecretHex}
               messageLeafIndex={result.claimData.messageLeafIndex}
-              network={network}
             />
           </div>
         )}

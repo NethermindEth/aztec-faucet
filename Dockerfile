@@ -1,16 +1,19 @@
-FROM node:24-slim AS base
+# Ubuntu 24.04 base — provides GLIBC 2.39 required by @aztec/bb.js native binary.
+# node:24-slim only has GLIBC 2.36 which causes "Native backend process exited with code 1".
+FROM ubuntu:24.04 AS base
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
+    apt-get install -y --no-install-recommends nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 # --- Dependencies ---
 FROM base AS deps
 WORKDIR /app
-# Build tools needed to compile native addons (lmdb etc.) on Linux slim
+# Build tools needed to compile native addons (lmdb etc.)
 RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-# Pin npm to the same major version used to generate the lock file.
-# npm 11 changed how it validates npm-aliased packages in lock files and
-# rejects the lockfileVersion 3 format we use for @aztec-rc/* aliases.
 RUN npm install -g npm@10
 COPY package.json package-lock.json ./
-# Increase retries and timeout for large @aztec-rc packages (~hundreds of MB)
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 10000 && \
     npm config set fetch-retry-maxtimeout 300000 && \
@@ -33,17 +36,14 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-# Suppress pino transport initialization (prevents pino-pretty worker threads)
 ENV LOG_LEVEL=silent
 
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --gid nodejs nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-# Overlay full node_modules so dynamically-loaded packages (pino transports
-# and other deps not traced by Next.js standalone) are always available
 COPY --from=deps /app/node_modules ./node_modules
 
 USER nextjs

@@ -21,8 +21,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { address, asset, captchaToken, network: networkRaw } = body as Record<string, unknown>;
-    const network = networkRaw === "testnet" ? "testnet" : "devnet";
+    const { address, asset, captchaToken } = body as Record<string, unknown>;
 
     // Validate inputs
     if (!address || typeof address !== "string") {
@@ -55,7 +54,7 @@ export async function POST(request: Request) {
     const ip = forwarded?.split(",")[0]?.trim() || realIp || undefined;
 
     // Execute drip
-    const manager = FaucetManager.getInstance(network as "devnet" | "testnet");
+    const manager = FaucetManager.getInstance();
     const result = await manager.drip(address, asset as Asset, ip);
 
     return NextResponse.json(result);

@@ -3,7 +3,15 @@ import { L1Faucet } from "./l1-faucet";
 import { L2Faucet, type FeeJuiceClaimData } from "./l2-faucet";
 import { Throttle, ThrottleError } from "./throttle";
 import { ClaimStore, type StoredClaim } from "./claim-store";
-import { NODE_URLS, SPONSORED_FPC_ADDRESSES } from "./network-config";
+import {
+  NODE_URL,
+  L1_CHAIN_ID,
+  ETH_DRIP_AMOUNT,
+  FEE_JUICE_DRIP_AMOUNT,
+  DRIP_INTERVAL_MS,
+  DRIP_MAX_PER_ADDRESS,
+  DRIP_MAX_PER_IP,
+} from "./network-config";
 
 export type Asset = "eth" | "fee-juice";
 
@@ -14,7 +22,7 @@ export class AddressValidationError extends Error {
   }
 }
 
-export type DripResult = {
+type DripResult = {
   success: true;
   asset: Asset;
   txHash?: string;
@@ -23,7 +31,7 @@ export type DripResult = {
   claimStatus?: "bridging" | "ready" | "expired";
 };
 
-export type FaucetStatus = {
+type FaucetStatus = {
   healthy: boolean;
   faucetAddress: string;
   l1BalanceEth: string;
@@ -54,8 +62,7 @@ function readPackageVersion(pkgPath: string): string {
   }
 }
 
-const DEVNET_SDK_VERSION = readPackageVersion("node_modules/@aztec/aztec.js/package.json");
-const TESTNET_SDK_VERSION = readPackageVersion("node_modules/@aztec-rc/aztec.js/package.json");
+const SDK_VERSION = readPackageVersion("node_modules/@aztec/aztec.js/package.json");
 
 
 // Use globalThis so the singleton survives Next.js HMR module reloads in dev.
@@ -63,8 +70,7 @@ const TESTNET_SDK_VERSION = readPackageVersion("node_modules/@aztec-rc/aztec.js/
 // in-memory ClaimStore is wiped — causing GET /api/claim/[id] to 404
 // immediately after a successful POST /api/drip.
 const g = globalThis as typeof globalThis & {
-  _faucetManagerDevnet?: FaucetManager;
-  _faucetManagerTestnet?: FaucetManager;
+  _faucetManager?: FaucetManager;
 };
 
 export class FaucetManager {
@@ -73,83 +79,38 @@ export class FaucetManager {
   private throttle: Throttle;
   private ipThrottle: Throttle;
   private claimStore: ClaimStore;
-  private network: "devnet" | "testnet";
-
-  private constructor(network: "devnet" | "testnet" = "devnet") {
-    this.network = network;
+  private constructor() {
     const l1PrivateKey = requireEnv("FAUCET_PRIVATE_KEY") as Hex;
     const l1RpcUrl = requireEnv("L1_RPC_URL");
-    const l1ChainId = parseIntEnv("L1_CHAIN_ID", 11155111);
-
-    const aztecNodeUrl =
-      network === "testnet"
-        ? (process.env.TESTNET_AZTEC_NODE_URL ?? NODE_URLS.testnet)
-        : (process.env.DEVNET_AZTEC_NODE_URL ?? process.env.AZTEC_NODE_URL ?? NODE_URLS.devnet);
-
-    const sponsoredFpcAddress =
-      network === "testnet"
-        ? (process.env.TESTNET_SPONSORED_FPC_ADDRESS ?? SPONSORED_FPC_ADDRESSES.testnet)
-        : (process.env.DEVNET_SPONSORED_FPC_ADDRESS ?? process.env.SPONSORED_FPC_ADDRESS ?? SPONSORED_FPC_ADDRESSES.devnet);
 
     this.l1Faucet = new L1Faucet({
       rpcUrl: l1RpcUrl,
-      chainId: l1ChainId,
+      chainId: L1_CHAIN_ID,
       privateKey: l1PrivateKey,
-      ethDripAmount: process.env.ETH_DRIP_AMOUNT ?? "0.001",
+      ethDripAmount: ETH_DRIP_AMOUNT,
     });
-
-    // Per-network drip amount env vars take precedence over the network defaults.
-    // FEE_JUICE_DRIP_AMOUNT is treated as a legacy devnet-only alias so that a
-    // deployment which only sets FEE_JUICE_DRIP_AMOUNT=1000 FJ does NOT accidentally
-    // use that value for testnet (which should default to 100 FJ to preserve the
-    // pre-funded faucet wallet balance).
-    const networkDripEnvKey = network === "testnet" ? "TESTNET_FEE_JUICE_DRIP_AMOUNT" : "DEVNET_FEE_JUICE_DRIP_AMOUNT";
-    const feeJuiceDripAmount = process.env[networkDripEnvKey]
-      ? BigInt(process.env[networkDripEnvKey]!)
-      : network === "testnet"
-        ? 100_000_000_000_000_000_000n   // testnet default: 100 FJ (portal minimum > 1 FJ)
-        : process.env.FEE_JUICE_DRIP_AMOUNT
-          ? parseBigIntEnv("FEE_JUICE_DRIP_AMOUNT")
-          : 1_000_000_000_000_000_000_000n; // devnet default: 1000 FJ (contract minimum)
 
     this.l2Faucet = new L2Faucet({
-      aztecNodeUrl,
+      aztecNodeUrl: NODE_URL,
       l1RpcUrl,
-      l1ChainId,
+      l1ChainId: L1_CHAIN_ID,
       l1PrivateKey,
-      sponsoredFpcAddress,
-      feeJuiceDripAmount,
-      // Devnet has an open mint function; testnet restricts mint to authorized minters.
-      // On testnet the faucet wallet is pre-funded with L1 Fee Juice, so skip minting.
-      mintFirst: network !== "testnet",
+      feeJuiceDripAmount: FEE_JUICE_DRIP_AMOUNT,
     });
 
-    const intervalMs = parseIntEnv("DRIP_INTERVAL_MS", 86400000);
-    this.throttle = new Throttle(intervalMs, 1);
+    // Disable rate limits in local dev (NODE_ENV is "production" in Docker)
+    const isDev = process.env.NODE_ENV !== "production";
+    this.throttle = new Throttle(isDev ? 0 : DRIP_INTERVAL_MS, isDev ? Infinity : DRIP_MAX_PER_ADDRESS);
+    this.ipThrottle = new Throttle(isDev ? 0 : DRIP_INTERVAL_MS, isDev ? Infinity : DRIP_MAX_PER_IP);
 
-    const ipIntervalMs = parseIntEnv("IP_DRIP_INTERVAL_MS", intervalMs);
-    const ipMaxCount = parseIntEnv("IP_DRIP_MAX_COUNT", 2);
-    this.ipThrottle = new Throttle(ipIntervalMs, ipMaxCount);
-
-    this.claimStore = new ClaimStore(aztecNodeUrl);
+    this.claimStore = new ClaimStore(NODE_URL);
   }
 
-  static getInstance(network: "devnet" | "testnet" = "devnet"): FaucetManager {
-    if (network === "testnet") {
-      if (!g._faucetManagerTestnet) {
-        g._faucetManagerTestnet = new FaucetManager("testnet");
-      }
-      return g._faucetManagerTestnet;
+  static getInstance(): FaucetManager {
+    if (!g._faucetManager) {
+      g._faucetManager = new FaucetManager();
     }
-    if (!g._faucetManagerDevnet) {
-      g._faucetManagerDevnet = new FaucetManager("devnet");
-    }
-    return g._faucetManagerDevnet;
-  }
-
-  static isTestnetAvailable(): boolean {
-    // Testnet is always available — public defaults exist in network-config.ts.
-    return true;
+    return g._faucetManager;
   }
 
   async drip(address: string, asset: Asset, ip?: string): Promise<DripResult> {
@@ -232,7 +193,7 @@ export class FaucetManager {
   }
 
   async getStatus(): Promise<FaucetStatus> {
-    const faucetVersion = this.network === "testnet" ? TESTNET_SDK_VERSION : DEVNET_SDK_VERSION;
+    const faucetVersion = SDK_VERSION;
 
     const [l1Balance, feeJuiceRaw, nodeVersion] = await Promise.all([
       this.l1Faucet.getBalance(),
@@ -252,7 +213,7 @@ export class FaucetManager {
         { name: "fee-juice", available: true },
       ],
       network: {
-        l1ChainId: parseInt(process.env.L1_CHAIN_ID ?? "11155111", 10),
+        l1ChainId: L1_CHAIN_ID,
         aztecNodeUrl: this.claimStore.nodeUrl,
       },
       sdk: {
@@ -270,28 +231,6 @@ function requireEnv(name: string): string {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
-}
-
-function parseIntEnv(name: string, defaultValue: number): number {
-  const raw = process.env[name];
-  if (!raw) return defaultValue;
-  const parsed = parseInt(raw, 10);
-  if (isNaN(parsed)) {
-    throw new Error(`Invalid integer for environment variable ${name}: "${raw}"`);
-  }
-  return parsed;
-}
-
-function parseBigIntEnv(name: string): bigint {
-  const raw = process.env[name];
-  if (!raw) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  try {
-    return BigInt(raw);
-  } catch {
-    throw new Error(`Invalid bigint for environment variable ${name}: "${raw}"`);
-  }
 }
 
 /**

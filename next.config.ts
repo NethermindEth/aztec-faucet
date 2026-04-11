@@ -10,14 +10,13 @@ const nextConfig: NextConfig = {
   serverExternalPackages: [
     "@aztec/aztec.js",
     "@aztec/accounts",
-    "@aztec/noir-contracts.js",
     "@aztec/wallets",
-    "@aztec/pxe",
-    "@aztec/kv-store",
     "@aztec/ethereum",
     "@aztec/l1-artifacts",
     "@aztec/foundation",
     "@aztec/stdlib",
+    "@aztec/bb.js",
+    "@aztec/native",
     // pino transport packages — loaded dynamically so not auto-traced
     "pino",
     "pino-pretty",

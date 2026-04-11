@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { FaucetLayout } from "@/components/faucet-layout";
+import { FeeJuiceHelpers } from "@/components/faucet-form";
 import { NetworkStatus } from "@/components/network-status";
 import { StatusView } from "@/components/status-view";
 import { BalanceView } from "@/components/balance-view";
@@ -10,39 +11,36 @@ import { FaqView } from "@/components/faq-view";
 import { NetworkView } from "@/components/network-view";
 import { KeygenView } from "@/components/keygen-view";
 import { DonateView } from "@/components/donate-view";
-import type { Network } from "@/lib/network-config";
+import { WalkingCharacter } from "@/components/walking-character";
 
 type View = "faucet" | "balance" | "faq" | "status" | "network" | "keys" | "donate";
 
+const NAV_ITEMS: { view: View; label: string }[] = [
+  { view: "faucet", label: "Faucet" },
+  { view: "keys", label: "Account" },
+  { view: "balance", label: "Balance" },
+  { view: "network", label: "Network" },
+  { view: "faq", label: "FAQ" },
+  { view: "donate", label: "Donate" },
+];
 
 export default function Home() {
   const [view, setView] = useState<View>("faucet");
   const [leaving, setLeaving] = useState<View | null>(null);
-  const [howOpen, setHowOpen] = useState(false);
-  const [network, setNetwork] = useState<Network>("devnet");
-  const [testnetAvailable, setTestnetAvailable] = useState(false);
-  const [dripActive, setDripActive] = useState(false);
-  const [rippleColor, setRippleColor] = useState<string | null>(null);
-  const rippleTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-
-  useEffect(() => {
-    fetch("/api/networks")
-      .then((r) => r.json())
-      .then((d: { testnet: boolean }) => { if (d.testnet) setTestnetAvailable(true); })
-      .catch(() => {});
+  const [faucetSplit, setFaucetSplit] = useState(false);
+  const [bridging, setBridging] = useState<{ progress: number; isReady: boolean } | null>(null);
+  const bridgingRef = useRef(bridging);
+  const handleBridgingProgress = useCallback((p: number, r: boolean) => {
+    const prev = bridgingRef.current;
+    if (p <= 0) {
+      if (prev !== null) { bridgingRef.current = null; setBridging(null); }
+      return;
+    }
+    if (prev && prev.progress === p && prev.isReady === r) return;
+    const next = { progress: p, isReady: r };
+    bridgingRef.current = next;
+    setBridging(next);
   }, []);
-
-  function handleNetworkSwitch(newNetwork: Network) {
-    if (newNetwork === network || rippleColor !== null) return;
-    if (dripActive) return;
-    if (newNetwork === "testnet" && !testnetAvailable) return;
-    const color = newNetwork === "testnet" ? "#A78BFA" : "#D4FF28";
-    setRippleColor(color);
-    // Change theme when ripple reaches center of screen (~275ms into 550ms animation)
-    rippleTimers.current.push(setTimeout(() => setNetwork(newNetwork), 275));
-    // Clear overlay after animation completes
-    rippleTimers.current.push(setTimeout(() => setRippleColor(null), 600));
-  }
 
   function switchTab(target: View) {
     if (target === view || leaving !== null) return;
@@ -54,279 +52,242 @@ export default function Home() {
   }
 
   return (
-    <main className="bg-atmosphere flex flex-1 flex-col items-center px-4 pt-24 sm:pt-10 pb-4" data-network={network}>
-      <div className="relative z-10 w-full">
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Marquee Ticker Banner */}
+      <header className="w-full py-1 overflow-hidden whitespace-nowrap bg-[#ffd7f5] text-[#161312] font-label text-[10px] font-bold tracking-widest z-50 shrink-0">
+        <div className="inline-flex w-max animate-marquee">
+          {[...Array(2)].map((_, i) => (
+            <span key={i} className="flex gap-8">
+              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
+              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
+              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
+              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
+              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
+              <span className="mr-8">CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
+            </span>
+          ))}
+        </div>
+      </header>
 
-        {/* Network status bar — fixed top-left */}
-        <div className="fixed top-4 left-4 z-50 animate-fade-up">
-          <NetworkStatus network={network} />
+      {/* Navigation Bar */}
+      <nav className="relative flex justify-between items-center w-full px-6 md:px-10 h-14 max-w-[1920px] mx-auto bg-surface z-40 shrink-0 border-b border-outline-variant/30">
+        <div className="flex items-center gap-2">
+          <Image
+            src="/aztec-symbol.svg"
+            alt="Aztec"
+            width={22}
+            height={22}
+          />
+          <span className="text-xl font-bold italic tracking-tighter text-accent font-headline">
+            Aztec Faucet
+          </span>
         </div>
 
-        {/* Network switcher — fixed top-right */}
-        <div className="fixed top-4 right-4 z-50 animate-fade-up">
-          <div className="relative group/switcher">
-            <div
-              className="flex items-center gap-1 rounded-full border border-white/10 bg-zinc-900/80 p-1.5 shadow-lg shadow-black/40 backdrop-blur-md"
+        {/* Desktop nav links — absolutely centered */}
+        <div className="hidden md:flex gap-6 items-center font-headline text-sm tracking-tight uppercase absolute left-1/2 -translate-x-1/2">
+          {NAV_ITEMS.map((item) => (
+            <button
+              key={item.view}
+              type="button"
+              onClick={() => switchTab(item.view)}
+              className={`transition-colors duration-300 pb-0.5 ${
+                view === item.view
+                  ? "text-accent border-b-2 border-accent"
+                  : "text-on-surface opacity-70 hover:text-accent hover:opacity-100 border-b-2 border-transparent"
+              }`}
             >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Network status */}
+        <div className="hidden md:block">
+          <NetworkStatus />
+        </div>
+
+        {/* Mobile menu button */}
+        <button
+          type="button"
+          className="md:hidden text-on-surface"
+          onClick={() => {
+            const menu = document.getElementById("mobile-nav");
+            menu?.classList.toggle("hidden");
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+            <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+      </nav>
+
+      {/* Mobile nav dropdown */}
+      <div id="mobile-nav" className="hidden md:hidden bg-surface-container border-b border-outline-variant z-30 relative shrink-0">
+        <div className="px-4 py-3 flex flex-col gap-1">
+          <div className="grid grid-cols-3 gap-1">
+            {NAV_ITEMS.map((item) => (
               <button
+                key={item.view}
                 type="button"
-                onClick={() => handleNetworkSwitch("devnet")}
-                disabled={dripActive && network !== "devnet"}
-                className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
-                  network === "devnet"
-                    ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
-                    : dripActive
-                      ? "cursor-not-allowed text-zinc-700"
-                      : "text-zinc-500 hover:text-zinc-300"
+                onClick={() => {
+                  switchTab(item.view);
+                  document.getElementById("mobile-nav")?.classList.add("hidden");
+                }}
+                className={`text-center font-headline text-sm uppercase tracking-tight py-2.5 transition-colors ${
+                  view === item.view
+                    ? "text-accent bg-surface-high"
+                    : "text-on-surface opacity-70"
                 }`}
               >
-                Devnet
+                {item.label}
               </button>
-              <div className="relative group/testnet-btn">
+            ))}
+          </div>
+          <div className="pt-2 border-t border-outline-variant">
+            <NetworkStatus />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content — fills remaining viewport */}
+      <main className="flex-1 relative flex flex-col items-center justify-start px-4 md:px-10 py-4 md:py-6 pb-8 md:pb-10 z-10 overflow-y-auto min-h-0">
+        {/* Renaissance overlay — only on faucet view */}
+        {view === "faucet" && <div className="renaissance-overlay" />}
+
+        {/* Faucet view — hero editorial layout */}
+        <div className={
+          leaving === "faucet" ? "animate-panel-state-out w-full h-full" :
+          view === "faucet" ? "animate-panel-state-in w-full h-full" :
+          "hidden"
+        }>
+          <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-center h-full">
+            {/* Left: Editorial branding — hidden when result panel is showing */}
+            <div className={`${faucetSplit ? "hidden" : "flex"} lg:col-span-5 flex-col gap-3 justify-center`}>
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-px bg-accent" />
+                <span className="font-label text-[10px] tracking-[0.3em] uppercase text-accent">
+                  Testnet Faucet
+                </span>
+              </div>
+              <h1 className="font-headline text-4xl md:text-5xl lg:text-6xl leading-[0.9] italic tracking-tighter text-on-surface">
+                The Next <br /> Renaissance.
+              </h1>
+              <p className="font-body text-sm md:text-base text-on-surface-variant max-w-sm leading-relaxed opacity-80">
+                Get testnet tokens for the first decentralized, privacy-preserving L2 on Ethereum. Fee Juice and ETH, one click away.
+              </p>
+              <div className="p-4 bg-surface-high border-l-4 border-accent max-w-xs">
+                <span className="font-label text-[9px] text-accent uppercase block mb-1">Aztec Network</span>
+                <p className="text-xs font-body italic text-on-surface-variant">
+                  &ldquo;Don&apos;t take our word for it. Trust the code.&rdquo;
+                </p>
+              </div>
+
+              {/* Links */}
+              <div className="flex flex-wrap gap-2 mt-1">
+                <a
+                  href="https://docs.aztec.network"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-ghost px-4 py-2 text-[10px]"
+                >
+                  Documentation
+                </a>
+                <a
+                  href="https://docs.aztec.network/guides/getting_started"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-ghost px-4 py-2 text-[10px]"
+                >
+                  Getting Started
+                </a>
                 <button
                   type="button"
-                  onClick={() => handleNetworkSwitch("testnet")}
-                  disabled={(dripActive && network !== "testnet") || !testnetAvailable}
-                  className={`rounded-full px-5 py-1.5 text-sm font-semibold transition-all ${
-                    network === "testnet"
-                      ? "bg-chartreuse/20 text-chartreuse shadow-sm shadow-chartreuse/10"
-                      : dripActive
-                        ? "cursor-not-allowed text-zinc-700"
-                        : testnetAvailable
-                          ? "text-zinc-500 hover:text-zinc-300"
-                          : "cursor-not-allowed text-zinc-700"
-                  }`}
+                  onClick={() => switchTab("status")}
+                  className="btn-ghost px-4 py-2 text-[10px]"
                 >
-                  Testnet
+                  API Status
                 </button>
-                {!testnetAvailable && (
-                  <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 opacity-0 shadow-lg transition-opacity duration-0 group-hover/testnet-btn:opacity-100">
-                    Not configured
-                  </div>
-                )}
               </div>
+
+              {/* Fee Juice helper accordions */}
+              <FeeJuiceHelpers onGoToAccount={() => switchTab("keys")} />
             </div>
-            {dripActive && (
-              <div className="pointer-events-none absolute top-full left-1/2 mt-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-400 opacity-0 shadow-lg transition-opacity duration-0 group-hover/switcher:opacity-100">
-                Locked while a drip is in progress
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Header — static, never re-renders */}
-        <div className="mx-auto mb-6 max-w-lg text-center animate-fade-up">
-          <div className="mb-3 flex justify-center">
-            <Image
-              src="/aztec-symbol.svg"
-              alt="Aztec"
-              width={44}
-              height={44}
-              className="rounded-lg"
-              style={{
-                filter: network === "testnet" ? "hue-rotate(191deg) saturate(0.85) brightness(1.15)" : "none",
-                transition: "filter 0.35s ease",
-              }}
-            />
-          </div>
-          <h1 className="font-display text-5xl text-white">
-            Aztec <span className="text-chartreuse transition-colors duration-350">Faucet</span>
-          </h1>
-          <p className="mt-3 text-sm text-zinc-500">
-            Fee Juice for building on the <span className="text-chartreuse transition-colors duration-350">{network === "testnet" ? "TESTNET" : "DEVNET"}</span>
-          </p>
-        </div>
-
-        {/* Tab bar — only shown for faucet / balance / faq / network views */}
-        {(view !== "status" || leaving === "status") && (
-          <div className="mx-auto mb-4 max-w-lg">
-            <div className="flex items-center gap-1 rounded-full border border-white/6 bg-white/2 p-1">
-              <button
-                type="button"
-                onClick={() => switchTab("faucet")}
-                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
-                  view === "faucet"
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                Faucet
-              </button>
-              <button
-                type="button"
-                onClick={() => switchTab("balance")}
-                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
-                  view === "balance"
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                Balance
-              </button>
-              <button
-                type="button"
-                onClick={() => switchTab("keys")}
-                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
-                  view === "keys"
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                Account
-              </button>
-              <button
-                type="button"
-                onClick={() => switchTab("network")}
-                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
-                  view === "network"
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                Network
-              </button>
-              <button
-                type="button"
-                onClick={() => switchTab("faq")}
-                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
-                  view === "faq"
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                FAQ
-              </button>
-              <button
-                type="button"
-                onClick={() => switchTab("donate")}
-                className={`flex-1 rounded-full py-1.5 text-[10px] sm:text-xs font-medium transition-all ${
-                  view === "donate"
-                    ? "bg-white/10 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                Donate
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Faucet view — always mounted so claim data survives tab switches */}
-        <div className={
-          leaving === "faucet" ? "animate-panel-state-out" :
-          view === "faucet" ? "animate-panel-state-in" :
-          "hidden"
-        }>
-
-          {/* Split-panel faucet form + footer (footer hidden when split) */}
-          <div className="mt-2">
-            <FaucetLayout
-              network={network}
-              onGoToAccount={() => switchTab("keys")}
-              onDripActiveChange={setDripActive}
-              footer={
-                <div className="mx-auto mt-5 max-w-lg space-y-3">
-                  <div className="glass-card rounded-xl overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setHowOpen(!howOpen)}
-                      className="flex w-full items-center justify-between px-4 py-3 text-left"
-                    >
-                      <span className="text-sm font-medium text-zinc-400 transition-colors hover:text-white">How does this work?</span>
-                      <span className={`text-chartreuse transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${howOpen ? "rotate-45" : ""}`}>
-                        <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
-                          <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                      </span>
-                    </button>
-                    <div
-                      className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
-                      style={{ gridTemplateRows: howOpen ? "1fr" : "0fr" }}
-                    >
-                      <div className="overflow-hidden">
-                        <div className="space-y-2 border-t border-white/6 px-4 py-3 text-xs text-zinc-500">
-                          <p>
-                            <strong className="text-zinc-300">ETH:</strong> Sent directly to your Ethereum address on Sepolia. Use it to pay L1 gas fees.
-                          </p>
-                          <p>
-                            <strong className="text-zinc-300">Fee Juice:</strong> Aztec&apos;s native fee token. Required for every transaction on Aztec. The faucet sends a message through the Fee Juice Portal on L1, which sits pending until the next rollup block is processed (roughly 1-2 minutes). You&apos;ll receive a secret claim preimage to consume the message and receive your Fee Juice on L2.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-center text-xs text-zinc-600">
-                    <p>Rate limited to one request per token per 24 hours.</p>
-                    <p className="mt-1">
-                      <a
-                        href="https://docs.aztec.network"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-chartreuse/60 transition-colors hover:text-chartreuse"
-                      >
-                        Aztec Documentation
-                      </a>
-                      {" · "}
-                      <a
-                        href="https://docs.aztec.network/guides/getting_started"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-chartreuse/60 transition-colors hover:text-chartreuse"
-                      >
-                        Getting Started
-                      </a>
-                      {" · "}
-                      <button
-                        type="button"
-                        onClick={() => switchTab("status")}
-                        className="text-chartreuse/60 transition-colors hover:text-chartreuse"
-                      >
-                        API Status
-                      </button>
+            {/* Right: Faucet form card */}
+            <div className={faucetSplit ? "lg:col-span-12" : "lg:col-span-7"}>
+              <FaucetLayout
+                onGoToAccount={() => switchTab("keys")}
+                onSplitChange={setFaucetSplit}
+                onBridgingProgress={handleBridgingProgress}
+                footer={
+                  <div className="mt-3">
+                    <p className="font-label text-[10px] text-center text-on-surface-variant uppercase tracking-widest opacity-40">
+                      One request per token per 24 hours
                     </p>
                   </div>
-                </div>
-              }
-            />
+                }
+              />
+            </div>
           </div>
         </div>
 
-        {/* Keys view — always mounted so keypair survives tab switches */}
+        {/* Keys view — always mounted for state persistence */}
         <div className={
-          leaving === "keys" ? "animate-panel-state-out" :
-          view === "keys" ? "animate-panel-state-in" :
+          leaving === "keys" ? "animate-panel-state-out w-full max-w-xl mx-auto shrink-0" :
+          view === "keys" ? "animate-panel-state-in w-full max-w-xl mx-auto shrink-0" :
           "hidden"
         }>
-          <KeygenView network={network} />
+          <KeygenView />
         </div>
 
-        {/* All other views — remount on each switch for the entry animation */}
+        {/* All other views */}
         {(view !== "faucet" && view !== "keys") || (leaving !== null && leaving !== "faucet" && leaving !== "keys") ? (
-          <div key={leaving ?? view} className={leaving !== null && leaving !== "faucet" && leaving !== "keys" ? "animate-panel-state-out" : "animate-panel-state-in"}>
+          <div
+            key={leaving ?? view}
+            className={`w-full mx-auto shrink-0 ${
+              (leaving ?? view) === "network" || (leaving ?? view) === "faq" ? "" : "max-w-xl"
+            } ${
+              leaving !== null && leaving !== "faucet" && leaving !== "keys"
+                ? "animate-panel-state-out"
+                : "animate-panel-state-in"
+            }`}
+          >
             {(leaving ?? view) === "balance" ? (
-              <BalanceView network={network} />
+              <BalanceView />
             ) : (leaving ?? view) === "faq" ? (
               <FaqView />
             ) : (leaving ?? view) === "network" ? (
-              <NetworkView network={network} />
+              <NetworkView />
             ) : (leaving ?? view) === "donate" ? (
-              <DonateView network={network} />
+              <DonateView />
             ) : (
-              <StatusView network={network} onBack={() => switchTab("faucet")} />
+              <StatusView onBack={() => switchTab("faucet")} />
             )}
           </div>
         ) : null}
+      </main>
 
-      </div>
-
-      {/* Network switch ripple bloom */}
-      {rippleColor && (
-        <div
-          className="ripple-overlay"
-          style={{ "--ripple-color": rippleColor } as React.CSSProperties}
-        />
-      )}
-    </main>
+      {/* Footer — compact, always visible */}
+      <footer className="relative w-full px-4 md:px-10 py-3 md:py-6 flex flex-col md:flex-row justify-between items-center gap-2 md:gap-3 border-t border-outline-variant bg-surface-lowest font-label text-[9px] text-outline-variant uppercase z-20 shrink-0">
+        {bridging && <div className="hidden md:block"><WalkingCharacter progress={bridging.progress} isReady={bridging.isReady} /></div>}
+        <div className="flex items-center gap-3">
+          <Image
+            src="/powered-by-nethermind-dark.svg"
+            alt="Powered by Nethermind"
+            width={110}
+            height={16}
+          />
+        </div>
+        <div className="flex gap-6 md:gap-8">
+          <a href="https://docs.aztec.network" target="_blank" rel="noopener noreferrer" className="text-outline hover:text-secondary transition-all">Docs</a>
+          <a href="https://github.com/NethermindEth/aztec-faucet" target="_blank" rel="noopener noreferrer" className="text-outline hover:text-secondary transition-all">GitHub</a>
+          <span className="text-outline">MIT License</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-accent">System Status: Active</span>
+          <div className="w-1.5 h-1.5 bg-accent rounded-full" />
+        </div>
+      </footer>
+    </div>
   );
 }

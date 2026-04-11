@@ -16,7 +16,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Why does it take a minute or two to receive Fee Juice?",
     answer:
-      "When the faucet bridges Fee Juice, it sends a message through the Fee Juice Portal on L1. That message sits in a pending state until the next Aztec rollup block is processed. Once a rollup is proven and submitted, the message moves from pending to ready and you can claim it. On devnet this typically takes one to two minutes depending on block timing.",
+      "When the faucet bridges Fee Juice, it sends a message through the Fee Juice Portal on L1. That message sits in a pending state until the next Aztec rollup block is processed. Once a rollup is proven and submitted, the message moves from pending to ready and you can claim it. On testnet this typically takes one to two minutes depending on block timing.",
   },
   {
     question: "My claim proof seems to have expired. What happened?",
@@ -41,7 +41,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Will these tokens work on Aztec mainnet?",
     answer:
-      "No. These are testnet tokens only and have no real value. They work on the Aztec devnet for building and testing. Never use a wallet with real funds on this faucet.",
+      "No. These are testnet tokens only and have no real value. They work on the Aztec testnet for building and testing. Never use a wallet with real funds on this faucet.",
   },
   {
     question: "I already deployed my account. Can I still claim Fee Juice?",
@@ -56,7 +56,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "What are the fee numbers in the Network tab?",
     answer:
-      "The fee rates show the current minimum Fee Juice per mana for DA and L2 dimensions. Fee Juice uses 18 decimal places, the same as ETH, so the values shown are in base units. To convert to whole Fee Juice, divide by 10^18. The faucet sends you 1,000 Fee Juice, enough to cover many transactions on the devnet.",
+      "The fee rates show the current minimum Fee Juice per mana for DA and L2 dimensions. Fee Juice uses 18 decimal places, the same as ETH, so the values shown are in base units. To convert to whole Fee Juice, divide by 10^18. The faucet sends you 1,000 Fee Juice, enough to cover many transactions on the testnet.",
   },
   {
     question: "Can I send Fee Juice to another address?",
@@ -67,15 +67,15 @@ const FAQ_ITEMS: FaqItem[] = [
 
 function FaqAccordion({ item, isOpen, onToggle }: { item: FaqItem; isOpen: boolean; onToggle: () => void }) {
   return (
-    <div className="glass-card rounded-xl overflow-hidden">
+    <div className="bg-surface-container overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
-        <span className="text-sm font-medium text-zinc-200 pr-4">{item.question}</span>
+        <span className="font-body text-sm font-medium text-on-surface pr-4">{item.question}</span>
         <span
-          className={`shrink-0 text-chartreuse transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isOpen ? "rotate-45" : ""}`}
+          className={`shrink-0 text-accent transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${isOpen ? "rotate-45" : ""}`}
         >
           <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4">
             <path
@@ -87,14 +87,13 @@ function FaqAccordion({ item, isOpen, onToggle }: { item: FaqItem; isOpen: boole
           </svg>
         </span>
       </button>
-      {/* grid-template-rows 0fr→1fr animates to unknown heights without JS measurement */}
       <div
         className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
         style={{ gridTemplateRows: isOpen ? "1fr" : "0fr" }}
       >
         <div className="overflow-hidden">
-          <div className="border-t border-white/6 px-5 pb-4 pt-3">
-            <p className="text-sm leading-relaxed text-zinc-400">{item.answer}</p>
+          <div className="border-t border-outline-variant/30 px-5 pb-4 pt-3">
+            <p className="font-body text-sm leading-relaxed text-on-surface-variant opacity-70">{item.answer}</p>
           </div>
         </div>
       </div>
@@ -111,7 +110,10 @@ export function FaqView() {
   const right = FAQ_ITEMS.filter((_, i) => i % 2 === 1);
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-6xl">
+      <div className="mb-8 border-b border-outline-variant pb-6">
+        <h2 className="font-headline text-3xl italic text-on-surface">Frequently Asked</h2>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-start">
         <div className="space-y-2">
           {left.map((item) => {
@@ -140,13 +142,13 @@ export function FaqView() {
           })}
         </div>
       </div>
-      <p className="mt-6 text-center text-xs text-zinc-600">
+      <p className="mt-6 text-center font-label text-xs text-on-surface-variant opacity-40 uppercase tracking-widest">
         Still have questions?{" "}
         <a
           href="https://docs.aztec.network"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-chartreuse/60 transition-colors hover:text-chartreuse"
+          className="text-accent/60 transition-colors hover:text-accent"
         >
           Read the Aztec docs
         </a>

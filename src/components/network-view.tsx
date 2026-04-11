@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Network } from "@/lib/network-config";
-import { NETWORK_LABELS } from "@/lib/network-config";
+import { NETWORK_LABEL } from "@/lib/network-config";
 
 type FeesData = {
   feePerDaGas: string;
@@ -20,7 +19,7 @@ type NodeInfoData = {
 };
 
 function Sk({ w = "w-24", h = "h-3" }: { w?: string; h?: string }) {
-  return <span className={`skeleton inline-block ${w} ${h} rounded`} />;
+  return <span className={`skeleton inline-block ${w} ${h}`} />;
 }
 
 function CopyInline({ text }: { text: string }) {
@@ -33,7 +32,7 @@ function CopyInline({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="ml-1.5 rounded border border-white/8 px-1.5 py-0.5 text-[10px] text-zinc-600 transition-colors hover:border-chartreuse/25 hover:text-chartreuse"
+      className="shrink-0 ml-1 border border-outline-variant px-1.5 py-0.5 font-label text-[9px] uppercase tracking-wider text-on-surface-variant transition-colors hover:border-accent hover:text-accent"
     >
       {copied ? "Copied" : "Copy"}
     </button>
@@ -42,19 +41,11 @@ function CopyInline({ text }: { text: string }) {
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/4 py-3 last:border-0">
-      <span className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-3 border-b border-outline-variant/20 py-2.5 last:border-0 overflow-hidden">
+      <span className="shrink-0 font-label text-[9px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
         {label}
       </span>
-      <span className="flex items-center justify-end gap-2 text-xs text-zinc-300">{children}</span>
-    </div>
-  );
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="mb-1 mt-5 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
-      {children}
+      <span className="flex items-center justify-end gap-1.5 font-label text-[11px] text-on-surface min-w-0 truncate">{children}</span>
     </div>
   );
 }
@@ -94,7 +85,7 @@ function timeAgo(since: Date, now: Date): string {
 
 const REFRESH_INTERVAL = 15_000;
 
-export function NetworkView({ network }: { network: Network }) {
+export function NetworkView() {
   const [tab, setTab] = useState<"overview" | "contracts">("overview");
   const [feesOpen, setFeesOpen] = useState(false);
   const [fees, setFees] = useState<FeesData | null>(null);
@@ -105,28 +96,21 @@ export function NetworkView({ network }: { network: Network }) {
   const [nodeUpdatedAt, setNodeUpdatedAt] = useState<Date | null>(null);
   const [now, setNow] = useState(() => new Date());
 
-  // Tick every second so "Xs ago" stays live
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
-    setFees(null);
-    setNodeInfo(null);
-    setFeesError(false);
-    setNodeError(false);
-    setFeesUpdatedAt(null);
-    setNodeUpdatedAt(null);
     let cancelled = false;
 
     function fetchAll() {
-      fetch(`/api/fees?network=${network}`)
+      fetch("/api/fees")
         .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
         .then((data) => { if (!cancelled) { setFees(data); setFeesError(false); setFeesUpdatedAt(new Date()); } })
         .catch(() => { if (!cancelled) setFeesError(true); });
 
-      fetch(`/api/node-info?network=${network}`)
+      fetch("/api/node-info")
         .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
         .then((data) => { if (!cancelled) { setNodeInfo(data); setNodeError(false); setNodeUpdatedAt(new Date()); } })
         .catch(() => { if (!cancelled) setNodeError(true); });
@@ -135,23 +119,22 @@ export function NetworkView({ network }: { network: Network }) {
     fetchAll();
     const timer = setInterval(fetchAll, REFRESH_INTERVAL);
     return () => { cancelled = true; clearInterval(timer); };
-  }, [network]);
+  }, []);
 
   const feesLoading = !fees && !feesError;
   const nodeLoading = !nodeInfo && !nodeError;
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
-
       {/* Sub-tab bar */}
-      <div className="flex items-center gap-1 rounded-full border border-white/6 bg-white/2 p-1">
+      <div className="flex items-center gap-0 border border-outline-variant/40">
         <button
           type="button"
           onClick={() => setTab("overview")}
-          className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+          className={`flex-1 py-2.5 font-label text-xs font-bold uppercase tracking-widest transition-all ${
             tab === "overview"
-              ? "bg-white/10 text-white"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "bg-surface-high text-accent"
+              : "text-on-surface-variant opacity-50 hover:opacity-80"
           }`}
         >
           Overview
@@ -159,10 +142,10 @@ export function NetworkView({ network }: { network: Network }) {
         <button
           type="button"
           onClick={() => setTab("contracts")}
-          className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-all ${
+          className={`flex-1 py-2.5 font-label text-xs font-bold uppercase tracking-widest transition-all ${
             tab === "contracts"
-              ? "bg-white/10 text-white"
-              : "text-zinc-500 hover:text-zinc-300"
+              ? "bg-surface-high text-accent"
+              : "text-on-surface-variant opacity-50 hover:opacity-80"
           }`}
         >
           Contracts
@@ -173,58 +156,58 @@ export function NetworkView({ network }: { network: Network }) {
       {tab === "overview" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
           {/* Fee Rates card */}
-          <div className="glass-card rounded-2xl p-6 flex flex-col">
+          <div className="bg-surface-container border border-outline-variant/40 p-5 shadow-2xl flex flex-col">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-white">Live Fee Rates</h2>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Current minimum fees on the Aztec {NETWORK_LABELS[network].toLowerCase()}. Use these to calculate transaction costs.
+                <h2 className="font-headline text-xl uppercase tracking-tight text-on-surface">Live Fee Rates</h2>
+                <p className="mt-1 font-label text-[10px] text-on-surface-variant opacity-50 uppercase tracking-widest">
+                  Current minimum fees on the Aztec {NETWORK_LABEL.toLowerCase()}.
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 {fees && (
-                  <span className="rounded-full border border-chartreuse/20 bg-chartreuse/8 px-2.5 py-1 text-[10px] font-medium uppercase tracking-widest text-chartreuse">
+                  <span className="border border-accent/30 bg-accent/10 px-2.5 py-1 font-label text-[10px] font-bold uppercase tracking-widest text-accent">
                     Block {fees.blockNumber}
                   </span>
                 )}
                 {feesUpdatedAt && (
-                  <span className="text-[10px] text-zinc-600">
+                  <span className="font-label text-[10px] text-on-surface-variant opacity-40">
                     updated {timeAgo(feesUpdatedAt, now)}
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+            <div className="bg-surface-low border border-outline-variant/20 px-4">
               <Row label="Fee per DA Mana">
                 {feesLoading ? <Sk w="w-28" /> :
                  feesError ? <span className="text-red-400">Unavailable</span> :
                  fees ? (
-                   <span className="font-mono">
+                   <span className="font-label">
                      {formatGas(fees.feePerDaGas)}
                      {fees.feePerDaGas === "0" && (
-                       <span className="ml-1.5 text-zinc-600">(free on {network})</span>
+                       <span className="ml-1.5 text-on-surface-variant opacity-40">(free on testnet)</span>
                      )}
                    </span>
-                 ) : "—"}
+                 ) : null}
               </Row>
               <Row label="Fee per L2 Mana">
                 {feesLoading ? <Sk w="w-28" /> :
                  feesError ? <span className="text-red-400">Unavailable</span> :
                  fees ? (
-                   <span className="font-mono">{formatGas(fees.feePerL2Gas)}</span>
-                 ) : "—"}
+                   <span className="font-label">{formatGas(fees.feePerL2Gas)}</span>
+                 ) : null}
               </Row>
             </div>
 
-            <div className="mt-4 rounded-xl border border-white/5 bg-white/2 overflow-hidden">
+            <div className="mt-4 bg-surface-low border border-outline-variant/20 overflow-hidden">
               <button
                 type="button"
                 onClick={() => setFeesOpen(!feesOpen)}
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
               >
-                <span className="text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-300">How are fees calculated?</span>
-                <span className={`text-chartreuse transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${feesOpen ? "rotate-45" : ""}`}>
+                <span className="font-label text-xs uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent">How are fees calculated?</span>
+                <span className={`text-accent transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${feesOpen ? "rotate-45" : ""}`}>
                   <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
                     <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
@@ -235,17 +218,17 @@ export function NetworkView({ network }: { network: Network }) {
                 style={{ gridTemplateRows: feesOpen ? "1fr" : "0fr" }}
               >
                 <div className="overflow-hidden">
-                  <div className="space-y-1.5 border-t border-white/5 px-4 pb-3 pt-2 text-xs text-zinc-500">
+                  <div className="space-y-1.5 border-t border-outline-variant/20 px-4 pb-3 pt-2 font-body text-xs text-on-surface-variant opacity-70">
                     <p>
-                      <span className="text-zinc-400 font-medium">DA mana:</span> cost of publishing transaction data to the data availability layer. Currently free on {network}.
+                      <span className="text-on-surface font-medium">DA mana:</span> cost of publishing transaction data to the data availability layer. Currently free on testnet.
                     </p>
                     <p>
-                      <span className="text-zinc-400 font-medium">L2 mana:</span> cost of executing the transaction on Aztec L2.
+                      <span className="text-on-surface font-medium">L2 mana:</span> cost of executing the transaction on Aztec L2.
                     </p>
-                    <p className="text-zinc-600 pt-0.5">
-                      Total fee = <code className="rounded bg-white/5 px-1 text-zinc-400">(daMana × feePerDaMana) + (l2Mana × feePerL2Mana)</code>
+                    <p className="text-on-surface-variant opacity-50 pt-0.5">
+                      Total fee = <code className="bg-surface-highest px-1 text-on-surface-variant">(daMana x feePerDaMana) + (l2Mana x feePerL2Mana)</code>
                     </p>
-                    <p className="text-zinc-600">
+                    <p className="text-on-surface-variant opacity-50">
                       The SDK uses &quot;gas&quot; in variable names (e.g. feePerDaGas) but mana is the correct term.
                     </p>
                   </div>
@@ -255,56 +238,56 @@ export function NetworkView({ network }: { network: Network }) {
           </div>
 
           {/* Node Health card */}
-          <div className="glass-card rounded-2xl p-6 flex flex-col">
+          <div className="bg-surface-container border border-outline-variant/40 p-5 shadow-2xl flex flex-col">
             <div className="mb-5 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-semibold text-white">Node Health</h2>
-                <p className="mt-1 text-xs text-zinc-500">
-                  Live status of the Aztec {NETWORK_LABELS[network].toLowerCase()} node.
+                <h2 className="font-headline text-xl uppercase tracking-tight text-on-surface">Node Health</h2>
+                <p className="mt-1 font-label text-[10px] text-on-surface-variant opacity-50 uppercase tracking-widest">
+                  Live status of the Aztec {NETWORK_LABEL.toLowerCase()} node.
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 {nodeInfo ? (
-                  <span className="flex items-center gap-1.5 rounded-full border border-chartreuse/20 bg-chartreuse/8 px-2.5 py-1 text-[10px] font-medium uppercase tracking-widest text-chartreuse">
-                    <span className="h-1.5 w-1.5 rounded-full bg-chartreuse" />
+                  <span className="flex items-center gap-1.5 border border-accent/30 bg-accent/10 px-2.5 py-1 font-label text-[10px] font-bold uppercase tracking-widest text-accent">
+                    <span className="h-1.5 w-1.5 bg-accent" />
                     Online
                   </span>
                 ) : nodeError ? (
-                  <span className="flex items-center gap-1.5 rounded-full border border-red-500/20 bg-red-500/8 px-2.5 py-1 text-[10px] font-medium uppercase tracking-widest text-red-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
+                  <span className="flex items-center gap-1.5 border border-red-500/30 bg-red-500/10 px-2.5 py-1 font-label text-[10px] font-bold uppercase tracking-widest text-red-400">
+                    <span className="h-1.5 w-1.5 bg-red-400" />
                     Unreachable
                   </span>
                 ) : (
                   <Sk w="w-20" h="h-5" />
                 )}
                 {nodeUpdatedAt && (
-                  <span className="text-[10px] text-zinc-600">
+                  <span className="font-label text-[10px] text-on-surface-variant opacity-40">
                     updated {timeAgo(nodeUpdatedAt, now)}
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+            <div className="bg-surface-low border border-outline-variant/20 px-4">
               <Row label="Version">
                 {nodeLoading ? <Sk w="w-36" /> :
-                 nodeError ? <span className="text-red-400">—</span> :
-                 <span className="font-mono text-[11px]">{nodeInfo?.nodeVersion}</span>}
+                 nodeError ? <span className="text-red-400">n/a</span> :
+                 <span className="font-label text-[11px]">{nodeInfo?.nodeVersion}</span>}
               </Row>
               <Row label="Block Height">
                 {nodeLoading ? <Sk w="w-20" /> :
-                 nodeError ? <span className="text-red-400">—</span> :
-                 <span className="font-mono">{nodeInfo?.blockNumber.toLocaleString()}</span>}
+                 nodeError ? <span className="text-red-400">n/a</span> :
+                 <span className="font-label">{nodeInfo?.blockNumber.toLocaleString()}</span>}
               </Row>
               <Row label="L1 Chain">
                 {nodeLoading ? <Sk w="w-16" /> :
-                 nodeError ? <span className="text-red-400">—</span> :
-                 <span className="font-mono">Sepolia ({nodeInfo?.l1ChainId})</span>}
+                 nodeError ? <span className="text-red-400">n/a</span> :
+                 <span className="font-label">Sepolia ({nodeInfo?.l1ChainId})</span>}
               </Row>
               <Row label="Rollup Version">
                 {nodeLoading ? <Sk w="w-20" /> :
-                 nodeError ? <span className="text-red-400">—</span> :
-                 <span className="font-mono">{nodeInfo?.rollupVersion}</span>}
+                 nodeError ? <span className="text-red-400">n/a</span> :
+                 <span className="font-label">{nodeInfo?.rollupVersion}</span>}
               </Row>
             </div>
           </div>
@@ -313,52 +296,49 @@ export function NetworkView({ network }: { network: Network }) {
 
       {tab === "contracts" && (
         <div className="space-y-4">
-          {/* Header row */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-white">Contract Addresses</h2>
-              <p className="mt-1 text-xs text-zinc-500">
-                All deployed protocol contract addresses on the Aztec {NETWORK_LABELS[network].toLowerCase()}.
+              <h2 className="font-headline text-xl uppercase tracking-tight text-on-surface">Contract Addresses</h2>
+              <p className="mt-1 font-label text-[10px] text-on-surface-variant opacity-50 uppercase tracking-widest">
+                All deployed protocol contract addresses on the Aztec {NETWORK_LABEL.toLowerCase()}.
               </p>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               {nodeInfo ? (
-                <span className="rounded-full border border-chartreuse/20 bg-chartreuse/8 px-2.5 py-1 text-[10px] font-medium uppercase tracking-widest text-chartreuse">
+                <span className="border border-accent/30 bg-accent/10 px-2.5 py-1 font-label text-[10px] font-bold uppercase tracking-widest text-accent">
                   Block {nodeInfo.blockNumber}
                 </span>
               ) : nodeLoading ? (
                 <Sk w="w-20" h="h-5" />
               ) : null}
               {nodeUpdatedAt && (
-                <span className="text-[10px] text-zinc-600">
+                <span className="font-label text-[10px] text-on-surface-variant opacity-40">
                   updated {timeAgo(nodeUpdatedAt, now)}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Side-by-side contract cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-            {/* L1 card */}
-            <div className="glass-card rounded-2xl p-6">
-              <div className="mb-3 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+            <div className="bg-surface-container border border-outline-variant/40 p-4 sm:p-5 shadow-2xl">
+              <div className="mb-3 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
                 L1 Contracts (Sepolia)
               </div>
-              <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+              <div className="bg-surface-low border border-outline-variant/20 px-4">
                 {nodeLoading ? (
                   Array.from({ length: 7 }).map((_, i) => (
                     <Row key={i} label=""><Sk w="w-32" /></Row>
                   ))
                 ) : nodeError ? (
-                  <div className="py-3 text-xs text-red-400">Could not load contract addresses.</div>
+                  <div className="py-3 font-label text-xs text-red-400">Could not load contract addresses.</div>
                 ) : nodeInfo ? (
                   Object.entries(L1_CONTRACT_LABELS).map(([key, label]) => {
                     const addr = nodeInfo.l1Contracts[key];
                     if (!addr) return null;
                     return (
                       <Row key={key} label={label}>
-                        <span className="font-mono text-[11px]">
-                          {addr.slice(0, 10)}…{addr.slice(-8)}
+                        <span className="font-label text-[11px]">
+                          {addr.slice(0, 8)}...{addr.slice(-6)}
                         </span>
                         <CopyInline text={addr} />
                       </Row>
@@ -368,26 +348,25 @@ export function NetworkView({ network }: { network: Network }) {
               </div>
             </div>
 
-            {/* L2 card */}
-            <div className="glass-card rounded-2xl p-6">
-              <div className="mb-3 text-[10px] font-medium uppercase tracking-widest text-zinc-600">
+            <div className="bg-surface-container border border-outline-variant/40 p-4 sm:p-5 shadow-2xl">
+              <div className="mb-3 font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
                 L2 Protocol Contracts
               </div>
-              <div className="rounded-xl border border-white/5 bg-white/2 px-4">
+              <div className="bg-surface-low border border-outline-variant/20 px-4">
                 {nodeLoading ? (
                   Array.from({ length: 4 }).map((_, i) => (
                     <Row key={i} label=""><Sk w="w-32" /></Row>
                   ))
                 ) : nodeError ? (
-                  <div className="py-3 text-xs text-red-400">Could not load contract addresses.</div>
+                  <div className="py-3 font-label text-xs text-red-400">Could not load contract addresses.</div>
                 ) : nodeInfo ? (
                   Object.entries(L2_CONTRACT_LABELS).map(([key, label]) => {
                     const addr = nodeInfo.l2Contracts[key];
                     if (!addr) return null;
                     return (
                       <Row key={key} label={label}>
-                        <span className="font-mono text-[11px]">
-                          {addr.slice(0, 10)}…{addr.slice(-8)}
+                        <span className="font-label text-[11px]">
+                          {addr.slice(0, 8)}...{addr.slice(-6)}
                         </span>
                         <CopyInline text={addr} />
                       </Row>
@@ -400,7 +379,6 @@ export function NetworkView({ network }: { network: Network }) {
         </div>
       )}
       </div>
-
     </div>
   );
 }

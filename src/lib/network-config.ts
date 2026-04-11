@@ -1,60 +1,27 @@
-export type Network = "devnet" | "testnet";
+// Single source of truth for all faucet configuration.
+// Only FAUCET_PRIVATE_KEY and L1_RPC_URL come from env vars (secrets).
+// Everything else lives here in code.
 
-// Public defaults — these are well-known public endpoints.
-// Override via env vars if you run a private node or want to point to a different RPC.
-export const NODE_URLS: Record<Network, string> = {
-  devnet: "https://v4-devnet-2.aztec-labs.com/",
-  testnet: "https://rpc.testnet.aztec-labs.com",
-};
+// ── Aztec Network ────────────────────────────────────────────────────────────
+export const NODE_URL = "https://rpc.testnet.aztec-labs.com";
+export const EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
+export const NETWORK_LABEL = "Testnet";
+export const NPM_TAG = "rc";
+export const SCHNORR_CLASS_ID = "0x010319cf7faafaab5cbe684f2556e379a22539a8de18b35d290a85f30057bf02";
 
-export const SPONSORED_FPC_ADDRESSES: Record<Network, string> = {
-  devnet: "0x09a4df73aa47f82531a038d1d51abfc85b27665c4b7ca751e2d4fa9f19caffb2",
-  testnet: "0x19b5539ca1b104d4c3705de94e4555c9630def411f025e023a13189d0c56f8f2",
-};
+// ── L1 (Sepolia) ─────────────────────────────────────────────────────────────
+export const L1_CHAIN_ID = 11155111;
 
-export function getNodeUrl(network: Network): string {
-  if (network === "testnet") {
-    return process.env.TESTNET_AZTEC_NODE_URL ?? NODE_URLS.testnet;
-  }
-  return (
-    process.env.DEVNET_AZTEC_NODE_URL ??
-    process.env.AZTEC_NODE_URL ??
-    NODE_URLS.devnet
-  );
-}
+// ── Drip Amounts ─────────────────────────────────────────────────────────────
+export const ETH_DRIP_AMOUNT = "0.001";
+export const FEE_JUICE_DRIP_AMOUNT = 100_000_000_000_000_000_000n; // 100 FJ
 
-// Testnet is always available — public defaults exist for all network vars.
-// Set TESTNET_AZTEC_NODE_URL to override the default endpoint.
-export function isTestnetAvailable(): boolean {
-  return true;
-}
+// ── Rate Limits ──────────────────────────────────────────────────────────────
+// (flip to 86_400_000 / 1 / 2 before merging to main)
+export const DRIP_INTERVAL_MS = 28_800_000;       // 8h (prod: 24h)
+export const DRIP_MAX_PER_ADDRESS = 3;             // (prod: 1)
+export const DRIP_MAX_PER_IP = 6;                  // (prod: 2)
 
-export const EXPLORER_URLS: Record<Network, string> = {
-  devnet: "https://devnet.aztecscan.xyz",
-  testnet: "https://testnet.aztecscan.xyz",
-};
-
-/** Base path for Aztec L2 transaction links. Append the tx hash directly. */
-export const EXPLORER_TX_URLS: Record<Network, string> = {
-  devnet: "https://devnet.aztecscan.xyz/tx-effects",
-  testnet: "https://testnet.aztecscan.xyz/tx-effects",
-};
-
-export const NETWORK_LABELS: Record<Network, string> = {
-  devnet: "Devnet",
-  testnet: "Testnet",
-};
-
-export const NPM_TAGS: Record<Network, string> = {
-  devnet: "devnet",
-  testnet: "rc",
-};
-
-/**
- * Schnorr account contract class ID for testnet (@rc SDK, 4.1.0-rc.3).
- * The class ID is deterministically derived from the contract artifact bytecode.
- * Devnet uses a different bytecode version (@devnet SDK), so the class ID differs.
- * Update this constant when the testnet network upgrades to a new SDK version.
- */
-export const TESTNET_SCHNORR_CLASS_ID =
-  "0x010319cf7faafaab5cbe684f2556e379a22539a8de18b35d290a85f30057bf02";
+// ── Keygen Rate Limit ────────────────────────────────────────────────────────
+export const KEYGEN_INTERVAL_MS = 86_400_000;      // 24h
+export const KEYGEN_MAX_PER_IP = 10;

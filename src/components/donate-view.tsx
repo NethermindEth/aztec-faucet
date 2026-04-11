@@ -12,7 +12,7 @@ function CopyInline({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="ml-1.5 rounded border border-white/8 px-1.5 py-0.5 text-[10px] text-zinc-600 transition-colors hover:border-chartreuse/25 hover:text-chartreuse"
+      className="ml-1.5 border border-outline-variant px-2 py-0.5 font-label text-[10px] uppercase tracking-wider text-on-surface-variant transition-colors hover:border-accent hover:text-accent"
     >
       {copied ? "Copied" : "Copy"}
     </button>
@@ -20,27 +20,27 @@ function CopyInline({ text }: { text: string }) {
 }
 
 function Sk({ w = "w-24" }: { w?: string }) {
-  return <span className={`skeleton inline-block ${w} h-3 rounded`} />;
+  return <span className={`skeleton inline-block ${w} h-3`} />;
 }
 
-export function DonateView({ network }: { network: "devnet" | "testnet" }) {
+export function DonateView() {
   const [faucetAddress, setFaucetAddress] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/status?network=${network}`)
+    fetch("/api/status")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.faucetAddress) setFaucetAddress(data.faucetAddress);
       })
       .catch(() => {});
-  }, [network]);
+  }, []);
 
   return (
-    <div className="mx-auto w-full max-w-lg space-y-4 animate-panel-state-in">
-      {/* Heart / support icon */}
+    <div className="mx-auto w-full max-w-2xl space-y-4 animate-panel-state-in">
+      {/* Heart icon */}
       <div className="flex justify-center pt-2">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-chartreuse/20 bg-chartreuse/8">
-          <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7 text-chartreuse">
+        <div className="flex h-14 w-14 items-center justify-center border-2 border-accent/20 bg-accent/8">
+          <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7 text-accent">
             <path
               d="M12 21C12 21 3 14.5 3 8.5C3 5.46 5.46 3 8.5 3C10.24 3 11.79 3.9 12 5C12.21 3.9 13.76 3 15.5 3C18.54 3 21 5.46 21 8.5C21 14.5 12 21 12 21Z"
               stroke="currentColor"
@@ -54,24 +54,24 @@ export function DonateView({ network }: { network: "devnet" | "testnet" }) {
         </div>
       </div>
 
-      <div className="glass-card rounded-2xl p-6">
-        <h2 className="text-base font-semibold text-white mb-1">Support the Faucet</h2>
-        <p className="text-xs text-zinc-500 mb-6">
+      <div className="bg-surface-container p-5 sm:p-8 shadow-2xl">
+        <h2 className="font-headline text-2xl uppercase tracking-tight text-on-surface mb-1">Support the Faucet</h2>
+        <p className="font-body text-xs text-on-surface-variant opacity-70 mb-6">
           This faucet runs on Sepolia ETH to bridge Fee Juice for every request.
           If you find it useful, consider sending a small amount of Sepolia ETH to the address below to help keep it running.
-          Make sure you are sending on the <span className="text-zinc-300 font-medium">Sepolia testnet</span>.
+          Make sure you are sending on the <span className="text-on-surface font-medium">Sepolia testnet</span>.
         </p>
 
-        <div className="rounded-xl border border-chartreuse/10 bg-chartreuse/4 px-4 mb-4">
+        <div className="bg-accent/5 border-l-4 border-accent px-5 mb-4">
           <div className="flex items-center justify-between gap-4 py-3">
-            <span className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-chartreuse/60">
+            <span className="shrink-0 font-label text-[10px] font-bold uppercase tracking-widest text-accent/60">
               Faucet Address
             </span>
-            <span className="flex items-center justify-end gap-2 text-xs text-zinc-300">
+            <span className="flex items-center justify-end gap-2 font-label text-xs text-on-surface">
               {faucetAddress ? (
                 <>
-                  <span className="font-mono text-[11px] whitespace-nowrap">
-                    {faucetAddress.slice(0, 8)}…{faucetAddress.slice(-6)}
+                  <span className="font-label text-[11px] whitespace-nowrap">
+                    {faucetAddress.slice(0, 8)}...{faucetAddress.slice(-6)}
                   </span>
                   <CopyInline text={faucetAddress} />
                 </>
@@ -88,7 +88,7 @@ export function DonateView({ network }: { network: "devnet" | "testnet" }) {
               href={`https://sepolia.etherscan.io/address/${faucetAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-zinc-500 transition-colors hover:text-chartreuse"
+              className="flex items-center gap-1.5 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent"
             >
               <svg viewBox="0 0 14 14" fill="none" className="h-3 w-3 shrink-0">
                 <path
@@ -105,7 +105,7 @@ export function DonateView({ network }: { network: "devnet" | "testnet" }) {
         )}
       </div>
 
-      <div className="text-center text-xs text-zinc-600">
+      <div className="text-center font-label text-[10px] text-on-surface-variant opacity-40 uppercase tracking-widest">
         Thank you for supporting open developer tooling on Aztec.
       </div>
     </div>

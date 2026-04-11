@@ -25,9 +25,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const network = (searchParams.get("network") === "testnet" ? "testnet" : "devnet") as "devnet" | "testnet";
-    const { getNodeUrl } = await import("@/lib/network-config");
-    const nodeUrl = getNodeUrl(network);
+    const { NODE_URL } = await import("@/lib/network-config");
+    const nodeUrl = NODE_URL;
     const node = createAztecNodeClient(nodeUrl);
     const owner = AztecAddress.fromString(address);
     const feeJuiceAddress = AztecAddress.fromBigInt(BigInt(5));

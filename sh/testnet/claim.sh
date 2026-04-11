@@ -50,8 +50,8 @@ cd ~/.aztec-devtools
 # Load shared version config (always fetch fresh so version bumps propagate)
 curl -fsSL "$REPO_RAW/sh/versions.sh" -o .versions.sh 2>/dev/null || true
 [ -f .versions.sh ] && . ./.versions.sh
-AZTEC_SDK_NPM_TAG_TESTNET="${AZTEC_SDK_NPM_TAG_TESTNET:-rc}"
-AZTEC_NODE_URL_TESTNET="${AZTEC_NODE_URL_TESTNET:-https://rpc.testnet.aztec-labs.com}"
+AZTEC_SDK_NPM_TAG="${AZTEC_SDK_NPM_TAG:-rc}"
+AZTEC_NODE_URL="${AZTEC_NODE_URL:-https://rpc.testnet.aztec-labs.com}"
 
 # Print installed version of a package, empty string if missing or unreadable
 _pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }
@@ -65,19 +65,19 @@ if [ "$_needs_install" = "1" ]; then
   printf '{"type":"module"}' > package.json
   rm -rf node_modules/@aztec-rc 2>/dev/null || true
   npm install --no-package-lock --no-audit \
-    "@aztec-rc/wallets@npm:@aztec/wallets@$AZTEC_SDK_NPM_TAG_TESTNET" \
-    "@aztec-rc/aztec.js@npm:@aztec/aztec.js@$AZTEC_SDK_NPM_TAG_TESTNET" \
-    "@aztec-rc/stdlib@npm:@aztec/stdlib@$AZTEC_SDK_NPM_TAG_TESTNET" \
+    "@aztec-rc/wallets@npm:@aztec/wallets@$AZTEC_SDK_NPM_TAG" \
+    "@aztec-rc/aztec.js@npm:@aztec/aztec.js@$AZTEC_SDK_NPM_TAG" \
+    "@aztec-rc/stdlib@npm:@aztec/stdlib@$AZTEC_SDK_NPM_TAG" \
     --silent > /dev/null 2>&1 &
   _npm_pid=$!
-  spin $_npm_pid "Installing packages (@$AZTEC_SDK_NPM_TAG_TESTNET)" || exit 1
+  spin $_npm_pid "Installing packages (@$AZTEC_SDK_NPM_TAG)" || exit 1
 fi
 
 curl -fsSL "$REPO_RAW/scripts/claim-fee-juice.mjs" \
   -o ~/.aztec-devtools/claim-fee-juice.mjs 2>/dev/null || true
 
 _out=$(mktemp)
-node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --network testnet --node-url "$AZTEC_NODE_URL_TESTNET" < /dev/null > "$_out" 2>&1 &
+node ~/.aztec-devtools/claim-fee-juice.mjs "$@" --network testnet --node-url "$AZTEC_NODE_URL" < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
 set +e
 spin $_node_pid "Claiming Fee Juice on Aztec testnet (this may take 1-2 min)"

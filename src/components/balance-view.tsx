@@ -1,27 +1,26 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { CopyButton } from "./drip-result";
-import type { Network } from "@/lib/network-config";
-import { NODE_URLS, NPM_TAGS } from "@/lib/network-config";
+import { useState } from "react";
+import { CopyButton, SelfContainedDropdown } from "./drip-result";
+import { NODE_URL, NPM_TAG } from "@/lib/network-config";
 
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
-function makeBalanceCurl(address: string, network: "devnet" | "testnet"): string {
-  return `curl -fsSL ${GITHUB_RAW}/sh/${network}/check-balance.sh | sh -s -- --address ${address}`;
+function makeBalanceCurl(address: string): string {
+  return `curl -fsSL ${GITHUB_RAW}/sh/testnet/check-balance.sh | sh -s -- --address ${address}`;
 }
 
-function makeBalanceCmd(address: string, nodeUrl: string, npmTag: string): string {
+function makeBalanceCmd(address: string): string {
   return `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
 echo '{"type":"module"}' > package.json && \\
-npm install --no-package-lock @aztec/aztec.js@${npmTag} @aztec/stdlib@${npmTag} --silent && \\
+npm install --no-package-lock @aztec/aztec.js@${NPM_TAG} @aztec/stdlib@${NPM_TAG} --silent && \\
 node --input-type=module << 'AZTEC_EOF'
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
-const node = createAztecNodeClient("${nodeUrl}");
+const node = createAztecNodeClient("${NODE_URL}");
 const owner = AztecAddress.fromString("${address}");
 const slot = await deriveStorageSlotInMap(new Fr(1), owner);
 const raw = (await node.getPublicStorageAt("latest", AztecAddress.fromBigInt(5n), slot)).toBigInt();
@@ -36,23 +35,12 @@ type BalanceResult = {
   isDeployed?: boolean;
 };
 
-export function BalanceView({ network }: { network: Network }) {
+export function BalanceView() {
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<BalanceResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkedAddress, setCheckedAddress] = useState<string | null>(null);
-
-  const prevNetwork = useRef(network);
-
-  // Clear stale result when network switches — a devnet balance is meaningless on testnet
-  useEffect(() => {
-    if (prevNetwork.current === network) return;
-    prevNetwork.current = network;
-    setResult(null);
-    setError(null);
-    setCheckedAddress(null);
-  }, [network]);
 
   const trimmed = address.trim();
   const isValid = AZTEC_ADDRESS_RE.test(trimmed);
@@ -65,7 +53,7 @@ export function BalanceView({ network }: { network: Network }) {
     setError(null);
     setCheckedAddress(trimmed);
     try {
-      const res = await fetch(`/api/balance?address=${encodeURIComponent(trimmed)}&network=${network}`);
+      const res = await fetch(`/api/balance?address=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch balance");
       setResult({ balanceFormatted: data.balanceFormatted, balanceRaw: data.balanceRaw, isDeployed: data.isDeployed });
@@ -79,11 +67,11 @@ export function BalanceView({ network }: { network: Network }) {
   const isZero = result?.balanceRaw === "0";
 
   return (
-    <div className="mx-auto w-full max-w-lg">
-      <div className="glass-card rounded-2xl p-6">
-        <div className="mb-5">
-          <h2 className="text-base font-semibold text-white">Check Fee Juice Balance</h2>
-          <p className="mt-1 text-xs text-zinc-500">
+    <div className="mx-auto w-full">
+      <div className="bg-surface-container p-5 sm:p-6 shadow-2xl">
+        <div className="mb-4 border-b border-outline-variant pb-4">
+          <h2 className="font-headline text-2xl uppercase tracking-tight text-on-surface">Check Fee Juice Balance</h2>
+          <p className="mt-1 font-label text-xs text-on-surface-variant opacity-60 uppercase tracking-wider">
             Fee Juice is public state, readable directly from the Aztec node.
           </p>
         </div>
@@ -91,10 +79,10 @@ export function BalanceView({ network }: { network: Network }) {
         {/* Address input */}
         <div className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-zinc-500">
+            <label className="mb-1.5 block font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
               Aztec Address
             </label>
-            <div className="relative">
+            <div className="focus-glow-line relative">
               <input
                 type="text"
                 value={address}
@@ -102,13 +90,7 @@ export function BalanceView({ network }: { network: Network }) {
                 onKeyDown={(e) => { if (e.key === "Enter") handleCheck(); }}
                 placeholder="0x + 64 hex characters"
                 spellCheck={false}
-                className={`w-full rounded-xl border bg-white/3 py-3 pl-4 pr-16 font-mono text-sm text-white placeholder-zinc-600 outline-none transition-colors focus:bg-white/5 ${
-                  isDirty && !isValid
-                    ? "border-red-500/40 focus:border-red-500/60"
-                    : isValid
-                      ? "border-chartreuse/30 focus:border-chartreuse/50"
-                      : "border-white/8 focus:border-white/20"
-                }`}
+                className="stitch-input text-sm sm:text-base pr-20! sm:pr-28!"
               />
               <button
                 type="button"
@@ -116,13 +98,13 @@ export function BalanceView({ network }: { network: Network }) {
                   const text = await navigator.clipboard.readText().catch(() => "");
                   if (text) { setAddress(text.trim()); setResult(null); setError(null); }
                 }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-white/8 px-2.5 py-1 text-[11px] text-zinc-500 transition-colors hover:border-chartreuse/25 hover:text-chartreuse"
+                className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 border border-outline-variant bg-surface-high px-2 sm:px-3 py-1.5 font-label text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
               >
                 Paste
               </button>
             </div>
             {isDirty && !isValid && (
-              <p className="mt-1.5 text-[11px] text-red-400">
+              <p className="mt-1.5 font-label text-[11px] text-red-400">
                 Must be 0x followed by exactly 64 hex characters.
               </p>
             )}
@@ -132,7 +114,7 @@ export function BalanceView({ network }: { network: Network }) {
             type="button"
             onClick={handleCheck}
             disabled={!isValid || loading}
-            className="btn-primary w-full rounded-xl px-4 py-3 text-sm"
+            className="btn-primary w-full py-4 text-base"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -140,67 +122,67 @@ export function BalanceView({ network }: { network: Network }) {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                 </svg>
-                Fetching balance...
+                FETCHING BALANCE...
               </span>
-            ) : "Check Balance"}
+            ) : "CHECK BALANCE"}
           </button>
         </div>
 
         {/* Error state */}
         {error && (
-          <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/6 px-4 py-3 animate-panel-state-in">
-            <p className="text-sm font-medium text-red-400">Failed to fetch balance</p>
-            <p className="mt-0.5 text-xs text-red-400/70">{error}</p>
+          <div className="mt-3 border-l-4 border-red-500 bg-red-500/10 p-3 animate-panel-state-in">
+            <p className="font-label text-sm text-red-400">Failed to fetch balance</p>
+            <p className="mt-0.5 font-label text-xs text-red-400/70">{error}</p>
           </div>
         )}
 
         {/* Result */}
         {result && (
-          <div className="mt-5 space-y-3 animate-panel-state-in">
+          <div className="mt-4 space-y-3 animate-panel-state-in">
             {/* Balance card */}
-            <div className="rounded-xl border border-white/6 bg-white/2 p-5">
+            <div className="bg-surface-low p-4">
               {/* Network row */}
-              <div className="mb-4 flex items-center gap-2">
+              <div className="mb-3 flex items-center gap-2">
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-orchid/60" style={{ animationDuration: "2.5s" }} />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-orchid" />
+                  <span className="absolute inline-flex h-full w-full animate-ping bg-accent/60" style={{ animationDuration: "2.5s" }} />
+                  <span className="relative inline-flex h-1.5 w-1.5 bg-accent" />
                 </span>
-                <span className="text-xs text-zinc-500">Aztec L2 {network === "testnet" ? "Testnet" : "Devnet"}</span>
+                <span className="font-label text-xs uppercase tracking-wider text-on-surface-variant opacity-60">Aztec L2 Testnet</span>
               </div>
 
               {/* Balance number */}
               <div className="flex items-baseline gap-2">
-                <span className={`font-mono text-4xl font-semibold tracking-tight ${isZero ? "text-zinc-500" : "text-white"}`}>
+                <span className={`font-headline text-3xl sm:text-4xl italic tracking-tight break-all ${isZero ? "text-on-surface-variant opacity-50" : "text-on-surface"}`}>
                   {result.balanceFormatted}
                 </span>
-                <span className="text-sm text-zinc-500">Fee Juice</span>
+                <span className="font-label text-sm text-on-surface-variant opacity-60">Fee Juice</span>
               </div>
 
               {isZero && (
-                <p className="mt-2 text-xs text-zinc-600">
+                <p className="mt-2 font-label text-xs text-on-surface-variant opacity-40">
                   Zero balance. If you just bridged, wait ~2 min for the L1 to L2 message to land.
                 </p>
               )}
 
               {/* Checked address + deployment status */}
-              <div className="mt-4 space-y-2 border-t border-white/5 pt-3">
+              <div className="mt-3 space-y-1.5 border-t border-outline-variant/30 pt-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">Address</span>
-                  <code className="font-mono text-[11px] text-zinc-500">
-                    {checkedAddress?.slice(0, 10)}…{checkedAddress?.slice(-8)}
+                  <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Address</span>
+                  <code className="font-label text-[11px] text-on-surface-variant">
+                    {checkedAddress?.slice(0, 10)}...{checkedAddress?.slice(-8)}
                   </code>
                 </div>
                 {result.isDeployed !== undefined && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">Status</span>
+                    <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Status</span>
                     {result.isDeployed ? (
-                      <span className="flex items-center gap-1.5 text-[11px] text-emerald-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      <span className="flex items-center gap-1.5 font-label text-[11px] text-emerald-400">
+                        <span className="h-1.5 w-1.5 bg-emerald-400" />
                         Deployed
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1.5 text-[11px] text-amber-400">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                      <span className="flex items-center gap-1.5 font-label text-[11px] text-amber-400">
+                        <span className="h-1.5 w-1.5 bg-amber-400" />
                         Not Deployed
                       </span>
                     )}
@@ -209,28 +191,22 @@ export function BalanceView({ network }: { network: Network }) {
               </div>
             </div>
 
-            {/* CLI command — collapsible */}
-            <details className="group rounded-xl border border-white/6 bg-white/2">
-              <summary className="cursor-pointer px-4 py-3 text-xs font-medium text-zinc-500 transition-colors hover:text-zinc-300">
-                Run this from your terminal instead
-              </summary>
-              <div className="border-t border-white/5 space-y-0">
-                <div className="flex items-center justify-between border-b border-white/5 px-3 py-2">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">quick start, curl, no clone</span>
-                  <CopyButton text={makeBalanceCurl(trimmed, network)} />
+            {/* CLI commands */}
+            <div className="space-y-2">
+              <div className="border border-outline-variant/40 bg-surface-lowest">
+                <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
+                    <span className="bg-emerald-500/15 px-2 py-0.5 font-label text-[9px] font-bold uppercase tracking-widest text-emerald-400">Recommended</span>
+                  </div>
+                  <CopyButton text={makeBalanceCurl(trimmed)} />
                 </div>
-                <pre className="overflow-x-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                  <code>{makeBalanceCurl(trimmed, network)}</code>
-                </pre>
-                <div className="flex items-center justify-between border-t border-b border-white/5 px-3 py-2">
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-600">self-contained, no clone needed</span>
-                  <CopyButton text={makeBalanceCmd(trimmed, NODE_URLS[network], NPM_TAGS[network])} />
-                </div>
-                <pre className="max-h-40 overflow-auto px-3 py-3 text-[11px] leading-relaxed text-zinc-400">
-                  <code>{makeBalanceCmd(trimmed, NODE_URLS[network], NPM_TAGS[network])}</code>
+                <pre className="overflow-x-auto px-4 py-1.5 text-[11px] leading-relaxed text-on-surface-variant font-label">
+                  <code>{makeBalanceCurl(trimmed)}</code>
                 </pre>
               </div>
-            </details>
+              <SelfContainedDropdown code={makeBalanceCmd(trimmed)} />
+            </div>
           </div>
         )}
       </div>

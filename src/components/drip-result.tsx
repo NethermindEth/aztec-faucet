@@ -67,7 +67,7 @@ process.exit(0);
 AZTEC_EOF`;
 }
 
-function SelfContainedDropdown({ code }: { code: string }) {
+export function SelfContainedDropdown({ code }: { code: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border border-outline-variant/40 bg-surface-lowest">

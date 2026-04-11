@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CopyButton } from "./drip-result";
+import { CopyButton, SelfContainedDropdown } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
 
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
@@ -191,28 +191,22 @@ export function BalanceView() {
               </div>
             </div>
 
-            {/* CLI command */}
-            <details className="group bg-surface-low">
-              <summary className="cursor-pointer px-4 py-2.5 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent">
-                Run this from your terminal instead
-              </summary>
-              <div className="border-t border-outline-variant/30 space-y-0">
-                <div className="flex items-center justify-between border-b border-outline-variant/20 px-4 py-2">
-                  <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
+            {/* CLI commands */}
+            <div className="space-y-2">
+              <div className="border border-outline-variant/40 bg-surface-lowest">
+                <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
+                    <span className="bg-emerald-500/15 px-2 py-0.5 font-label text-[9px] font-bold uppercase tracking-widest text-emerald-400">Recommended</span>
+                  </div>
                   <CopyButton text={makeBalanceCurl(trimmed)} />
                 </div>
-                <pre className="overflow-x-auto px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
+                <pre className="overflow-x-auto px-4 py-1.5 text-[11px] leading-relaxed text-on-surface-variant font-label">
                   <code>{makeBalanceCurl(trimmed)}</code>
                 </pre>
-                <div className="flex items-center justify-between border-t border-b border-outline-variant/20 px-4 py-2">
-                  <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
-                  <CopyButton text={makeBalanceCmd(trimmed)} />
-                </div>
-                <pre className="max-h-40 overflow-auto px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
-                  <code>{makeBalanceCmd(trimmed)}</code>
-                </pre>
               </div>
-            </details>
+              <SelfContainedDropdown code={makeBalanceCmd(trimmed)} />
+            </div>
           </div>
         )}
       </div>

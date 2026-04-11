@@ -19,7 +19,7 @@
 
 ## The problem
 
-When you move from a local sandbox to the Aztec testnet, you immediately hit a wall:
+When you move from a local network to the Aztec Testnet, you immediately hit a wall:
 
 - You need **Fee Juice** to pay for your first transaction.
 - Fee Juice must be **bridged from L1**, not minted on L2.
@@ -61,7 +61,7 @@ All network configuration is centralized in `src/lib/network-config.ts`.
 
 ### Fee Juice
 
-Fee Juice is Aztec's native gas token. It cannot be minted on L2 directly and must be bridged from L1 through the Fee Juice Portal contract. The faucet handles the full bridge on your behalf: it draws from a pre-funded wallet on Sepolia, locks the tokens in the portal, and queues a message for your address. Once the Aztec sequencer includes that message in a block (roughly 1-2 minutes), the faucet UI shows a live claim tracker with all values pre-filled.
+Fee Juice is Aztec's native gas token. It cannot be minted on L2 directly and must be bridged from L1 through the FeeJuicePortal contract. The faucet handles the full bridge on your behalf: it draws from a pre-funded wallet on Sepolia, locks the tokens in the portal, and queues a message for your address. Once the Aztec sequencer includes that message in a block (roughly 1-2 minutes), the faucet UI shows a live claim tracker with all values pre-filled.
 
 Rate limit: one request per 24 hours per address (production).
 
@@ -95,7 +95,7 @@ If you have already deployed your account via the Sponsored FPC or by another me
 
 ## How the bridge works
 
-When you request Fee Juice, the faucet calls `bridgeTokensPublic()` on the L1 Fee Juice Portal. The faucet wallet is pre-funded on Sepolia. The tokens are locked in the portal contract and an L1-to-L2 message is queued for your address.
+When you request Fee Juice, the faucet calls `bridgeTokensPublic()` on the L1 FeeJuicePortal. The faucet wallet is pre-funded on Sepolia. The tokens are locked in the portal contract and an L1-to-L2 message is queued for your address.
 
 The Aztec sequencer picks up that message and includes it in a block. Once the message is finalized in the L2 Merkle tree, the claim data becomes available. The faucet's claim tracker polls this state continuously and shows the ready indicator as soon as the claim can proceed.
 

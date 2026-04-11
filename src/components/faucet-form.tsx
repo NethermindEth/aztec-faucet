@@ -86,6 +86,7 @@ export function FaucetForm({
   onError,
   locked = false,
   onGoToAccount,
+  onAssetChange,
 }: {
   onSuccess: (data: DripResultData) => void;
   onClaim: (claimId: string, initialClaimData?: InitialClaimData) => void;
@@ -93,6 +94,7 @@ export function FaucetForm({
   onError: () => void;
   locked?: boolean;
   onGoToAccount?: () => void;
+  onAssetChange?: (asset: string) => void;
 }) {
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("fee-juice");
@@ -282,6 +284,7 @@ export function FaucetForm({
                 if (locked) return;
                 setAsset(a.value);
                 setError(null);
+                onAssetChange?.(a.value);
               }}
               className={`flex items-center justify-between p-3 transition-colors overflow-hidden ${
                 locked

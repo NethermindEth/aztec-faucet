@@ -90,6 +90,7 @@ function PendingPanel({ asset }: { asset: string }) {
 
 export function FaucetLayout({ footer, onGoToAccount, onSplitChange }: { footer?: React.ReactNode; onGoToAccount?: () => void; onSplitChange?: (isSplit: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
+  const [activeAsset, setActiveAsset] = useState<string>("fee-juice");
 
   const handlePending = (asset: string) => {
     setRightPanel({ kind: "pending", asset });
@@ -118,7 +119,7 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange }: { footer?
   }, [isSplit, onSplitChange]);
 
   return (
-    <div className="w-full">
+    <div className="w-full" data-asset={activeAsset}>
       <div className={`flex flex-col ${isSplit ? "xl:flex-row" : ""} items-start gap-5`}>
         {/* Left panel — Faucet form */}
         <div
@@ -136,6 +137,7 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange }: { footer?
               onError={handleError}
               locked={isSplit}
               onGoToAccount={onGoToAccount}
+              onAssetChange={setActiveAsset}
             />
           </div>
         </div>

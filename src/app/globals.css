@@ -5,6 +5,7 @@
   --foreground: #e9e1de;
   --accent: #E1FF00;
   --accent-rgb: 225, 255, 0;
+  --accent-dim: #b9d200;
 
   /* Stitch surface hierarchy */
   --surface: #161312;
@@ -30,8 +31,8 @@
 
 /* Custom color tokens */
 @theme {
-  --color-accent: #E1FF00;
-  --color-accent-dim: #b9d200;
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim, #b9d200);
   --color-secondary: #ffb59a;
   --color-secondary-container: #ff5e07;
   --color-tertiary-container: #ffd7f5;
@@ -109,7 +110,16 @@ body {
 
 /* Ambient glow for elevated cards */
 .custom-glow {
-  box-shadow: 0 0 40px rgba(225, 255, 0, 0.1);
+  box-shadow: 0 0 40px rgba(var(--accent-rgb), 0.1);
+}
+
+/* ETH-mode accent override — scoped to faucet panel */
+[data-asset="eth"] {
+  --accent: #627EEA;
+  --accent-rgb: 98, 126, 234;
+  --accent-dim: #4a63c0;
+  --color-accent: #627EEA;
+  --color-accent-dim: #4a63c0;
 }
 
 /* Dark scrollbars */

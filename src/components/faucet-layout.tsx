@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import React from "react";
 import { FaucetForm } from "./faucet-form";
 
@@ -88,7 +88,7 @@ function PendingPanel({ asset }: { asset: string }) {
   );
 }
 
-export function FaucetLayout({ footer, onGoToAccount, onSplitChange }: { footer?: React.ReactNode; onGoToAccount?: () => void; onSplitChange?: (isSplit: boolean) => void }) {
+export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingProgress }: { footer?: React.ReactNode; onGoToAccount?: () => void; onSplitChange?: (isSplit: boolean) => void; onBridgingProgress?: (progress: number, isReady: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
   const [activeAsset, setActiveAsset] = useState<string>("fee-juice");
 
@@ -106,17 +106,35 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange }: { footer?
 
   const handleError = () => {
     setRightPanel(null);
+    onBridgingProgress?.(0, false);
   };
 
   const handleReset = () => {
     setRightPanel(null);
+    onBridgingProgress?.(0, false);
   };
 
   const isSplit = rightPanel !== null;
+  const pendingStart = useRef<number>(0);
 
   useEffect(() => {
     onSplitChange?.(isSplit);
   }, [isSplit, onSplitChange]);
+
+  // Drive walking character during pending phase (0 -> 0.15 over ~20s)
+  // Real L1 tx takes ~15-20s before claim-tracker takes over
+  const isPendingFeeJuice = rightPanel?.kind === "pending" && rightPanel.asset === "fee-juice";
+  useEffect(() => {
+    if (!isPendingFeeJuice) return;
+    pendingStart.current = Date.now();
+    onBridgingProgress?.(0.01, false);
+    const interval = setInterval(() => {
+      const elapsed = (Date.now() - pendingStart.current) / 1000;
+      const progress = Math.min(elapsed / 20, 0.15);
+      onBridgingProgress?.(progress, false);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isPendingFeeJuice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="w-full" data-asset={activeAsset}>
@@ -164,6 +182,7 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange }: { footer?
                       initialClaimData={rightPanel.initialClaimData}
                       l1TxHash={rightPanel.initialClaimData?.l1TxHash}
                       onReset={handleReset}
+                      onProgressChange={onBridgingProgress}
                     />
                   </>
                 )}

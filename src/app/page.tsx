@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { FaucetLayout } from "@/components/faucet-layout";
 import { FeeJuiceHelpers } from "@/components/faucet-form";
@@ -11,6 +11,7 @@ import { FaqView } from "@/components/faq-view";
 import { NetworkView } from "@/components/network-view";
 import { KeygenView } from "@/components/keygen-view";
 import { DonateView } from "@/components/donate-view";
+import { WalkingCharacter } from "@/components/walking-character";
 
 type View = "faucet" | "balance" | "faq" | "status" | "network" | "keys" | "donate";
 
@@ -27,6 +28,19 @@ export default function Home() {
   const [view, setView] = useState<View>("faucet");
   const [leaving, setLeaving] = useState<View | null>(null);
   const [faucetSplit, setFaucetSplit] = useState(false);
+  const [bridging, setBridging] = useState<{ progress: number; isReady: boolean } | null>(null);
+  const bridgingRef = useRef(bridging);
+  const handleBridgingProgress = useCallback((p: number, r: boolean) => {
+    const prev = bridgingRef.current;
+    if (p <= 0) {
+      if (prev !== null) { bridgingRef.current = null; setBridging(null); }
+      return;
+    }
+    if (prev && prev.progress === p && prev.isReady === r) return;
+    const next = { progress: p, isReady: r };
+    bridgingRef.current = next;
+    setBridging(next);
+  }, []);
 
   function switchTab(target: View) {
     if (target === view || leaving !== null) return;
@@ -204,6 +218,7 @@ export default function Home() {
               <FaucetLayout
                 onGoToAccount={() => switchTab("keys")}
                 onSplitChange={setFaucetSplit}
+                onBridgingProgress={handleBridgingProgress}
                 footer={
                   <div className="mt-3">
                     <p className="font-label text-[10px] text-center text-on-surface-variant uppercase tracking-widest opacity-40">
@@ -253,7 +268,8 @@ export default function Home() {
       </main>
 
       {/* Footer — compact, always visible */}
-      <footer className="w-full px-4 md:px-10 py-3 md:py-6 flex flex-col md:flex-row justify-between items-center gap-2 md:gap-3 border-t border-outline-variant bg-surface-lowest font-label text-[9px] text-outline-variant uppercase z-20 shrink-0">
+      <footer className="relative w-full px-4 md:px-10 py-3 md:py-6 flex flex-col md:flex-row justify-between items-center gap-2 md:gap-3 border-t border-outline-variant bg-surface-lowest font-label text-[9px] text-outline-variant uppercase z-20 shrink-0">
+        {bridging && <div className="hidden md:block"><WalkingCharacter progress={bridging.progress} isReady={bridging.isReady} /></div>}
         <div className="flex items-center gap-3">
           <Image
             src="/powered-by-nethermind-dark.svg"

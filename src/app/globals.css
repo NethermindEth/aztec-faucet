@@ -321,6 +321,64 @@ body {
   border: 1px solid rgba(70, 73, 50, 0.15);
 }
 
+/* Walking character — vertical bob during walk */
+@keyframes walk-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.animate-walk-bob {
+  animation: walk-bob 0.4s ease-in-out infinite;
+}
+
+/* Walking character — arrival bounce */
+@keyframes walk-arrive {
+  0% { transform: scale(1) translateY(0); }
+  40% { transform: scale(1.15) translateY(-4px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+.animate-walk-arrive {
+  animation: walk-arrive 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Walking character — running (faster bob) */
+@keyframes walk-run {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-walk-run {
+  animation: walk-run 0.2s ease-in-out infinite;
+}
+
+/* Walking character — celebration jump */
+@keyframes walk-celebrate {
+  0% { transform: translateY(0) scale(1); }
+  20% { transform: translateY(-12px) scale(1.1); }
+  40% { transform: translateY(0) scale(1); }
+  55% { transform: translateY(-8px) scale(1.05); }
+  70% { transform: translateY(0) scale(1); }
+  82% { transform: translateY(-4px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.animate-walk-celebrate {
+  animation: walk-celebrate 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Walking character — jump (onto/off bridge) */
+@keyframes walk-jump {
+  0% { transform: translateY(0) scale(1); }
+  35% { transform: translateY(-10px) scale(1.05); }
+  65% { transform: translateY(-10px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+.animate-walk-jump {
+  animation: walk-jump 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Touch-friendly scrolling for code blocks on mobile */
 pre {
   -webkit-overflow-scrolling: touch;

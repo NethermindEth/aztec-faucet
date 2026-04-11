@@ -47,11 +47,13 @@ export function ClaimTracker({
   initialClaimData,
   l1TxHash,
   onReset,
+  onProgressChange,
 }: {
   claimId: string;
   initialClaimData?: ClaimData;
   l1TxHash?: string;
   onReset: () => void;
+  onProgressChange?: (progress: number, isReady: boolean) => void;
 }) {
   const [status, setStatus] = useState<ClaimStatus>("bridging");
   const [elapsed, setElapsed] = useState(0);
@@ -116,6 +118,20 @@ export function ClaimTracker({
     }, 1000);
     return () => clearInterval(interval);
   }, [status]);
+
+  // Report bridging progress to parent (drives walking character in footer)
+  // Pending phase covers 0->0.15 (~20s L1 tx), bridge phase covers 0.15->0.95 (~150s)
+  // Real timing: total 140-185s, bridge phase alone is 120-150s
+  const onProgressRef = useRef(onProgressChange);
+  onProgressRef.current = onProgressChange;
+  useEffect(() => {
+    if (status === "bridging") {
+      const bridgeProgress = Math.min(elapsed / 150, 1);
+      onProgressRef.current?.(0.15 + bridgeProgress * 0.80, false);
+    } else if (status === "ready") {
+      onProgressRef.current?.(1, true);
+    }
+  }, [status, elapsed]);
 
   // Countdown timer once claim is ready; flip to expired when it hits 0
   useEffect(() => {

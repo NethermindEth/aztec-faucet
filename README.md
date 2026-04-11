@@ -11,10 +11,7 @@
 
 **Fee Juice and Sepolia ETH for developers building on Aztec Testnet.**
 
-![Sepolia](https://img.shields.io/badge/L1-Sepolia-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)
-![Testnet](https://img.shields.io/badge/L2-Aztec_Testnet-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)
-
-[![Live](https://img.shields.io/badge/Live-aztec--faucet.nethermind.io-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)](https://aztec-faucet.nethermind.io/)
+![Sepolia](https://img.shields.io/badge/L1-Sepolia-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28) ![Testnet](https://img.shields.io/badge/L2-Aztec_Testnet-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28) [![Live](https://img.shields.io/badge/Live-aztec--faucet.nethermind.io-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)](https://aztec-faucet.nethermind.io/)
 
 </div>
 
@@ -25,20 +22,22 @@
 When you move from a local sandbox to the Aztec testnet, you immediately hit a wall:
 
 - You need **Fee Juice** to pay for your first transaction.
-- Fee Juice can only be claimed after deploying an account.
-- Deploying an account requires Fee Juice to pay the fee.
+- Fee Juice must be **bridged from L1**, not minted on L2.
+- Bridging requires an L1 transaction and waiting for the L2 sequencer.
 
-The Aztec Sponsored FPC can cover your very first account deployment, but it gives you nothing for subsequent transactions. This faucet breaks that loop by bridging Fee Juice directly to your address.
+The Sponsored FPC can cover your very first account deployment, but gives you nothing for subsequent transactions. This faucet breaks that loop: it bridges Fee Juice from a pre-funded Sepolia wallet directly to your address and handles the atomic deploy-and-claim in one step.
 
 ---
 
 ## Screenshots
 
-![Faucet tab](./images/faucet.png)
+| Faucet | Account |
+|--------|---------|
+| ![Faucet](./images/faucet.png) | ![Account](./images/account.png) |
 
-![Account tab](./images/account.png)
-
-![Network tab](./images/network.png)
+| Network | Balance |
+|---------|---------|
+| ![Network](./images/network.png) | ![Balance](./images/balance.png) |
 
 ---
 
@@ -50,7 +49,7 @@ The faucet targets a single network: **Aztec Testnet**.
 |--|--|
 | **L1 Network** | Sepolia (`11155111`) |
 | **Aztec Node** | `rpc.testnet.aztec-labs.com` |
-| **SDK** | `@aztec-rc/*` (`4.1.2-rc.1`) |
+| **SDK** | `@aztec/*` (`4.1.2-rc.1`) |
 | **Block Explorer** | [testnet.aztecscan.xyz](https://testnet.aztecscan.xyz) |
 | **Drip amount** | 100 Fee Juice |
 
@@ -64,13 +63,13 @@ All network configuration is centralized in `src/lib/network-config.ts`.
 
 Fee Juice is Aztec's native gas token. It cannot be minted on L2 directly and must be bridged from L1 through the Fee Juice Portal contract. The faucet handles the full bridge on your behalf: it draws from a pre-funded wallet on Sepolia, locks the tokens in the portal, and queues a message for your address. Once the Aztec sequencer includes that message in a block (roughly 1-2 minutes), the faucet UI shows a live claim tracker with all values pre-filled.
 
-Rate limit: once per 24 hours per address.
+Rate limit: one request per 24 hours per address (production).
 
 ### ETH (Sepolia)
 
 Sent directly to your Ethereum address on Sepolia. Useful for paying L1 transaction fees and funding your own bridging operations.
 
-Rate limit: 0.001 ETH once per 24 hours per address.
+Rate limit: 0.001 ETH, one request per 24 hours per address (production).
 
 ---
 
@@ -119,10 +118,6 @@ The faucet UI generates the exact commands with all values pre-filled. You copy 
 ---
 
 ## UI tabs
-
-![Balance tab](./images/balance.png)
-
-![FAQ tab](./images/faq.png)
 
 | Tab | What it does |
 |-----|-------------|

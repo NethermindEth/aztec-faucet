@@ -259,12 +259,14 @@ export function ClaimTracker({
               href={`${SEPOLIA_ETHERSCAN}/${l1TxHash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-accent/60 transition-colors hover:text-accent"
+              className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-3 font-label text-sm uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
             >
-              <svg viewBox="0 0 14 14" fill="none" className="h-3 w-3 shrink-0">
-                <path d="M6 2H2.5A.5.5 0 002 2.5v9a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V8M8.5 2H12v3.5M12 2L6.5 7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+              <span className="text-on-surface-variant transition-colors group-hover:text-on-surface">
+                View on Sepolia Etherscan
+              </span>
+              <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-on-surface-variant opacity-50 transition-all group-hover:translate-x-0.5 group-hover:text-accent">
+                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              View L1 bridge transaction on Sepolia
             </a>
           )}
         </div>
@@ -355,12 +357,14 @@ export function ClaimTracker({
           href={`${SEPOLIA_ETHERSCAN}/${l1TxHash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs text-on-surface-variant opacity-60 transition-colors hover:text-on-surface"
+          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-3 font-label text-sm uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
         >
-          <svg viewBox="0 0 14 14" fill="none" className="h-3 w-3 shrink-0">
-            <path d="M6 2H2.5A.5.5 0 002 2.5v9a.5.5 0 00.5.5h9a.5.5 0 00.5-.5V8M8.5 2H12v3.5M12 2L6.5 7.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+          <span className="text-on-surface-variant transition-colors group-hover:text-on-surface">
+            View on Sepolia Etherscan
+          </span>
+          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-on-surface-variant opacity-50 transition-all group-hover:translate-x-0.5 group-hover:text-accent">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          View L1 bridge transaction on Sepolia
         </a>
       )}
 

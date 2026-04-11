@@ -1,7 +1,8 @@
 # Ubuntu 24.04 base — provides GLIBC 2.39 required by @aztec/bb.js native binary.
 # node:24-slim only has GLIBC 2.36 which causes "Native backend process exited with code 1".
-# Force rebuild: 2026-04-11
+ARG CACHEBUST=2026041102
 FROM ubuntu:24.04 AS base
+RUN echo "GLIBC check:" && ldd --version 2>&1 | head -1
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
     curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \

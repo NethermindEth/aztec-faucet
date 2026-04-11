@@ -234,7 +234,7 @@ function ResetButton({ onReset }: { onReset: () => void }) {
     <button
       type="button"
       onClick={onReset}
-      className="w-full bg-tertiary-container px-4 py-2.5 font-label text-sm font-bold uppercase tracking-wider text-on-tertiary-container transition-all hover:brightness-90"
+      className="btn-primary w-full py-2.5 text-sm uppercase"
     >
       Request another drip
     </button>

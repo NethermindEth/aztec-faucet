@@ -67,9 +67,9 @@ export function BalanceView() {
   const isZero = result?.balanceRaw === "0";
 
   return (
-    <div className="mx-auto w-full max-w-xl">
-      <div className="bg-surface-container p-5 sm:p-8 shadow-2xl">
-        <div className="mb-6 border-b border-outline-variant pb-6">
+    <div className="mx-auto w-full">
+      <div className="bg-surface-container p-5 sm:p-6 shadow-2xl">
+        <div className="mb-4 border-b border-outline-variant pb-4">
           <h2 className="font-headline text-2xl uppercase tracking-tight text-on-surface">Check Fee Juice Balance</h2>
           <p className="mt-1 font-label text-xs text-on-surface-variant opacity-60 uppercase tracking-wider">
             Fee Juice is public state, readable directly from the Aztec node.
@@ -77,9 +77,9 @@ export function BalanceView() {
         </div>
 
         {/* Address input */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <label className="mb-2 block font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+            <label className="mb-1.5 block font-label text-xs font-bold uppercase tracking-widest text-on-surface-variant">
               Aztec Address
             </label>
             <div className="focus-glow-line relative">
@@ -130,7 +130,7 @@ export function BalanceView() {
 
         {/* Error state */}
         {error && (
-          <div className="mt-5 border-l-4 border-red-500 bg-red-500/10 p-4 animate-panel-state-in">
+          <div className="mt-3 border-l-4 border-red-500 bg-red-500/10 p-3 animate-panel-state-in">
             <p className="font-label text-sm text-red-400">Failed to fetch balance</p>
             <p className="mt-0.5 font-label text-xs text-red-400/70">{error}</p>
           </div>
@@ -138,11 +138,11 @@ export function BalanceView() {
 
         {/* Result */}
         {result && (
-          <div className="mt-6 space-y-4 animate-panel-state-in">
+          <div className="mt-4 space-y-3 animate-panel-state-in">
             {/* Balance card */}
-            <div className="bg-surface-low p-5">
+            <div className="bg-surface-low p-4">
               {/* Network row */}
-              <div className="mb-4 flex items-center gap-2">
+              <div className="mb-3 flex items-center gap-2">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping bg-accent/60" style={{ animationDuration: "2.5s" }} />
                   <span className="relative inline-flex h-1.5 w-1.5 bg-accent" />
@@ -165,7 +165,7 @@ export function BalanceView() {
               )}
 
               {/* Checked address + deployment status */}
-              <div className="mt-4 space-y-2 border-t border-outline-variant/30 pt-3">
+              <div className="mt-3 space-y-1.5 border-t border-outline-variant/30 pt-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Address</span>
                   <code className="font-label text-[11px] text-on-surface-variant">
@@ -193,7 +193,7 @@ export function BalanceView() {
 
             {/* CLI command */}
             <details className="group bg-surface-low">
-              <summary className="cursor-pointer px-5 py-3 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent">
+              <summary className="cursor-pointer px-4 py-2.5 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent">
                 Run this from your terminal instead
               </summary>
               <div className="border-t border-outline-variant/30 space-y-0">

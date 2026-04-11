@@ -67,6 +67,37 @@ process.exit(0);
 AZTEC_EOF`;
 }
 
+function SelfContainedDropdown({ code }: { code: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-outline-variant/40 bg-surface-lowest">
+      <div className="flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors hover:bg-surface-low" onClick={() => setOpen((v) => !v)}>
+        <div className="flex items-center gap-2">
+          <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
+          <span className={`transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "rotate-45" : ""}`}>
+            <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3 text-on-surface-variant opacity-50">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+        </div>
+        <div onClick={(e) => e.stopPropagation()}>
+          <CopyButton text={code} />
+        </div>
+      </div>
+      <div
+        className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden">
+          <pre className="max-h-48 overflow-x-auto overflow-y-auto border-t border-outline-variant/30 px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
+            <code>{code}</code>
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }: {
   claimAmount: string;
   claimSecretHex: string;
@@ -75,31 +106,28 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
   const oneLiner = makeClaimOneLiner(claimAmount, claimSecretHex, messageLeafIndex);
   const selfContained = makeClaimSelfContained(claimAmount, claimSecretHex, messageLeafIndex);
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <div className="border border-outline-variant/40 bg-surface-lowest">
-        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2.5">
+        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2">
           <div className="flex items-center gap-2">
             <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
             <span className="bg-emerald-500/15 px-2 py-0.5 font-label text-[9px] font-bold uppercase tracking-widest text-emerald-400">Recommended</span>
           </div>
           <CopyButton text={oneLiner} />
         </div>
-        <pre className="overflow-x-auto px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
+        <pre className="overflow-x-auto px-4 py-1.5 text-[11px] leading-relaxed text-on-surface-variant font-label">
           <code>{oneLiner}</code>
         </pre>
       </div>
-      <div className="border border-outline-variant/40 bg-surface-lowest">
-        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2.5">
-          <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
-          <CopyButton text={selfContained} />
-        </div>
-        <pre className="max-h-48 overflow-x-auto overflow-y-auto px-4 py-3 text-[11px] leading-relaxed text-on-surface-variant font-label">
-          <code>{selfContained}</code>
-        </pre>
+      <SelfContainedDropdown code={selfContained} />
+      <div className="flex items-start gap-2 border border-secondary/25 bg-secondary/8 px-3 py-2">
+        <svg viewBox="0 0 16 16" fill="none" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-secondary">
+          <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 5v3.5M8 10.5h.007" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <p className="font-label text-[11px] leading-relaxed text-secondary">
+          Replace <code className="bg-secondary/15 px-1 font-bold text-secondary">&lt;YOUR_SECRET_KEY&gt;</code> with your account secret. All other values are pre-filled.
+        </p>
       </div>
-      <p className="font-label text-[11px] text-on-surface-variant opacity-50">
-        Replace <code className="bg-surface-highest px-1 text-on-surface-variant">&lt;YOUR_SECRET_KEY&gt;</code> with your account secret from the create-account step. All other values are pre-filled.
-      </p>
     </div>
   );
 }
@@ -178,11 +206,11 @@ export function CopyButton({ text }: { text: string }) {
 export function DataField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
         <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">{label}</p>
         <CopyButton text={value} />
       </div>
-      <code className="block break-all bg-surface-lowest px-3 py-2 font-label text-xs leading-relaxed text-on-surface">
+      <code className="block break-all bg-surface-lowest px-3 py-1.5 font-label text-xs leading-relaxed text-on-surface">
         {value}
       </code>
     </div>
@@ -206,7 +234,7 @@ function ResetButton({ onReset }: { onReset: () => void }) {
     <button
       type="button"
       onClick={onReset}
-      className="w-full border border-outline-variant px-4 py-3 font-label text-sm uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
+      className="w-full bg-tertiary-container px-4 py-2.5 font-label text-sm font-bold uppercase tracking-wider text-on-tertiary-container transition-all hover:brightness-90"
     >
       Request another drip
     </button>

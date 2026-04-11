@@ -18,6 +18,7 @@ export function KeygenView() {
   const [entering, setEntering] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
   const [rateLimitOpen, setRateLimitOpen] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   function destroy() {
     setLeaving(true);
@@ -54,19 +55,22 @@ export function KeygenView() {
   const showGenerate = state.status === "idle" || state.status === "loading" || state.status === "error";
 
   return (
-    <div className="mx-auto w-full max-w-xl">
-      <div className="bg-surface-container p-5 sm:p-8 shadow-2xl">
-        <div className="mb-6 border-b border-outline-variant pb-6">
+    <div className="mx-auto w-full max-w-3xl">
+      <div className="bg-surface-container p-5 sm:p-6 shadow-2xl">
+        <div className="mb-4 border-b border-outline-variant pb-4">
           <h2 className="font-headline text-2xl uppercase tracking-tight text-on-surface">Generate Keypair</h2>
           <p className="mt-1 font-label text-xs text-on-surface-variant opacity-60 uppercase tracking-wider">
-            Get a fresh secret key and Aztec address for {networkLabel.toLowerCase()} testing. No CLI or wallet required.
+            Secret key and Aztec address for {networkLabel.toLowerCase()} testing. No CLI or wallet needed.
           </p>
         </div>
 
         {/* Warning */}
-        <div className="mb-5 border-l-4 border-amber-500 bg-amber-500/5 px-5 py-3">
-          <p className="font-body text-xs text-amber-400/80">
-            <strong className="text-amber-400">For {networkLabel.toLowerCase()} testing only.</strong>{" "}
+        <div className="mb-3 flex items-start gap-2 border border-secondary/25 bg-secondary/8 px-3 py-2">
+          <svg viewBox="0 0 16 16" fill="none" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-secondary">
+            <path d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 5v3.5M8 10.5h.007" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <p className="font-label text-[11px] leading-relaxed text-secondary">
+            <strong className="font-bold">For {networkLabel.toLowerCase()} testing only.</strong>{" "}
             This generates a throwaway keypair. Do not use it to store real funds or on any network other than the Aztec {networkLabel.toLowerCase()}.
           </p>
         </div>
@@ -110,42 +114,42 @@ export function KeygenView() {
           >
             <div className="overflow-hidden">
               <div
-                className="space-y-3 transition-opacity duration-200"
+                className="space-y-2 transition-opacity duration-200"
                 style={{ opacity: (leaving || entering) ? 0 : 1 }}
               >
                 {state.status === "ready" && (
                   <>
-                    <div className="bg-surface-low p-4">
-                      <div className="mb-2 flex items-center justify-between">
+                    <div className="bg-surface-low p-3">
+                      <div className="mb-1 flex items-center justify-between">
                         <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Secret Key</span>
                         <CopyButton text={state.secretKey} />
                       </div>
                       <code className="block truncate font-label text-[11px] leading-relaxed text-on-surface">
                         {state.secretKey}
                       </code>
-                      <p className="mt-2 font-label text-[10px] text-on-surface-variant opacity-40 uppercase tracking-wider">
+                      <p className="mt-1 font-label text-[10px] text-on-surface-variant opacity-40 uppercase tracking-wider">
                         Keep this private. Use it with the claim script or the Aztec SDK.
                       </p>
                     </div>
 
-                    <div className="bg-accent/5 border-l-4 border-accent p-4">
-                      <div className="mb-2 flex items-center justify-between">
+                    <div className="bg-accent/5 border-l-4 border-accent p-3">
+                      <div className="mb-1 flex items-center justify-between">
                         <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Aztec Address</span>
                         <CopyButton text={state.address} />
                       </div>
                       <code className="block truncate font-label text-[11px] leading-relaxed text-accent">
                         {state.address}
                       </code>
-                      <p className="mt-2 font-label text-[10px] text-on-surface-variant opacity-40 uppercase tracking-wider">
+                      <p className="mt-1 font-label text-[10px] text-on-surface-variant opacity-40 uppercase tracking-wider">
                         Paste this into the Faucet tab to request Fee Juice.
                       </p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <button
                         type="button"
                         onClick={() => saveKeys(state.address)}
-                        className="flex-1 flex items-center justify-center gap-2 border-2 border-accent bg-accent/10 px-4 py-2.5 font-label text-xs font-bold uppercase tracking-wider text-accent transition-all hover:bg-accent/20"
+                        className="flex-1 flex items-center justify-center gap-2 border-2 border-accent bg-accent/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-accent transition-all hover:bg-accent/20"
                       >
                         <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
                           <path d="M3 8l3.5 3.5L13 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -155,7 +159,7 @@ export function KeygenView() {
                       <button
                         type="button"
                         onClick={destroy}
-                        className="flex items-center justify-center gap-2 border-2 border-red-500/30 bg-red-500/10 px-4 py-2.5 font-label text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/20"
+                        className="flex items-center justify-center gap-2 border-2 border-red-500/30 bg-red-500/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/20"
                       >
                         <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
                           <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -196,7 +200,7 @@ export function KeygenView() {
                       <button
                         type="button"
                         onClick={destroy}
-                        className="flex items-center justify-center gap-2 border-2 border-red-500/30 bg-red-500/10 px-4 py-2.5 font-label text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/20"
+                        className="flex items-center justify-center gap-2 border-2 border-red-500/30 bg-red-500/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/20"
                       >
                         <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
                           <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -211,16 +215,6 @@ export function KeygenView() {
           </div>
         )}
 
-        {/* Privacy notice */}
-        <div className="mt-5 flex items-start gap-2 font-label text-[10px] text-on-surface-variant opacity-40 uppercase tracking-wider">
-          <svg viewBox="0 0 16 16" fill="none" className="mt-0.5 h-3 w-3 shrink-0">
-            <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1" />
-            <path d="M8 7v4M8 5.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <span className="normal-case">
-            Keypair generated server-side using cryptographically secure randomness. Not sent to any third party, not stored, not logged. Address derived on the server from your secret key using the Schnorr account contract. No network call to the Aztec node is needed.
-          </span>
-        </div>
       </div>
 
       {/* Deploy accordion */}
@@ -291,6 +285,39 @@ export function KeygenView() {
                 >
                   Aztec.js
                 </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Privacy accordion */}
+      <div className="mt-3 bg-surface-container overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setPrivacyOpen(!privacyOpen)}
+          className="flex w-full items-center justify-between px-5 py-3 text-left"
+        >
+          <span className="font-label text-xs uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent">
+            How is my keypair generated?
+          </span>
+          <span className={`text-accent transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${privacyOpen ? "rotate-45" : ""}`}>
+            <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </span>
+        </button>
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={{ gridTemplateRows: privacyOpen ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="space-y-2 border-t border-outline-variant/30 px-5 py-3 font-body text-xs text-on-surface-variant opacity-70">
+              <p>
+                Keypair generated server-side using cryptographically secure randomness. Not sent to any third party, not stored, not logged.
+              </p>
+              <p>
+                Address derived on the server from your secret key using the Schnorr account contract. No network call to the Aztec node is needed.
               </p>
             </div>
           </div>

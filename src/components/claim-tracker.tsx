@@ -33,7 +33,7 @@ function ResetButton({ onReset }: { onReset: () => void }) {
     <button
       type="button"
       onClick={onReset}
-      className="w-full border border-outline-variant px-4 py-3 font-label text-sm uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
+      className="w-full bg-tertiary-container px-4 py-2 font-label text-sm font-bold uppercase tracking-wider text-[#1a1a1a] transition-all hover:brightness-90"
     >
       Request another drip
     </button>
@@ -276,8 +276,8 @@ export function ClaimTracker({
 
   // status === "ready"
   return (
-    <div key={statusKey} className="flex flex-col gap-5 animate-panel-state-in">
-      <div className="space-y-5">
+    <div key={statusKey} className="flex flex-col gap-2 animate-panel-state-in">
+      <div className="space-y-2">
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -294,7 +294,7 @@ export function ClaimTracker({
         </div>
 
         {/* Network row with expiry */}
-        <div className="flex items-center gap-2 border border-outline-variant/30 bg-surface-low px-3 py-2">
+        <div className="flex items-center gap-2 border border-outline-variant/30 bg-surface-low px-3 py-1.5">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-ping  bg-secondary/60" style={{ animationDuration: "2.5s" }} />
             <span className="relative inline-flex h-1.5 w-1.5  bg-secondary" />
@@ -357,7 +357,7 @@ export function ClaimTracker({
           href={`${SEPOLIA_ETHERSCAN}/${l1TxHash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-3 font-label text-sm uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
+          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-2 font-label text-sm uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
         >
           <span className="text-on-surface-variant transition-colors group-hover:text-on-surface">
             View on Sepolia Etherscan

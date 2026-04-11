@@ -136,7 +136,7 @@ export default function Home() {
       </div>
 
       {/* Main Content — fills remaining viewport */}
-      <main className="flex-1 relative flex flex-col items-center justify-start px-4 md:px-10 py-4 md:py-6 z-10 overflow-y-auto min-h-0">
+      <main className="flex-1 relative flex flex-col items-center justify-start px-4 md:px-10 py-4 md:py-6 pb-8 md:pb-10 z-10 overflow-y-auto min-h-0">
         {/* Renaissance overlay — only on faucet view */}
         {view === "faucet" && <div className="renaissance-overlay" />}
 
@@ -229,7 +229,9 @@ export default function Home() {
         {(view !== "faucet" && view !== "keys") || (leaving !== null && leaving !== "faucet" && leaving !== "keys") ? (
           <div
             key={leaving ?? view}
-            className={`w-full mx-auto ${
+            className={`w-full mx-auto shrink-0 ${
+              (leaving ?? view) === "network" || (leaving ?? view) === "faq" ? "" : "max-w-xl"
+            } ${
               leaving !== null && leaving !== "faucet" && leaving !== "keys"
                 ? "animate-panel-state-out"
                 : "animate-panel-state-in"

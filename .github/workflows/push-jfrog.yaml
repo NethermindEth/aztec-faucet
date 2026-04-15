@@ -13,11 +13,12 @@ concurrency:
 permissions:
   id-token: write
   attestations: write
+  artifact-metadata: write
   contents: read
 
 jobs:
   push-aztec-faucet:
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v1.11.4
+    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@v2.0.0
     with:
       repo_name: ${{ github.ref_name == 'main' && 'core-oci-local-prod' || github.ref_name == 'dev' && 'core-oci-local-dev' }}
       image_name: aztec-faucet

@@ -53,22 +53,6 @@ export default function Home() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      {/* Marquee Ticker Banner */}
-      <header className="w-full py-1 overflow-hidden whitespace-nowrap bg-[#ffd7f5] text-[#161312] font-label text-[10px] font-bold tracking-widest z-50 shrink-0">
-        <div className="inline-flex w-max animate-marquee">
-          {[...Array(2)].map((_, i) => (
-            <span key={i} className="flex gap-8">
-              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
-              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
-              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
-              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
-              <span>CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
-              <span className="mr-8">CLAIM YOUR TESTNET TOKENS &bull; GET FEE JUICE NOW</span>
-            </span>
-          ))}
-        </div>
-      </header>
-
       {/* Navigation Bar */}
       <nav className="relative flex justify-between items-center w-full px-6 md:px-10 h-14 max-w-[1920px] mx-auto bg-surface z-40 shrink-0 border-b border-outline-variant/30">
         <div className="flex items-center gap-2">

@@ -3,10 +3,13 @@ import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { createEthereumChain } from "@aztec/ethereum/chain";
+import { createLogger } from "@aztec/foundation/log";
 import { privateKeyToAccount } from "viem/accounts";
 import { createPublicClient, http, type Hex, parseAbiItem } from "viem";
 import { sepolia, foundry } from "viem/chains";
 import type { Chain } from "viem";
+
+const log = createLogger("faucet:l2");
 
 type L2FaucetConfig = {
   aztecNodeUrl: string;
@@ -40,6 +43,10 @@ export class L2Faucet {
     if (!this._l1Client) {
       const account = privateKeyToAccount(this.config.l1PrivateKey);
       const chain = createEthereumChain([this.config.l1RpcUrl], this.config.l1ChainId);
+      // viem is duplicated in the dep tree (root viem vs @aztec/ethereum's nested viem).
+      // The two PrivateKeyAccount types are structurally identical but TypeScript can't
+      // unify them because their nested NonceManager.consume signatures reference
+      // different Client classes. Runtime is fine; the cast is a type-level workaround.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this._l1Client = createExtendedL1Client([this.config.l1RpcUrl], account as any, chain.chainInfo);
     }
@@ -51,8 +58,7 @@ export class L2Faucet {
       this._portalManagerPromise = L1FeeJuicePortalManager.new(
         this.aztecNode,
         this.getL1Client(),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        console as any,
+        log,
       ).catch((err) => {
         // Don't cache failures — allow retry on next drip
         this._portalManagerPromise = null;

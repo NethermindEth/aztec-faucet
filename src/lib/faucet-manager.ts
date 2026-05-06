@@ -98,10 +98,17 @@ export class FaucetManager {
       feeJuiceDripAmount: FEE_JUICE_DRIP_AMOUNT,
     });
 
-    // Disable rate limits in local dev (NODE_ENV is "production" in Docker)
-    const isDev = process.env.NODE_ENV !== "production";
-    this.throttle = new Throttle(isDev ? 0 : DRIP_INTERVAL_MS, isDev ? Infinity : DRIP_MAX_PER_ADDRESS);
-    this.ipThrottle = new Throttle(isDev ? 0 : DRIP_INTERVAL_MS, isDev ? Infinity : DRIP_MAX_PER_IP);
+    // Rate limit values come from env (with prod-correct defaults) — see network-config.ts.
+    // Set DRIP_INTERVAL_MS=0 in .env.local to disable rate limits entirely in dev.
+    this.throttle = new Throttle(DRIP_INTERVAL_MS, DRIP_MAX_PER_ADDRESS);
+    this.ipThrottle = new Throttle(DRIP_INTERVAL_MS, DRIP_MAX_PER_IP);
+
+    // Periodically prune stale throttle entries so memory doesn't grow with
+    // the number of unique IPs/addresses that have ever dripped.
+    setInterval(() => {
+      this.throttle.pruneStale();
+      this.ipThrottle.pruneStale();
+    }, 10 * 60 * 1000).unref?.();
 
     this.claimStore = new ClaimStore(NODE_URL);
   }

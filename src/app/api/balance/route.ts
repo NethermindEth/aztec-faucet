@@ -3,8 +3,16 @@ import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { deriveStorageSlotInMap, siloNullifier } from "@aztec/stdlib/hash";
+import { NODE_URL } from "@/lib/network-config";
+import { CORS_HEADERS_GET } from "@/lib/cors";
 
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
+
+// Aztec protocol contract addresses are stable, well-known small ints.
+// Reference: @aztec/protocol-contracts/protocol_contract_data.ts.
+const FEE_JUICE_CONTRACT_ADDRESS = AztecAddress.fromBigInt(5n);
+// FeeJuice contract stores per-account balances in a Noir Map at storage slot 1.
+const FEE_JUICE_BALANCES_SLOT = new Fr(1);
 
 function formatFeeJuice(raw: bigint): string {
   const str = raw.toString().padStart(19, "0");
@@ -20,20 +28,20 @@ export async function GET(request: Request) {
   if (!AZTEC_ADDRESS_RE.test(address)) {
     return NextResponse.json(
       { error: "Invalid Aztec address. Expected a 0x-prefixed 64-character hex string (e.g. 0x09a4...fb2)" },
-      { status: 400 },
+      { status: 400, headers: CORS_HEADERS_GET },
     );
   }
 
   try {
-    const { NODE_URL } = await import("@/lib/network-config");
-    const nodeUrl = NODE_URL;
-    const node = createAztecNodeClient(nodeUrl);
+    const node = createAztecNodeClient(NODE_URL);
     const owner = AztecAddress.fromString(address);
-    const feeJuiceAddress = AztecAddress.fromBigInt(BigInt(5));
-    const balanceSlot = await deriveStorageSlotInMap(new Fr(1), owner);
+    const balanceSlot = await deriveStorageSlotInMap(FEE_JUICE_BALANCES_SLOT, owner);
+    // Aztec accounts emit an initialization nullifier on first deploy
+    // (siloed against the account address itself). Presence of this nullifier
+    // on chain means the account contract has been initialized.
     const initNullifier = await siloNullifier(owner, new Fr(owner.toBigInt()));
     const [balanceField, nullifierWitness] = await Promise.all([
-      node.getPublicStorageAt("latest", feeJuiceAddress, balanceSlot),
+      node.getPublicStorageAt("latest", FEE_JUICE_CONTRACT_ADDRESS, balanceSlot),
       node.getNullifierMembershipWitness("latest", initNullifier).catch(() => null),
     ]);
     const balance = balanceField.toBigInt();
@@ -44,9 +52,12 @@ export async function GET(request: Request) {
       balanceRaw: balance.toString(),
       balanceFormatted: formatFeeJuice(balance),
       isDeployed,
-    });
+    }, { headers: CORS_HEADERS_GET });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
+    return NextResponse.json(
+      { error: msg.slice(0, 200) },
+      { status: 500, headers: CORS_HEADERS_GET },
+    );
   }
 }

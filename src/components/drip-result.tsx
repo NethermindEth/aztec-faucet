@@ -2,9 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { ConfettiBurst } from "./confetti-burst";
-import { NODE_URL, NPM_TAG, EXPLORER_TX_URL } from "@/lib/network-config";
+import { NODE_URL, NPM_TAG, EXPLORER_TX_URL, L1_CHAIN_ID } from "@/lib/network-config";
 
-const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
 export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
@@ -18,13 +17,11 @@ export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, m
 export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
   return `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
 echo '{"type":"module"}' > package.json && \\
-npm install --no-package-lock @aztec/wallets@${NPM_TAG} @aztec/aztec.js@${NPM_TAG} @aztec/stdlib@${NPM_TAG} --silent && \\
+npm install --no-package-lock @aztec/wallets@${NPM_TAG} @aztec/aztec.js@${NPM_TAG} --silent && \\
 LOG_LEVEL=silent node --input-type=module << 'AZTEC_EOF'
 import { Fr } from "@aztec/aztec.js/fields";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
-import { GasSettings } from "@aztec/stdlib/gas";
+import { NO_FROM } from "@aztec/aztec.js/account";
 const { EmbeddedWallet } = await import("@aztec/wallets/embedded");
 
 const SECRET = "YOUR_SECRET_KEY";           // ← paste your secret key here
@@ -37,14 +34,12 @@ const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true, pxeConfi
 const mgr = await wallet.createSchnorrAccount(Fr.fromHexString(SECRET), Fr.ZERO);
 const addr = mgr.address;
 const isDeployed = (await wallet.getContractMetadata(addr)).isContractInitialized;
-const node = createAztecNodeClient(NODE_URL);
-const gasSettings = GasSettings.default({ maxFeesPerGas: (await node.getCurrentMinFees()).mul(2) });
 const claim = { claimAmount: AMOUNT, claimSecret: CLAIM_SECRET, messageLeafIndex: LEAF };
 if (!isDeployed) {
   console.log("Deploying account + claiming Fee Juice (proving ~10s)...");
   const raw = await (await mgr.getDeployMethod()).send({
-    from: AztecAddress.ZERO,
-    fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
+    from: NO_FROM,
+    fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
     wait: { returnReceipt: true },
   });
   const receipt = raw?.receipt ?? raw;
@@ -56,7 +51,7 @@ if (!isDeployed) {
   console.log("Claiming into existing account (proving ~10s)...");
   const raw = await FeeJuiceContract.at(wallet).methods
     .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
-    .send({ from: addr, fee: { gasSettings } });
+    .send({ from: addr });
   const receipt = raw?.receipt ?? raw;
   const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
@@ -269,7 +264,7 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
             <span className="relative inline-flex h-1.5 w-1.5 bg-accent" />
           </span>
           <span className="font-label text-xs uppercase tracking-wider text-on-surface-variant opacity-60">Sepolia Testnet</span>
-          <span className="ml-auto font-label text-xs text-on-surface-variant opacity-40">11155111</span>
+          <span className="ml-auto font-label text-xs text-on-surface-variant opacity-40">{L1_CHAIN_ID}</span>
         </div>
 
         {/* Transaction hash */}

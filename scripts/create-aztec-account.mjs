@@ -41,23 +41,25 @@ function getArg(name) {
   return process.argv[idx + 1];
 }
 
-const DEFAULT_NODE_URLS = {
-  testnet: "https://rpc.testnet.aztec-labs.com",
-  devnet: "https://v4-devnet-2.aztec-labs.com/",
-};
+// Reject any --network value other than "testnet" — the project is testnet-only.
+const networkArg = getArg("network");
+if (networkArg !== undefined && networkArg !== "testnet") {
+  console.error(`\n  Error: Unknown --network value "${networkArg}". Only "testnet" is supported.\n`);
+  process.exit(1);
+}
 
-const network = getArg("network") === "testnet" ? "testnet" : "devnet";
-const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || DEFAULT_NODE_URLS[network];
+const TESTNET_NODE_URL = "https://rpc.testnet.aztec-labs.com";
+const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || TESTNET_NODE_URL;
 const existingSecret = getArg("secret") ?? null;
 
-// Load SDK matching the network — devnet uses @aztec/*, testnet uses @aztec-rc/*
-const SDK = network === "testnet" ? "@aztec-rc" : "@aztec";
+// Testnet packages are installed under @aztec-rc/* aliases by sh/testnet/create-account.sh.
+const SDK = "@aztec-rc";
 const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
 
-// For testnet, Fr must come from the wallets-internal @aztec/foundation to pass
-// instanceof checks inside EmbeddedWallet.createSchnorrAccount (same pattern as claim-fee-juice.mjs)
+// Fr must come from the wallets-internal @aztec/foundation to pass instanceof
+// checks inside EmbeddedWallet.createSchnorrAccount (same pattern as claim-fee-juice.mjs).
 let Fr;
-if (network === "testnet") {
+{
   const { createRequire } = await import("module");
   const { existsSync } = await import("fs");
   const _req = createRequire(import.meta.url);
@@ -67,18 +69,15 @@ if (network === "testnet") {
     walletsEntry.indexOf("/node_modules/@aztec-rc/wallets/") + "/node_modules/@aztec-rc/wallets/".length
   );
   const internalFieldsPath = walletsRoot + "node_modules/@aztec/aztec.js/dest/api/fields.js";
-  // If npm deduplicated the package (no nested copy), fall back to the root-level alias.
-  // Deduplication means all @aztec/aztec.js imports share one module instance, so instanceof works.
+  // If npm deduplicated, fall back to the root-level alias.
   if (existsSync(internalFieldsPath)) {
     ({ Fr } = await import(internalFieldsPath));
   } else {
     ({ Fr } = await import(`${SDK}/aztec.js/fields`));
   }
-} else {
-  ({ Fr } = await import(`${SDK}/aztec.js/fields`));
 }
 
-console.log(`\n  Aztec Account Generator  ·  ${network}\n`);
+console.log(`\n  Aztec Account Generator  ·  testnet\n`);
 
 try {
   const s1 = spin('Connecting to node');

@@ -7,6 +7,7 @@ import { FaucetForm } from "./faucet-form";
 import { DripResult, type DripResultData } from "./drip-result";
 import { ClaimTracker } from "./claim-tracker";
 import { ConfettiBurst } from "./confetti-burst";
+import { L1_CHAIN_ID } from "@/lib/network-config";
 
 type InitialClaimData = {
   claimAmount: string;
@@ -65,7 +66,7 @@ function PendingPanel({ asset }: { asset: string }) {
             {asset === "eth" ? "Sepolia Testnet" : "Aztec L2 Testnet"}
           </span>
           {asset === "eth" && (
-            <span className="ml-auto font-label text-xs text-on-surface-variant opacity-40">11155111</span>
+            <span className="ml-auto font-label text-xs text-on-surface-variant opacity-40">{L1_CHAIN_ID}</span>
           )}
         </div>
 

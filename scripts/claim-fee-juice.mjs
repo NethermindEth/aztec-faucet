@@ -1,5 +1,5 @@
 /**
- * Claims bridged Fee Juice on L2.
+ * Claims bridged Fee Juice on Aztec testnet L2.
  *
  * - If account is NOT deployed: deploys it with FeeJuicePaymentMethodWithClaim
  *   (claims Fee Juice AND uses it to pay for the deploy tx in one shot)
@@ -12,8 +12,7 @@
  *     --claim-amount <amount> \
  *     --claim-secret <secret-from-bridge> \
  *     --message-leaf-index <index> \
- *     [--node-url <url>] \
- *     [--network testnet|devnet]
+ *     [--node-url <url>]
  */
 // Suppress all SDK logs — only our own output is shown
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "silent";
@@ -81,62 +80,54 @@ if (!accountSecret || !claimAmountStr || !claimSecretStr || !messageLeafIndexStr
     --claim-amount <amount> \\
     --claim-secret <secret-from-bridge> \\
     --message-leaf-index <index> \\
-    [--node-url <url>] \\
-    [--network testnet|devnet]
+    [--node-url <url>]
 
-  All arguments except --node-url and --network are required.
+  All arguments except --node-url are required.
   These values come from the faucet's Fee Juice drip response.
 `);
   process.exit(1);
 }
 
-const DEFAULT_NODE_URLS = {
-  testnet: "https://rpc.testnet.aztec-labs.com",
-  devnet: "https://v4-devnet-2.aztec-labs.com/",
-};
-const EXPLORER_TX_URLS = {
-  testnet: "https://testnet.aztecscan.xyz/tx-effects",
-  devnet: "https://devnet.aztecscan.xyz/tx-effects",
-};
+// Reject any non-testnet --network value. The faucet is testnet-only.
+if (networkArg !== undefined && networkArg !== "testnet") {
+  die(`Unknown --network value "${networkArg}". Only "testnet" is supported.`);
+}
 
-const network = networkArg === "testnet" ? "testnet" : "devnet";
-const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || DEFAULT_NODE_URLS[network];
+const TESTNET_NODE_URL = "https://rpc.testnet.aztec-labs.com";
+const TESTNET_EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
 
-// Load the SDK version matching the network's VK tree.
-// devnet node (4.0.0-devnet.*) and testnet node (4.1.0-rc.*) have incompatible
-// verification keys, so the proof must be generated with the correct SDK.
-const SDK = network === "testnet" ? "@aztec-rc" : "@aztec";
-const { AztecAddress } = await import(`${SDK}/aztec.js/addresses`);
-const { createAztecNodeClient } = await import(`${SDK}/aztec.js/node`);
+const network = "testnet";
+const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || TESTNET_NODE_URL;
+
+// Testnet packages are installed under @aztec-rc/* aliases by sh/testnet/claim.sh.
+const SDK = "@aztec-rc";
 const { FeeJuicePaymentMethodWithClaim } = await import(`${SDK}/aztec.js/fee`);
-const { GasSettings } = await import(`${SDK}/stdlib/gas`);
+const { NO_FROM } = await import(`${SDK}/aztec.js/account`);
 const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
 
-// For testnet, @aztec-rc/wallets and @aztec-rc/aztec.js each bundle a separate copy of
-// @aztec/foundation. EmbeddedWallet's AccountManager does `new Fr(salt)` using the wallets-
-// internal Fr class; passing an Fr object from @aztec-rc/aztec.js fails instanceof checks.
-// Fix: import Fr from the wallets package's own nested @aztec/aztec.js so class instances match.
+// @aztec-rc/wallets and @aztec-rc/aztec.js each bundle a separate copy of
+// @aztec/foundation. EmbeddedWallet's AccountManager does `new Fr(salt)` using
+// the wallets-internal Fr class; passing an Fr from @aztec-rc/aztec.js fails
+// instanceof checks. Resolve Fr from the wallets package's own nested
+// @aztec/aztec.js so class instances match.
 let Fr;
-if (network === "testnet") {
+{
   const { createRequire } = await import("module");
   const { existsSync } = await import("fs");
   const _req = createRequire(import.meta.url);
-  // Wallets entry path: .../node_modules/@aztec-rc/wallets/dest/embedded/entrypoints/node.js
-  // Its nested aztec.js lives at: .../node_modules/@aztec-rc/wallets/node_modules/@aztec/aztec.js/
+  // Wallets entry: .../node_modules/@aztec-rc/wallets/dest/embedded/entrypoints/node.js
+  // Nested aztec.js: .../node_modules/@aztec-rc/wallets/node_modules/@aztec/aztec.js/
   const walletsEntry = _req.resolve(`${SDK}/wallets/embedded`);
   const walletsRoot = walletsEntry.slice(0, walletsEntry.indexOf("/node_modules/@aztec-rc/wallets/") +
     "/node_modules/@aztec-rc/wallets/".length);
-  // Use absolute path import to bypass package exports restrictions
+  // Absolute path import bypasses package exports restrictions.
   const internalFieldsPath = walletsRoot + "node_modules/@aztec/aztec.js/dest/api/fields.js";
-  // If npm deduplicated the package (no nested copy), fall back to the root-level alias.
-  // Deduplication means all @aztec/aztec.js imports share one module instance, so instanceof works.
+  // If npm deduplicated, fall back to the root-level alias.
   if (existsSync(internalFieldsPath)) {
     ({ Fr } = await import(internalFieldsPath));
   } else {
     ({ Fr } = await import(`${SDK}/aztec.js/fields`));
   }
-} else {
-  ({ Fr } = await import(`${SDK}/aztec.js/fields`));
 }
 
 console.log(`
@@ -164,40 +155,42 @@ try {
   const isDeployed = metadata.isContractInitialized;
   s2.ok(isDeployed ? 'deployed' : 'not yet deployed');
 
-  // Prepare claim and gas settings
+  // Prepare claim. Per Aztec team: don't pass gasSettings — let the SDK
+  // simulate before send and derive gas automatically. GasSettings.default
+  // was removed in 4.2.0-rc.1 anyway.
   const claim = {
     claimAmount: BigInt(claimAmountStr),
     claimSecret: Fr.fromHexString(claimSecretStr),
     messageLeafIndex: BigInt(messageLeafIndexStr),
   };
 
-  const node = createAztecNodeClient(nodeUrl);
-  const currentMinFees = await node.getCurrentMinFees();
-  const maxFeesPerGas = currentMinFees.mul(2);
-  const gasSettings = GasSettings.default({ maxFeesPerGas });
-
   if (!isDeployed) {
     // Deploy + claim in one tx.
     // wait: { returnReceipt: true } is required — without it DeployMethod.send()
     // returns the deployed contract instance, not the TxReceipt.
+    // 4.2.0 change: pass `from: NO_FROM` for self-deployments. The DeployAccountMethod
+    // wraps the payload through the multicall entrypoint when `from === NO_FROM`,
+    // letting the wallet execute it directly without an existing entrypoint.
+    // Using AztecAddress.ZERO or the address itself fails with "Account 0x... does not exist"
+    // or "Failed to get a note".
     const s3 = spin('Deploying account and claiming Fee Juice');
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
     const deployMethod = await accountManager.getDeployMethod();
 
     const raw = await deployMethod.send({
-      from: AztecAddress.ZERO,
-      fee: { gasSettings, paymentMethod },
+      from: NO_FROM,
+      fee: { paymentMethod },
       wait: { returnReceipt: true },
     });
-    // devnet @devnet: receipt fields at top level
-    // testnet @rc: receipt nested under raw.receipt
+    // testnet @rc: receipt is nested under raw.receipt; older shapes left it
+    // at the top level. Tolerate both.
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
     const statusStr = receipt?.status ?? "unknown";
     s3.ok(statusStr);
 
-    const explorerUrl = `${EXPLORER_TX_URLS[network]}/${txHash}`;
+    const explorerUrl = `${TESTNET_EXPLORER_TX_URL}/${txHash}`;
     const statusClr = ['checkpointed','success','mined'].includes(statusStr) ? _C.gr : '';
     console.log(`
   ${_C.di}tx${_C.rs}      ${txHash}
@@ -220,14 +213,14 @@ try {
     const feeJuice = FeeJuiceContract.at(wallet);
     const raw = await feeJuice.methods
       .check_balance(0n)
-      .send({ from: address, fee: { gasSettings, paymentMethod } });
+      .send({ from: address, fee: { paymentMethod } });
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
     const statusStr = receipt?.status ?? "unknown";
     s3.ok(statusStr);
 
-    const explorerUrl = `${EXPLORER_TX_URLS[network]}/${txHash}`;
+    const explorerUrl = `${TESTNET_EXPLORER_TX_URL}/${txHash}`;
     const statusClr = ['checkpointed','success','mined'].includes(statusStr) ? _C.gr : '';
     console.log(`
   ${_C.di}tx${_C.rs}      ${txHash}

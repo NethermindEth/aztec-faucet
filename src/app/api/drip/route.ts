@@ -5,11 +5,23 @@ import {
   AddressValidationError,
   type Asset,
 } from "@/lib/faucet-manager";
-import { verifyTurnstileToken } from "@/lib/turnstile";
+import { extractClientIp } from "@/lib/client-ip";
 
 const VALID_ASSETS: Asset[] = ["eth", "fee-juice"];
 
+// Reject oversized payloads early. The drip body is just `{ address, asset }`,
+// well under 1KB; 4KB is plenty of slack with no risk of memory abuse.
+const MAX_BODY_BYTES = 4_096;
+
 export async function POST(request: Request) {
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_BODY_BYTES) {
+    return NextResponse.json(
+      { error: "Request body too large" },
+      { status: 413 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -21,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { address, asset, captchaToken } = body as Record<string, unknown>;
+    const { address, asset } = body as Record<string, unknown>;
 
     // Validate inputs
     if (!address || typeof address !== "string") {
@@ -38,20 +50,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify CAPTCHA
-    const captchaStr = typeof captchaToken === "string" ? captchaToken : "";
-    const captchaValid = await verifyTurnstileToken(captchaStr);
-    if (!captchaValid) {
-      return NextResponse.json(
-        { error: "CAPTCHA verification failed. Please complete the CAPTCHA and try again." },
-        { status: 403 },
-      );
-    }
-
-    // Extract client IP for rate limiting
-    const forwarded = request.headers.get("x-forwarded-for");
-    const realIp = request.headers.get("x-real-ip");
-    const ip = forwarded?.split(",")[0]?.trim() || realIp || undefined;
+    // Extract client IP for rate limiting (XFF/X-Real-IP, with shape validation)
+    const ip = extractClientIp(request);
 
     // Execute drip
     const manager = FaucetManager.getInstance();

@@ -6,6 +6,8 @@ import { deriveKeys, deriveSigningKey } from "@aztec/stdlib/keys";
 import { computeInitializationHash, computeContractAddressFromInstance } from "@aztec/stdlib/contract";
 import { Throttle, ThrottleError } from "@/lib/throttle";
 import { SCHNORR_CLASS_ID, KEYGEN_INTERVAL_MS, KEYGEN_MAX_PER_IP } from "@/lib/network-config";
+import { CORS_HEADERS_GET } from "@/lib/cors";
+import { extractClientIp } from "@/lib/client-ip";
 
 /**
  * Computes the Schnorr account address using the testnet class ID.
@@ -16,8 +18,11 @@ async function getSchnorrAddress(secret: Fr): Promise<AztecAddress> {
   const contract = new SchnorrAccountContract(signingKey);
   const artifact = await contract.getContractArtifact();
   const initFn = await contract.getInitializationFunctionAndArgs();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const constructorArtifact = (artifact as any).functions.find((f: any) => f.name === initFn.constructorName);
+  // ContractArtifact.functions is FunctionArtifact[] — typed find, no cast needed.
+  const constructorArtifact = artifact.functions.find((f) => f.name === initFn.constructorName);
+  if (!constructorArtifact) {
+    throw new Error(`SchnorrAccount artifact missing initializer "${initFn.constructorName}"`);
+  }
   const initHash = await computeInitializationHash(constructorArtifact, initFn.constructorArgs);
 
   const classId = Fr.fromHexString(SCHNORR_CLASS_ID);
@@ -36,9 +41,7 @@ async function getSchnorrAddress(secret: Fr): Promise<AztecAddress> {
 const keygenThrottle = new Throttle(KEYGEN_INTERVAL_MS, KEYGEN_MAX_PER_IP);
 
 export async function GET(request: Request) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const realIp = request.headers.get("x-real-ip");
-  const ip = forwarded?.split(",")[0]?.trim() || realIp || undefined;
+  const ip = extractClientIp(request);
 
   try {
     if (ip) keygenThrottle.check(ip, "keygen");
@@ -51,15 +54,18 @@ export async function GET(request: Request) {
     return NextResponse.json({
       secretKey: secret.toString(),
       address: address.toString(),
-    });
+    }, { headers: CORS_HEADERS_GET });
   } catch (err) {
     if (err instanceof ThrottleError) {
       return NextResponse.json(
         { error: "Too many keypair requests. You can generate up to 10 keypairs per 24 hours. Please try again later." },
-        { status: 429 },
+        { status: 429, headers: CORS_HEADERS_GET },
       );
     }
     const msg = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: msg.slice(0, 200) }, { status: 500 });
+    return NextResponse.json(
+      { error: msg.slice(0, 200) },
+      { status: 500, headers: CORS_HEADERS_GET },
+    );
   }
 }

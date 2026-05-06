@@ -38,13 +38,6 @@ export default function RootLayout({
         {/* Grain texture overlay */}
         <div className="grain" />
         {children}
-        {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-          <Script
-            src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-            async
-            defer
-          />
-        )}
         {process.env.NEXT_PUBLIC_CLARITY_TAG_ID && (
           <Script
             id="microsoft-clarity"

@@ -108,14 +108,17 @@ spin $_node_pid "Claiming Fee Juice on Aztec testnet (this may take 1-2 min)"
 _code=$?
 set -e
 # On success: show the full node output (spinner frames stripped).
-# On failure: extract just the error message from the captured output.
+# On failure: try to extract just "Error:" lines; if none, fall back to the
+# full output so non-error messages (e.g. the .mjs usage banner when args
+# are missing) are still visible instead of leaving the user with just ✗.
 if [ "$_code" = "0" ]; then
   sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
 else
-  # grep for Error: lines, strip ANSI codes, and print
   _err=$(grep -a "Error:" "$_out" | sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g")
   if [ -n "$_err" ]; then
     printf '\n%s\n\n' "$_err"
+  else
+    sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
   fi
 fi
 rm -f "$_out"

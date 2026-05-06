@@ -76,14 +76,20 @@ _remote_pkg_ver() {
   cat "$_cache" 2>/dev/null | tr -d '[:space:]'
 }
 
-# Testnet packages are installed as @aztec-rc/* aliases
+# Testnet packages are installed as @aztec-rc/* aliases.
+# Check every package the script installs, not just one. A previous tool
+# (e.g. create-account.sh) may have populated aztec.js at the right version
+# without installing stdlib, in which case a drift check on aztec.js alone
+# would skip the install and check-fee-juice-balance.mjs would crash on the
+# stdlib import.
 _needs_install=0
-_installed_ver="$(_pkg_ver "@aztec-rc/aztec.js")"
-if [ -z "$_installed_ver" ]; then
+_aztec_ver="$(_pkg_ver "@aztec-rc/aztec.js")"
+_stdlib_ver="$(_pkg_ver "@aztec-rc/stdlib")"
+if [ -z "$_aztec_ver" ] || [ -z "$_stdlib_ver" ]; then
   _needs_install=1
 else
   _expected_ver="$(_remote_pkg_ver "@aztec/aztec.js" "$AZTEC_SDK_NPM_TAG")"
-  if [ -n "$_expected_ver" ] && [ "$_installed_ver" != "$_expected_ver" ]; then
+  if [ -n "$_expected_ver" ] && [ "$_aztec_ver" != "$_expected_ver" ]; then
     _needs_install=1
   fi
 fi
@@ -118,9 +124,14 @@ set -e
 if [ "$_code" = "0" ]; then
   sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
 else
+  # Try to extract just "Error:" lines; if none, fall back to the full output
+  # so non-error messages (e.g. the .mjs usage banner when --address is
+  # missing) are still visible instead of leaving the user with just ✗.
   _err=$(grep -a "Error:" "$_out" | sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g")
   if [ -n "$_err" ]; then
     printf '\n%s\n\n' "$_err"
+  else
+    sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
   fi
 fi
 rm -f "$_out"

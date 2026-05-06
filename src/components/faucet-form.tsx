@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { TurnstileWidget } from "./turnstile-widget";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
+
+const ConnectWalletInline = dynamic(
+  () => import("./connect-wallet-inline").then((m) => m.ConnectWalletInline),
+  { ssr: false },
+);
 
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
@@ -244,22 +250,32 @@ export function FaucetForm({
             }`}
           />
           {!locked && (
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const text = await navigator.clipboard.readText();
-                  setAddress(text.trim());
-                  if (error) setError(null);
-                } catch {
-                  // clipboard permission denied
-                }
-              }}
-              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 border border-outline-variant bg-surface-high px-2 sm:px-3 py-1.5 font-label text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
-              title="Paste from clipboard"
-            >
-              Paste
-            </button>
+            <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              {!isEthAddress && (
+                <ConnectWalletInline
+                  onAddress={(addr) => {
+                    setAddress(addr);
+                    if (error) setError(null);
+                  }}
+                />
+              )}
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const text = await navigator.clipboard.readText();
+                    setAddress(text.trim());
+                    if (error) setError(null);
+                  } catch {
+                    // clipboard permission denied
+                  }
+                }}
+                className="flex items-center gap-1.5 border border-outline-variant bg-surface-high px-2 sm:px-3 py-1.5 font-label text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
+                title="Paste from clipboard"
+              >
+                Paste
+              </button>
+            </div>
           )}
         </div>
         <p className="font-label text-[10px] text-on-surface-variant opacity-60 uppercase tracking-wider">

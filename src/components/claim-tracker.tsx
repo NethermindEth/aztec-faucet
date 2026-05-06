@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { CopyButton, DataField, ClaimCommands } from "./drip-result";
+
+const WalletClaimButton = dynamic(
+  () => import("./wallet-claim-button").then((m) => m.WalletClaimButton),
+  { ssr: false },
+);
 
 type ClaimStatus = "bridging" | "ready" | "expired";
 
@@ -208,6 +214,25 @@ export function ClaimTracker({
                   </div>
                 </div>
               </div>
+              <div className="space-y-2">
+                <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
+                  Claim with a wallet
+                </p>
+                <WalletClaimButton
+                  claimData={{
+                    claimAmount: claimData.claimAmount,
+                    claimSecretHex: claimData.claimSecretHex,
+                    messageLeafIndex: claimData.messageLeafIndex,
+                  }}
+                />
+              </div>
+              <div className="relative my-2 flex items-center">
+                <div className="grow border-t border-outline-variant/30" />
+                <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+                  Or use the CLI
+                </span>
+                <div className="grow border-t border-outline-variant/30" />
+              </div>
               <ClaimCommands
                 claimAmount={claimData.claimAmount}
                 claimSecretHex={claimData.claimSecretHex}
@@ -356,6 +381,34 @@ export function ClaimTracker({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {claimData && (
+          <div className="space-y-2">
+            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
+              Claim with a wallet
+            </p>
+            <WalletClaimButton
+              claimData={{
+                claimAmount: claimData.claimAmount,
+                claimSecretHex: claimData.claimSecretHex,
+                messageLeafIndex: claimData.messageLeafIndex,
+              }}
+            />
+            <p className="font-label text-[10px] text-on-surface-variant opacity-50">
+              Connect an Aztec wallet (Obsidion, Azguard) to claim in-browser. No terminal needed.
+            </p>
+          </div>
+        )}
+
+        {claimData && (
+          <div className="relative my-2 flex items-center">
+            <div className="grow border-t border-outline-variant/30" />
+            <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+              Or use the CLI
+            </span>
+            <div className="grow border-t border-outline-variant/30" />
           </div>
         )}
 

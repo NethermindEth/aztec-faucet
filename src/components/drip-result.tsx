@@ -1,8 +1,14 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { ConfettiBurst } from "./confetti-burst";
 import { NODE_URL, NPM_TAG, EXPLORER_TX_URL } from "@/lib/network-config";
+
+const WalletClaimButton = dynamic(
+  () => import("./wallet-claim-button").then((m) => m.WalletClaimButton),
+  { ssr: false },
+);
 
 const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
@@ -384,6 +390,30 @@ export function DripResult({ result, error, retryAfter, onReset }: DripResultPro
             <DataField label="Claim Secret Hash" value={result.claimData.claimSecretHashHex} />
             <DataField label="Message Hash" value={result.claimData.messageHashHex} />
             <DataField label="Message Leaf Index" value={result.claimData.messageLeafIndex} />
+
+            <div className="space-y-2">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
+                Claim with a wallet
+              </p>
+              <WalletClaimButton
+                claimData={{
+                  claimAmount: result.claimData.claimAmount,
+                  claimSecretHex: result.claimData.claimSecretHex,
+                  messageLeafIndex: result.claimData.messageLeafIndex,
+                }}
+              />
+              <p className="font-label text-[10px] text-on-surface-variant opacity-50">
+                Connect an Aztec wallet (Obsidion, Azguard) to claim in-browser. No terminal needed.
+              </p>
+            </div>
+
+            <div className="relative my-2 flex items-center">
+              <div className="grow border-t border-outline-variant/30" />
+              <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+                Or use the CLI
+              </span>
+              <div className="grow border-t border-outline-variant/30" />
+            </div>
 
             <ClaimCommands
               claimAmount={result.claimData.claimAmount}

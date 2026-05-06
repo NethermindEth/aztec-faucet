@@ -11,7 +11,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "Does my secret key ever leave my device?",
     answer:
-      "Your secret key never touches any server. The SDK snippets and curl commands run entirely on your own machine, so your keys stay local. The faucet only sees your Aztec address and the Cloudflare Turnstile token used to prevent abuse.",
+      "Your secret key never touches any server. The SDK snippets and curl commands run entirely on your own machine, so your keys stay local. The faucet only sees your Aztec address.",
   },
   {
     question: "Why does it take a minute or two to receive Fee Juice?",

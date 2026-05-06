@@ -20,6 +20,8 @@ export class Throttle {
   ) {}
 
   check(key: string, asset: string): void {
+    if (this.intervalMs <= 0) return;
+
     const assetHistory = this.history.get(key);
     if (!assetHistory) return;
 
@@ -29,6 +31,13 @@ export class Throttle {
     const now = this.timeFn();
     const recent = timestamps.filter((t) => now - t < this.intervalMs);
 
+    if (recent.length === 0) {
+      // All timestamps expired — clean up to avoid leaking dead keys.
+      assetHistory.delete(asset);
+      if (assetHistory.size === 0) this.history.delete(key);
+      return;
+    }
+
     if (recent.length >= this.maxCount) {
       // Retry after the oldest timestamp in the window expires
       const oldest = Math.min(...recent);
@@ -37,17 +46,48 @@ export class Throttle {
   }
 
   record(key: string, asset: string): void {
+    if (this.intervalMs <= 0) return;
+
     if (!this.history.has(key)) {
       this.history.set(key, new Map());
     }
     const assetHistory = this.history.get(key)!;
-    if (!assetHistory.has(asset)) {
-      assetHistory.set(asset, []);
-    }
     const now = this.timeFn();
-    // Prune expired entries to keep memory bounded, then append
-    const pruned = assetHistory.get(asset)!.filter((t) => now - t < this.intervalMs);
+    // Prune expired entries to keep the inner array bounded, then append.
+    const pruned = (assetHistory.get(asset) ?? []).filter((t) => now - t < this.intervalMs);
     pruned.push(now);
     assetHistory.set(asset, pruned);
+  }
+
+  /**
+   * Periodic sweep: remove inner asset entries with no live timestamps,
+   * then drop outer keys whose inner Map is empty. Bounds memory growth
+   * for keys that drip once and never return.
+   */
+  pruneStale(): void {
+    if (this.intervalMs <= 0) {
+      // Rate limiting disabled — nothing to track.
+      this.history.clear();
+      return;
+    }
+    const now = this.timeFn();
+    for (const [key, assetHistory] of this.history) {
+      for (const [asset, timestamps] of assetHistory) {
+        const recent = timestamps.filter((t) => now - t < this.intervalMs);
+        if (recent.length === 0) {
+          assetHistory.delete(asset);
+        } else if (recent.length !== timestamps.length) {
+          assetHistory.set(asset, recent);
+        }
+      }
+      if (assetHistory.size === 0) {
+        this.history.delete(key);
+      }
+    }
+  }
+
+  /** Diagnostic: number of distinct keys currently tracked. */
+  size(): number {
+    return this.history.size;
   }
 }

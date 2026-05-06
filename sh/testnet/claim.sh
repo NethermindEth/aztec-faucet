@@ -16,7 +16,7 @@
 
 set -e
 
-REPO_BRANCH="dev"
+REPO_BRANCH="main"
 REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/$REPO_BRANCH"
 
 # spin <pid> <message> — animated braille spinner; prints ✓ or ✗ on completion
@@ -56,10 +56,34 @@ AZTEC_NODE_URL="${AZTEC_NODE_URL:-https://rpc.testnet.aztec-labs.com}"
 # Print installed version of a package, empty string if missing or unreadable
 _pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }
 
+# Print the version that the registry's tag currently points at.
+# Cached in ~/.aztec-devtools so we don't hit npm registry on every run.
+_remote_pkg_ver() {
+  # Per-package cache file — `/` in pkg names is invalid in filenames, replace with `-`.
+  local _pkg="$1" _tag="$2"
+  local _safe_pkg
+  _safe_pkg=$(printf '%s' "$_pkg" | tr '/' '-')
+  local _cache="$HOME/.aztec-devtools/.tag-${_safe_pkg}-${_tag}.txt"
+  # Refresh cache if older than 6h (or missing)
+  if [ ! -f "$_cache" ] || [ "$(find "$_cache" -mmin +360 2>/dev/null)" ]; then
+    npm view "${_pkg}@${_tag}" version 2>/dev/null > "$_cache" || true
+  fi
+  cat "$_cache" 2>/dev/null | tr -d '[:space:]'
+}
+
 # Testnet packages are installed as @aztec-rc/* aliases so claim-fee-juice.mjs
 # can import them from that scope without conflicting with devnet @aztec/* packages
 _needs_install=0
-[ -z "$(_pkg_ver "@aztec-rc/wallets")" ] && _needs_install=1
+_installed_ver="$(_pkg_ver "@aztec-rc/wallets")"
+if [ -z "$_installed_ver" ]; then
+  _needs_install=1
+else
+  # Check if the @rc tag has moved past the cached version
+  _expected_ver="$(_remote_pkg_ver "@aztec/wallets" "$AZTEC_SDK_NPM_TAG")"
+  if [ -n "$_expected_ver" ] && [ "$_installed_ver" != "$_expected_ver" ]; then
+    _needs_install=1
+  fi
+fi
 
 if [ "$_needs_install" = "1" ]; then
   printf '{"type":"module"}' > package.json
@@ -84,14 +108,17 @@ spin $_node_pid "Claiming Fee Juice on Aztec testnet (this may take 1-2 min)"
 _code=$?
 set -e
 # On success: show the full node output (spinner frames stripped).
-# On failure: extract just the error message from the captured output.
+# On failure: try to extract just "Error:" lines; if none, fall back to the
+# full output so non-error messages (e.g. the .mjs usage banner when args
+# are missing) are still visible instead of leaving the user with just ✗.
 if [ "$_code" = "0" ]; then
   sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
 else
-  # grep for Error: lines, strip ANSI codes, and print
   _err=$(grep -a "Error:" "$_out" | sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g")
   if [ -n "$_err" ]; then
     printf '\n%s\n\n' "$_err"
+  else
+    sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
   fi
 fi
 rm -f "$_out"

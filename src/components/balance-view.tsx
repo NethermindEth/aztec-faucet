@@ -29,10 +29,12 @@ console.log("Fee Juice:", (s.slice(0, s.length - 18) || "0") + "." + s.slice(s.l
 AZTEC_EOF`;
 }
 
+type DeploymentStatus = "deployed" | "pending" | "not_deployed";
+
 type BalanceResult = {
   balanceFormatted: string;
   balanceRaw: string;
-  isDeployed?: boolean;
+  deploymentStatus?: DeploymentStatus;
 };
 
 export function BalanceView() {
@@ -56,7 +58,7 @@ export function BalanceView() {
       const res = await fetch(`/api/balance?address=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch balance");
-      setResult({ balanceFormatted: data.balanceFormatted, balanceRaw: data.balanceRaw, isDeployed: data.isDeployed });
+      setResult({ balanceFormatted: data.balanceFormatted, balanceRaw: data.balanceRaw, deploymentStatus: data.deploymentStatus });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -172,21 +174,33 @@ export function BalanceView() {
                     {checkedAddress?.slice(0, 10)}...{checkedAddress?.slice(-8)}
                   </code>
                 </div>
-                {result.isDeployed !== undefined && (
-                  <div className="flex items-center justify-between">
-                    <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Status</span>
-                    {result.isDeployed ? (
-                      <span className="flex items-center gap-1.5 font-label text-[11px] text-emerald-400">
-                        <span className="h-1.5 w-1.5 bg-emerald-400" />
-                        Deployed
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1.5 font-label text-[11px] text-amber-400">
-                        <span className="h-1.5 w-1.5 bg-amber-400" />
-                        Not Deployed
-                      </span>
+                {result.deploymentStatus !== undefined && (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Status</span>
+                      {result.deploymentStatus === "deployed" ? (
+                        <span className="flex items-center gap-1.5 font-label text-[11px] text-emerald-400">
+                          <span className="h-1.5 w-1.5 bg-emerald-400" />
+                          Deployed
+                        </span>
+                      ) : result.deploymentStatus === "pending" ? (
+                        <span className="flex items-center gap-1.5 font-label text-[11px] text-amber-400">
+                          <span className="h-1.5 w-1.5 bg-amber-400" />
+                          Pending
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 font-label text-[11px] text-on-surface-variant opacity-60">
+                          <span className="h-1.5 w-1.5 bg-on-surface-variant opacity-60" />
+                          Not Deployed
+                        </span>
+                      )}
+                    </div>
+                    {result.deploymentStatus === "pending" && (
+                      <p className="pt-0.5 font-label text-[10px] text-on-surface-variant opacity-50">
+                        Tx included on L2, awaiting rollup proof (typically 5 to 15 min on testnet).
+                      </p>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             </div>

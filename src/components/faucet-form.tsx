@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { TurnstileWidget } from "./turnstile-widget";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
@@ -104,7 +103,6 @@ export function FaucetForm({
 }) {
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("fee-juice");
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
@@ -114,10 +112,6 @@ export function FaucetForm({
 
   const currentAsset = ASSETS.find((a) => a.value === asset)!;
   const isEthAddress = currentAsset.addressType === "ethereum";
-
-  const onCaptchaToken = useCallback((token: string | null) => {
-    setCaptchaToken(token);
-  }, []);
 
   const validateLocally = (): string | null => {
     const trimmed = address.trim();
@@ -154,12 +148,6 @@ export function FaucetForm({
       return;
     }
 
-    const hasTurnstile = !!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-    if (hasTurnstile && !captchaToken) {
-      setError("Please complete the CAPTCHA");
-      return;
-    }
-
     setLoading(true);
     onPending(asset);
 
@@ -173,7 +161,6 @@ export function FaucetForm({
         body: JSON.stringify({
           address: address.trim(),
           asset,
-          captchaToken: captchaToken ?? "",
         }),
         signal: controller.signal,
       });
@@ -335,13 +322,6 @@ export function FaucetForm({
           ))}
         </div>
       </div>
-
-      {/* Turnstile CAPTCHA */}
-      {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
-        <div className="flex justify-center">
-          <TurnstileWidget onToken={onCaptchaToken} />
-        </div>
-      )}
 
       {/* Submit Button */}
       <button

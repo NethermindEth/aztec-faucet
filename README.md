@@ -49,7 +49,7 @@ The faucet targets a single network: **Aztec Testnet**.
 |--|--|
 | **L1 Network** | Sepolia (`11155111`) |
 | **Aztec Node** | `rpc.testnet.aztec-labs.com` |
-| **SDK** | `@aztec/*` (`4.1.2-rc.1`) |
+| **SDK** | `@aztec/*` (`4.2.0-rc.1`) |
 | **Block Explorer** | [testnet.aztecscan.xyz](https://testnet.aztecscan.xyz) |
 | **Drip amount** | 100 Fee Juice |
 

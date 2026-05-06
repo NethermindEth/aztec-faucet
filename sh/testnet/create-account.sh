@@ -11,7 +11,7 @@
 
 set -e
 
-REPO_BRANCH="dev"
+REPO_BRANCH="main"
 REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/$REPO_BRANCH"
 
 # spin <pid> <message> — animated braille spinner; prints ✓ or ✗ on completion
@@ -51,10 +51,31 @@ AZTEC_NODE_URL="${AZTEC_NODE_URL:-https://rpc.testnet.aztec-labs.com}"
 # Print installed version of a package, empty string if missing or unreadable
 _pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }
 
+# Print the version that the registry's tag currently points at.
+# Cached for 6h to avoid hitting the npm registry on every run.
+_remote_pkg_ver() {
+  local _pkg="$1" _tag="$2"
+  local _safe_pkg
+  _safe_pkg=$(printf '%s' "$_pkg" | tr '/' '-')
+  local _cache="$HOME/.aztec-devtools/.tag-${_safe_pkg}-${_tag}.txt"
+  if [ ! -f "$_cache" ] || [ "$(find "$_cache" -mmin +360 2>/dev/null)" ]; then
+    npm view "${_pkg}@${_tag}" version 2>/dev/null > "$_cache" || true
+  fi
+  cat "$_cache" 2>/dev/null | tr -d '[:space:]'
+}
+
 # Testnet packages are installed as @aztec-rc/* aliases so create-aztec-account.mjs
 # can import them from that scope without conflicting with devnet @aztec/* packages
 _needs_install=0
-[ -z "$(_pkg_ver "@aztec-rc/wallets")" ] && _needs_install=1
+_installed_ver="$(_pkg_ver "@aztec-rc/wallets")"
+if [ -z "$_installed_ver" ]; then
+  _needs_install=1
+else
+  _expected_ver="$(_remote_pkg_ver "@aztec/wallets" "$AZTEC_SDK_NPM_TAG")"
+  if [ -n "$_expected_ver" ] && [ "$_installed_ver" != "$_expected_ver" ]; then
+    _needs_install=1
+  fi
+fi
 
 if [ "$_needs_install" = "1" ]; then
   printf '{"type":"module"}' > package.json

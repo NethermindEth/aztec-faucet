@@ -3,7 +3,7 @@
  *
  * Usage:
  *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS
- *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS --network testnet
+ *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS
  *   node scripts/check-fee-juice-balance.mjs --address 0xYOUR_AZTEC_ADDRESS --node https://...
  */
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || "silent";
@@ -47,18 +47,18 @@ function formatFeeJuice(raw) {
   return `${intPart}.${decPart}`;
 }
 
-const DEFAULT_NODE_URLS = {
-  testnet: "https://rpc.testnet.aztec-labs.com",
-  devnet: "https://v4-devnet-2.aztec-labs.com/",
-};
+const TESTNET_NODE_URL = "https://rpc.testnet.aztec-labs.com";
 
 const address = getArg("address");
 const networkArg = getArg("network");
-const network = networkArg === "testnet" ? "testnet" : "devnet";
-const nodeUrl = getArg("node") || process.env.AZTEC_NODE_URL || DEFAULT_NODE_URLS[network];
+if (networkArg !== undefined && networkArg !== "testnet") {
+  console.error(`\n  Error: Unknown --network value "${networkArg}". Only "testnet" is supported.\n`);
+  process.exit(1);
+}
+const nodeUrl = getArg("node") || process.env.AZTEC_NODE_URL || TESTNET_NODE_URL;
 
-// Load SDK matching the network — devnet uses @aztec/*, testnet uses @aztec-rc/*
-const SDK = network === "testnet" ? "@aztec-rc" : "@aztec";
+// Testnet packages are installed under @aztec-rc/* aliases by sh/testnet/check-balance.sh.
+const SDK = "@aztec-rc";
 const { createAztecNodeClient } = await import(`${SDK}/aztec.js/node`);
 const { AztecAddress } = await import(`${SDK}/aztec.js/addresses`);
 const { Fr } = await import(`${SDK}/aztec.js/fields`);
@@ -70,8 +70,7 @@ if (!address) {
 
   Options:
     --address   Aztec address (required, 0x + 64 hex chars)
-    --network   testnet or devnet (default: devnet)
-    --node      Aztec node URL (overrides --network default)
+    --node      Aztec node URL (default: ${TESTNET_NODE_URL})
 `);
   process.exit(1);
 }
@@ -81,7 +80,7 @@ if (!/^0x[0-9a-fA-F]{64}$/.test(address)) {
   process.exit(1);
 }
 
-console.log(`\n  Aztec Fee Juice Balance  ·  ${network}\n`);
+console.log(`\n  Aztec Fee Juice Balance  ·  testnet\n`);
 
 try {
   const sp = spin('Fetching balance');

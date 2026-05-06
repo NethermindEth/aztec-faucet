@@ -13,7 +13,7 @@
 
 set -e
 
-REPO_BRANCH="dev"
+REPO_BRANCH="main"
 REPO_RAW="https://raw.githubusercontent.com/NethermindEth/aztec-faucet/$REPO_BRANCH"
 
 # spin <pid> <message> — animated braille spinner; prints ✓ or ✗ on completion
@@ -63,9 +63,36 @@ AZTEC_NODE_URL="${AZTEC_NODE_URL:-https://rpc.testnet.aztec-labs.com}"
 # Print installed version of a package, empty string if missing or unreadable
 _pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }
 
-# Testnet packages are installed as @aztec-rc/* aliases
+# Print the version that the registry's tag currently points at.
+# Cached for 6h.
+_remote_pkg_ver() {
+  local _pkg="$1" _tag="$2"
+  local _safe_pkg
+  _safe_pkg=$(printf '%s' "$_pkg" | tr '/' '-')
+  local _cache="$HOME/.aztec-devtools/.tag-${_safe_pkg}-${_tag}.txt"
+  if [ ! -f "$_cache" ] || [ "$(find "$_cache" -mmin +360 2>/dev/null)" ]; then
+    npm view "${_pkg}@${_tag}" version 2>/dev/null > "$_cache" || true
+  fi
+  cat "$_cache" 2>/dev/null | tr -d '[:space:]'
+}
+
+# Testnet packages are installed as @aztec-rc/* aliases.
+# Check every package the script installs, not just one. A previous tool
+# (e.g. create-account.sh) may have populated aztec.js at the right version
+# without installing stdlib, in which case a drift check on aztec.js alone
+# would skip the install and check-fee-juice-balance.mjs would crash on the
+# stdlib import.
 _needs_install=0
-[ -z "$(_pkg_ver "@aztec-rc/aztec.js")" ] && _needs_install=1
+_aztec_ver="$(_pkg_ver "@aztec-rc/aztec.js")"
+_stdlib_ver="$(_pkg_ver "@aztec-rc/stdlib")"
+if [ -z "$_aztec_ver" ] || [ -z "$_stdlib_ver" ]; then
+  _needs_install=1
+else
+  _expected_ver="$(_remote_pkg_ver "@aztec/aztec.js" "$AZTEC_SDK_NPM_TAG")"
+  if [ -n "$_expected_ver" ] && [ "$_aztec_ver" != "$_expected_ver" ]; then
+    _needs_install=1
+  fi
+fi
 
 if [ "$_needs_install" = "1" ]; then
   printf '{"type":"module"}' > package.json
@@ -97,9 +124,14 @@ set -e
 if [ "$_code" = "0" ]; then
   sed "s/.*$(printf '\r')//" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
 else
+  # Try to extract just "Error:" lines; if none, fall back to the full output
+  # so non-error messages (e.g. the .mjs usage banner when --address is
+  # missing) are still visible instead of leaving the user with just ✗.
   _err=$(grep -a "Error:" "$_out" | sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g")
   if [ -n "$_err" ]; then
     printf '\n%s\n\n' "$_err"
+  else
+    sed "s/.*$(printf '\r')//;s/$(printf '\033')\[[0-9;]*m//g" "$_out" | grep -v "MaxListenersExceededWarning\|Use emitter.setMaxListeners\|--trace-warnings"
   fi
 fi
 rm -f "$_out"

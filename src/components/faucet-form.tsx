@@ -1,15 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import dynamic from "next/dynamic";
+import { useState, useCallback, useEffect } from "react";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
-
-const ConnectWalletInline = dynamic(
-  () => import("./connect-wallet-inline").then((m) => m.ConnectWalletInline),
-  { ssr: false },
-);
 
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
@@ -92,6 +86,8 @@ export function FaucetForm({
   locked = false,
   onGoToAccount,
   onAssetChange,
+  prefilledAddress,
+  onAddressChange,
 }: {
   onSuccess: (data: DripResultData) => void;
   onClaim: (claimId: string, initialClaimData?: InitialClaimData) => void;
@@ -100,9 +96,32 @@ export function FaucetForm({
   locked?: boolean;
   onGoToAccount?: () => void;
   onAssetChange?: (asset: string) => void;
+  prefilledAddress?: string | null;
+  // Fires every time the form's address changes — by user typing, paste,
+  // or external prefill. Lets the wallet bar know whether the form value
+  // still matches the connected wallet so it can flip its label
+  // (Connected ↔ Connect) appropriately.
+  onAddressChange?: (addr: string) => void;
 }) {
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("fee-juice");
+
+  // External wallet-connect bar pushes an address in (or "" to clear on
+  // disconnect). `null`/`undefined` means "no opinion" — leave the form alone.
+  useEffect(() => {
+    if (prefilledAddress === undefined || prefilledAddress === null) return;
+    if (prefilledAddress !== address) {
+      setAddress(prefilledAddress);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefilledAddress]);
+
+  // Notify parent of every address change so it can correlate with the
+  // connected wallet's stored address.
+  useEffect(() => {
+    onAddressChange?.(address);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
@@ -238,14 +257,6 @@ export function FaucetForm({
           />
           {!locked && (
             <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-              {!isEthAddress && (
-                <ConnectWalletInline
-                  onAddress={(addr) => {
-                    setAddress(addr);
-                    if (error) setError(null);
-                  }}
-                />
-              )}
               <button
                 type="button"
                 onClick={async () => {

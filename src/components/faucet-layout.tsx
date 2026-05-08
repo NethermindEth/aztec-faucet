@@ -2,12 +2,18 @@
 
 import { useState, useEffect, useRef } from "react";
 import React from "react";
+import dynamic from "next/dynamic";
 import { FaucetForm } from "./faucet-form";
 
 import { DripResult, type DripResultData } from "./drip-result";
 import { ClaimTracker } from "./claim-tracker";
 import { ConfettiBurst } from "./confetti-burst";
 import { L1_CHAIN_ID } from "@/lib/network-config";
+
+const WalletConnectBar = dynamic(
+  () => import("./wallet-connect-bar").then((m) => m.WalletConnectBar),
+  { ssr: false },
+);
 
 type InitialClaimData = {
   claimAmount: string;
@@ -92,6 +98,11 @@ function PendingPanel({ asset }: { asset: string }) {
 export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingProgress }: { footer?: React.ReactNode; onGoToAccount?: () => void; onSplitChange?: (isSplit: boolean) => void; onBridgingProgress?: (progress: number, isReady: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
   const [activeAsset, setActiveAsset] = useState<string>("fee-juice");
+  // walletAddress = the bar's outgoing intent (set on connect / cleared on disconnect)
+  // formAddress   = whatever is currently typed in the form (mirrors user edits)
+  // The bar compares the two to decide whether to show "Connected" or "Connect".
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [formAddress, setFormAddress] = useState<string>("");
 
   const handlePending = (asset: string) => {
     setRightPanel({ kind: "pending", asset });
@@ -139,6 +150,20 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
 
   return (
     <div className="w-full" data-asset={activeAsset}>
+      {/* Top-right wallet connect bar — renders above the form card.
+          Switches between Aztec wallet (Azguard) and MetaMask based on the
+          asset selected inside the form. Pre-fills the address input on
+          successful connection. Hidden while a drip is in flight. */}
+      {!isSplit && (
+        <div className="flex justify-end mb-3">
+          <WalletConnectBar
+            asset={activeAsset}
+            currentFormAddress={formAddress}
+            onAddress={setWalletAddress}
+          />
+        </div>
+      )}
+
       <div className={`flex flex-col ${isSplit ? "xl:flex-row" : ""} items-start gap-5`}>
         {/* Left panel — Faucet form */}
         <div
@@ -157,6 +182,8 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
               locked={isSplit}
               onGoToAccount={onGoToAccount}
               onAssetChange={setActiveAsset}
+              prefilledAddress={walletAddress}
+              onAddressChange={setFormAddress}
             />
           </div>
         </div>

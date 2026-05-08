@@ -8,6 +8,34 @@ function splitEmojis(joined: string): string[] {
   return Array.from(joined);
 }
 
+// Wallet providers expose `icon` as a URL the extension hands us at discovery.
+// Azguard's URL doesn't resolve in dev mode, so we ship a local logo and
+// short-circuit to it for that wallet. For unknown wallets, we use the
+// wallet-supplied icon and fall back to a letter tile if it fails to load.
+function ProviderIcon({ icon, name }: { icon?: string; name: string }) {
+  const [broken, setBroken] = useState(false);
+  const isAzguard = /azguard/i.test(name);
+  const src = isAzguard ? "/azguard-logo.png" : icon;
+
+  if (!src || broken) {
+    const letter = name.trim().charAt(0).toUpperCase() || "W";
+    return (
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-accent/20 font-label text-[11px] font-bold text-accent">
+        {letter}
+      </div>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      className="h-6 w-6 shrink-0 rounded-sm"
+      onError={() => setBroken(true)}
+    />
+  );
+}
+
 type Props = {
   phase: ConnectPhase;
   pickProvider: (p: import("@/lib/wallet-client").WalletProvider) => void;
@@ -42,10 +70,7 @@ export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset
                 onClick={() => pickProvider(p)}
                 className="flex w-full items-center gap-3 border border-outline-variant bg-surface-low px-3 py-2.5 transition-colors hover:border-accent hover:bg-accent/5"
               >
-                {p.icon && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.icon} alt="" className="h-6 w-6 rounded-sm" />
-                )}
+                <ProviderIcon icon={p.icon} name={p.name} />
                 <span className="font-label text-sm uppercase tracking-wider text-on-surface">
                   {p.name}
                 </span>

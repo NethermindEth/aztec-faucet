@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
-import { CopyButton, DataField, ClaimCommands } from "./drip-result";
+import { CopyButton, DataField, ClaimCommands, ClaimCompletePanel } from "./drip-result";
 
 const WalletClaimButton = dynamic(
   () => import("./wallet-claim-button").then((m) => m.WalletClaimButton),
@@ -68,6 +68,10 @@ export function ClaimTracker({
   const [claimData, setClaimData] = useState<ClaimData | null>(initialClaimData ?? null);
   const [error, setError] = useState<string | null>(null);
   const [showAllFields, setShowAllFields] = useState(false);
+  // Once the wallet-side claim completes, collapse the wallet button + CLI
+  // section into a "claim complete" panel. Bridge message is nullified at
+  // that point so the CLI fallback would no longer work anyway.
+  const [walletClaimedTx, setWalletClaimedTx] = useState<string | null>(null);
   const startTimeRef = useRef(Date.now());
 
   const poll = useCallback(async () => {
@@ -214,30 +218,37 @@ export function ClaimTracker({
                   </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
-                  Claim with a wallet
-                </p>
-                <WalletClaimButton
-                  claimData={{
-                    claimAmount: claimData.claimAmount,
-                    claimSecretHex: claimData.claimSecretHex,
-                    messageLeafIndex: claimData.messageLeafIndex,
-                  }}
-                />
-              </div>
-              <div className="relative my-2 flex items-center">
-                <div className="grow border-t border-outline-variant/30" />
-                <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
-                  Or use the CLI
-                </span>
-                <div className="grow border-t border-outline-variant/30" />
-              </div>
-              <ClaimCommands
-                claimAmount={claimData.claimAmount}
-                claimSecretHex={claimData.claimSecretHex}
-                messageLeafIndex={claimData.messageLeafIndex}
-              />
+              {walletClaimedTx ? (
+                <ClaimCompletePanel txHash={walletClaimedTx} />
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
+                      Claim with a wallet
+                    </p>
+                    <WalletClaimButton
+                      claimData={{
+                        claimAmount: claimData.claimAmount,
+                        claimSecretHex: claimData.claimSecretHex,
+                        messageLeafIndex: claimData.messageLeafIndex,
+                      }}
+                      onClaimComplete={setWalletClaimedTx}
+                    />
+                  </div>
+                  <div className="relative my-2 flex items-center">
+                    <div className="grow border-t border-outline-variant/30" />
+                    <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+                      Or use the CLI
+                    </span>
+                    <div className="grow border-t border-outline-variant/30" />
+                  </div>
+                  <ClaimCommands
+                    claimAmount={claimData.claimAmount}
+                    claimSecretHex={claimData.claimSecretHex}
+                    messageLeafIndex={claimData.messageLeafIndex}
+                  />
+                </>
+              )}
             </div>
           )}
         </div>
@@ -300,7 +311,7 @@ export function ClaimTracker({
               href={`${SEPOLIA_ETHERSCAN}/${l1TxHash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-3 font-label text-sm uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
+              className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-2 font-label text-xs uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
             >
               <span className="text-on-surface-variant transition-colors group-hover:text-on-surface">
                 View on Sepolia Etherscan
@@ -319,7 +330,8 @@ export function ClaimTracker({
   return (
     <div key={statusKey} className="flex flex-col gap-2 animate-panel-state-in">
       <div className="space-y-2">
-        {/* Header row */}
+        {/* Header row — flips to "Claimed" once the wallet flow completes
+            so we don't keep telling the user the claim is still pending. */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center  border border-accent/30 bg-accent/10">
@@ -327,21 +339,24 @@ export function ClaimTracker({
                 <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-on-surface">Fee Juice Ready</span>
+            <span className="text-sm font-semibold text-on-surface">
+              {walletClaimedTx ? "Fee Juice Claimed" : "Fee Juice Ready"}
+            </span>
           </div>
           <span className=" border border-accent/20 bg-accent/8 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-widest text-accent">
-            Ready to Claim
+            {walletClaimedTx ? "Claimed" : "Ready to Claim"}
           </span>
         </div>
 
-        {/* Network row with expiry */}
+        {/* Network row. Hide expiry once claimed — it no longer applies
+            because the bridge message has been nullified on chain. */}
         <div className="flex items-center gap-2 border border-outline-variant/30 bg-surface-low px-3 py-1.5">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-ping  bg-secondary/60" style={{ animationDuration: "2.5s" }} />
             <span className="relative inline-flex h-1.5 w-1.5  bg-secondary" />
           </span>
           <span className="text-xs text-on-surface-variant">Aztec L2 Testnet</span>
-          {expiresIn !== null && (
+          {!walletClaimedTx && expiresIn !== null && (
             <span className={`ml-auto font-mono text-xs ${expiryCritical ? "text-red-400 font-semibold" : "text-red-400"}`}>
               {expiresIn === 0 ? "Expired" : `Expires ${formatElapsed(expiresIn)}`}
             </span>
@@ -384,41 +399,42 @@ export function ClaimTracker({
           </div>
         )}
 
-        {claimData && (
-          <div className="space-y-2">
-            <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
-              Claim with a wallet
-            </p>
-            <WalletClaimButton
-              claimData={{
-                claimAmount: claimData.claimAmount,
-                claimSecretHex: claimData.claimSecretHex,
-                messageLeafIndex: claimData.messageLeafIndex,
-              }}
+        {claimData && walletClaimedTx ? (
+          <ClaimCompletePanel txHash={walletClaimedTx} />
+        ) : claimData ? (
+          <>
+            <div className="space-y-2">
+              <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
+                Claim with a wallet
+              </p>
+              <WalletClaimButton
+                claimData={{
+                  claimAmount: claimData.claimAmount,
+                  claimSecretHex: claimData.claimSecretHex,
+                  messageLeafIndex: claimData.messageLeafIndex,
+                }}
+                onClaimComplete={setWalletClaimedTx}
+              />
+              <p className="font-label text-[10px] text-on-surface-variant opacity-50">
+                Connect an Aztec wallet (Obsidion, Azguard) to claim in-browser. No terminal needed.
+              </p>
+            </div>
+
+            <div className="relative my-2 flex items-center">
+              <div className="grow border-t border-outline-variant/30" />
+              <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+                Or use the CLI
+              </span>
+              <div className="grow border-t border-outline-variant/30" />
+            </div>
+
+            <ClaimCommands
+              claimAmount={claimData.claimAmount}
+              claimSecretHex={claimData.claimSecretHex}
+              messageLeafIndex={claimData.messageLeafIndex}
             />
-            <p className="font-label text-[10px] text-on-surface-variant opacity-50">
-              Connect an Aztec wallet (Obsidion, Azguard) to claim in-browser. No terminal needed.
-            </p>
-          </div>
-        )}
-
-        {claimData && (
-          <div className="relative my-2 flex items-center">
-            <div className="grow border-t border-outline-variant/30" />
-            <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
-              Or use the CLI
-            </span>
-            <div className="grow border-t border-outline-variant/30" />
-          </div>
-        )}
-
-        {claimData && (
-          <ClaimCommands
-            claimAmount={claimData.claimAmount}
-            claimSecretHex={claimData.claimSecretHex}
-            messageLeafIndex={claimData.messageLeafIndex}
-          />
-        )}
+          </>
+        ) : null}
       </div>
 
       {l1TxHash && (
@@ -426,7 +442,7 @@ export function ClaimTracker({
           href={`${SEPOLIA_ETHERSCAN}/${l1TxHash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-2 font-label text-sm uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
+          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-2 font-label text-xs uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
         >
           <span className="text-on-surface-variant transition-colors group-hover:text-on-surface">
             View on Sepolia Etherscan

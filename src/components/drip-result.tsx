@@ -231,6 +231,41 @@ function truncateHash(hash: string): string {
   return `${hash.slice(0, 12)}...${hash.slice(-10)}`;
 }
 
+export function ClaimCompletePanel({ txHash }: { txHash: string }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 border border-accent/30 bg-accent/5 px-4 py-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-accent/40 bg-accent/15">
+          <svg viewBox="0 0 14 14" fill="none" className="h-4 w-4 text-accent">
+            <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div className="min-w-0">
+          <p className="font-label text-xs font-bold uppercase tracking-wider text-accent">Claim complete</p>
+          <p className="mt-0.5 font-body text-xs text-on-surface-variant">
+            Fee Juice has been credited to your wallet account.
+          </p>
+        </div>
+      </div>
+      {txHash && (
+        <a
+          href={`${EXPLORER_TX_URL}/${txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-2 font-label text-xs uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
+        >
+          <span className="truncate text-on-surface-variant transition-colors group-hover:text-on-surface">
+            View on Aztec Scan
+          </span>
+          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 shrink-0 text-on-surface-variant opacity-50 transition-all group-hover:translate-x-0.5 group-hover:text-accent">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
+      )}
+    </div>
+  );
+}
+
 function ResetButton({ onReset }: { onReset: () => void }) {
   return (
     <button
@@ -336,6 +371,12 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
 
 
 export function DripResult({ result, error, retryAfter, onReset }: DripResultProps) {
+  // Tracks the wallet-side claim. Once set, the wallet button + CLI block
+  // collapse into a single "claim complete" panel — at that point the
+  // bridge message is already nullified, so showing the CLI fallback would
+  // just confuse users.
+  const [walletClaimedTx, setWalletClaimedTx] = useState<string | null>(null);
+
   if (error) {
     return (
       <div className="border-l-4 border-red-500 bg-red-500/10 p-4">
@@ -372,7 +413,9 @@ export function DripResult({ result, error, retryAfter, onReset }: DripResultPro
 
         {result.txHash && <DataField label="Transaction Hash" value={result.txHash} />}
 
-        {result.claimData && (
+        {result.claimData && walletClaimedTx ? (
+          <ClaimCompletePanel txHash={walletClaimedTx} />
+        ) : result.claimData ? (
           <div className="space-y-3">
             <div className="border border-secondary/20 bg-secondary/5 px-4 py-3">
               <p className="font-label text-xs font-bold uppercase tracking-wider text-secondary">Action required: Claim on L2</p>
@@ -397,6 +440,7 @@ export function DripResult({ result, error, retryAfter, onReset }: DripResultPro
                   claimSecretHex: result.claimData.claimSecretHex,
                   messageLeafIndex: result.claimData.messageLeafIndex,
                 }}
+                onClaimComplete={setWalletClaimedTx}
               />
               <p className="font-label text-[10px] text-on-surface-variant opacity-50">
                 Connect an Aztec wallet (Obsidion, Azguard) to claim in-browser. No terminal needed.
@@ -417,7 +461,7 @@ export function DripResult({ result, error, retryAfter, onReset }: DripResultPro
               messageLeafIndex={result.claimData.messageLeafIndex}
             />
           </div>
-        )}
+        ) : null}
       </div>
 
       {onReset && <ResetButton onReset={onReset} />}

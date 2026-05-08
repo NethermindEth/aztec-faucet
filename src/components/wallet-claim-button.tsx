@@ -15,9 +15,14 @@ type ClaimState =
 
 type Props = {
   claimData: ClaimDataInput;
+  // Fires once the wallet claim succeeds. Lets the parent swap the
+  // wallet+CLI section out for a "claim complete" panel and stop offering
+  // the CLI fallback (which would no longer apply since the bridge message
+  // is already nullified).
+  onClaimComplete?: (txHash: string) => void;
 };
 
-export function WalletClaimButton({ claimData }: Props) {
+export function WalletClaimButton({ claimData, onClaimComplete }: Props) {
   const { phase, start, pickProvider, confirm, reject, reset } = useWalletConnect();
   const [claim, setClaim] = useState<ClaimState>({ kind: "none" });
 
@@ -30,6 +35,7 @@ export function WalletClaimButton({ claimData }: Props) {
       try {
         const result = await claimFeeJuiceViaWallet(wallet, address, claimData);
         setClaim({ kind: "success", txHash: result.txHash });
+        onClaimComplete?.(result.txHash);
       } catch (err) {
         setClaim({
           kind: "error",
@@ -39,19 +45,54 @@ export function WalletClaimButton({ claimData }: Props) {
         reset();
       }
     })();
-  }, [phase, claim.kind, claimData, reset]);
+  }, [phase, claim.kind, claimData, reset, onClaimComplete]);
 
   const closeClaim = () => setClaim({ kind: "none" });
 
   return (
     <>
-      <button
-        type="button"
-        onClick={start}
-        className="btn-primary w-full py-2.5 text-sm uppercase tracking-wider"
-      >
-        Claim in wallet
-      </button>
+      {/* Default + claiming: button stays in place. While claiming we
+          disable it and show a small caption underneath so users know
+          to look at the wallet popup. */}
+      {(claim.kind === "none" || claim.kind === "claiming") && (
+        <>
+          <button
+            type="button"
+            onClick={start}
+            disabled={claim.kind === "claiming"}
+            className="btn-primary w-full py-2.5 text-sm uppercase tracking-wider disabled:opacity-60"
+          >
+            {claim.kind === "claiming" ? "Approve in wallet…" : "Claim in wallet"}
+          </button>
+          {claim.kind === "claiming" && (
+            <p className="mt-2 font-label text-[10px] uppercase tracking-wider text-on-surface-variant opacity-60">
+              Proving may take ~10s after you approve.
+            </p>
+          )}
+        </>
+      )}
+
+      {/* Inline error: replaces the button. Surface a human-readable
+          message (translated in claim-via-wallet.ts via humaniseClaimError)
+          and a Try again action. wrap-break-word handles long hex strings. */}
+      {claim.kind === "error" && (
+        <div className="border border-red-400/40 bg-red-500/5 px-4 py-3">
+          <p className="font-label text-[10px] font-bold uppercase tracking-widest text-red-400">
+            Claim failed
+          </p>
+          <p className="mt-1.5 font-label text-xs leading-relaxed text-red-400/90 wrap-break-word">
+            {claim.message}
+          </p>
+          <button
+            type="button"
+            onClick={closeClaim}
+            className="btn-ghost mt-3 w-full py-2 text-[10px] uppercase tracking-widest"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
       <WalletConnectModal
         phase={phase}
         pickProvider={pickProvider}
@@ -59,16 +100,6 @@ export function WalletClaimButton({ claimData }: Props) {
         reject={reject}
         reset={reset}
       />
-      {claim.kind === "claiming" && (
-        <Modal title="Claiming Fee Juice" onClose={() => undefined}>
-          <p className="font-label text-xs text-on-surface-variant opacity-70">
-            Approve the transaction in your wallet. Proving may take ~10s.
-          </p>
-          <p className="mt-2 break-all font-label text-[10px] text-on-surface-variant opacity-50">
-            From: {claim.address}
-          </p>
-        </Modal>
-      )}
       {claim.kind === "success" && (
         <Modal title="Claim complete" onClose={closeClaim}>
           <p className="font-label text-xs text-on-surface-variant">
@@ -90,18 +121,6 @@ export function WalletClaimButton({ claimData }: Props) {
             className="btn-primary mt-3 w-full py-2 text-xs uppercase"
           >
             Done
-          </button>
-        </Modal>
-      )}
-      {claim.kind === "error" && (
-        <Modal title="Claim failed" onClose={closeClaim}>
-          <p className="font-label text-xs text-red-400">{claim.message}</p>
-          <button
-            type="button"
-            onClick={closeClaim}
-            className="btn-ghost mt-3 w-full py-2 text-xs uppercase"
-          >
-            Close
           </button>
         </Modal>
       )}

@@ -21,13 +21,68 @@ export type ClaimResult = {
 export class ClaimStuckAccountError extends Error {
   constructor(addr: string) {
     super(
-      `Wallet account ${addr.slice(0, 10)}…${addr.slice(-6)} is deployed but has zero Fee Juice. ` +
-        `The claim_and_end_setup hook was already consumed for this account, ` +
-        `and there's no balance to pay for a plain claim. ` +
-        `Use the CLI option below, or claim with a fresh wallet account.`,
+      `This wallet account (${addr.slice(0, 10)}…${addr.slice(-6)}) has no Fee Juice and can't pay for the claim transaction. Request a fresh drip, or fund this account from the CLI.`,
     );
     this.name = "ClaimStuckAccountError";
   }
+}
+
+export class ClaimAlreadyRedeemedError extends Error {
+  constructor() {
+    super(
+      "This drip has already been claimed. Request a new Fee Juice drip if you need more — each L1 to L2 bridge message can only be redeemed once.",
+    );
+    this.name = "ClaimAlreadyRedeemedError";
+  }
+}
+
+// Walk an error and its `cause` chain into a single lowercase blob we can
+// substring-match. The wallet SDK / Azguard wraps the chain error inside an
+// outer Error whose top-level `.message` is something generic ("Simulation
+// failed"), with the real text living in `cause.message` or attached as a
+// stringified payload. Pulling everything together makes the matcher
+// resilient to whichever shape the wallet returns.
+function flattenError(err: unknown, depth = 0, seen = new Set<unknown>()): string {
+  if (err == null || depth > 6 || seen.has(err)) return "";
+  seen.add(err);
+  const parts: string[] = [];
+  if (typeof err === "string") parts.push(err);
+  else if (err instanceof Error) {
+    parts.push(err.message);
+    parts.push(err.name);
+    if ("cause" in err) parts.push(flattenError((err as Error & { cause?: unknown }).cause, depth + 1, seen));
+  } else if (typeof err === "object") {
+    const e = err as Record<string, unknown>;
+    parts.push(typeof e.message === "string" ? e.message : "");
+    parts.push(typeof e.error === "string" ? e.error : "");
+    parts.push(typeof e.details === "string" ? e.details : "");
+    parts.push(typeof e.data === "string" ? e.data : "");
+    if (e.cause) parts.push(flattenError(e.cause, depth + 1, seen));
+    try {
+      parts.push(JSON.stringify(e));
+    } catch {
+      // circular or otherwise un-stringifiable
+    }
+  } else {
+    parts.push(String(err));
+  }
+  return parts.join(" ").toLowerCase();
+}
+
+// Translate raw chain errors into something the UI can show without making
+// the user read protocol-internal language ("non-nullified L1 to L2 message",
+// "duplicate siloed nullifier", etc.). Returns the original error untouched
+// if no rule matches.
+function humaniseClaimError(err: unknown): Error {
+  const original = err instanceof Error ? err : new Error(String(err));
+  const blob = flattenError(err);
+  if (blob.includes("no non-nullified l1 to l2 message")) {
+    return new ClaimAlreadyRedeemedError();
+  }
+  if (blob.includes("duplicate siloed nullifier")) {
+    return new ClaimAlreadyRedeemedError();
+  }
+  return original;
 }
 
 export async function claimFeeJuiceViaWallet(
@@ -78,10 +133,14 @@ export async function claimFeeJuiceViaWallet(
       messageLeafIndex,
     });
     const batch = new BatchCall(wallet, []);
-    receipt = await batch.send({
-      from: address,
-      fee: { paymentMethod },
-    });
+    try {
+      receipt = await batch.send({
+        from: address,
+        fee: { paymentMethod },
+      });
+    } catch (err) {
+      throw humaniseClaimError(err);
+    }
   } else {
     const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
     const feeJuice = FeeJuiceContract.at(wallet);
@@ -94,25 +153,35 @@ export async function claimFeeJuiceViaWallet(
     try {
       receipt = await interaction.send({ from: address });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      // Run the full-chain matcher first — it covers redeemed and duplicate
+      // cases. If those don't match, fall through to the deployed-account
+      // specific "you have no balance to pay gas" detector.
+      const translated = humaniseClaimError(err);
+      if (translated instanceof ClaimAlreadyRedeemedError) throw translated;
+      const blob = (err instanceof Error ? err.message : String(err)).toLowerCase();
       if (
-        msg.toLowerCase().includes("insufficient") ||
-        msg.toLowerCase().includes("balance") ||
-        msg.toLowerCase().includes("paymentmethod") ||
-        msg.toLowerCase().includes("fee")
+        blob.includes("insufficient") ||
+        blob.includes("balance") ||
+        blob.includes("paymentmethod") ||
+        blob.includes("fee")
       ) {
         throw new ClaimStuckAccountError(fromAddressHex);
       }
-      throw err;
+      throw translated;
     }
   }
 
-  const r = receipt as {
+  // BatchCall.send / interaction.send return TxSendResultMined: { receipt: TxReceipt }
+  // where TxReceipt has { txHash, blockNumber, ... }. Be tolerant of either shape
+  // (some wallet adapters may return the inner receipt directly).
+  const wrapper = receipt as {
+    receipt?: { txHash?: { toString(): string }; blockNumber?: number };
     txHash?: { toString(): string };
     blockNumber?: number;
   };
+  const inner = wrapper.receipt ?? wrapper;
   return {
-    txHash: r.txHash?.toString() ?? "",
-    blockNumber: r.blockNumber,
+    txHash: inner.txHash?.toString() ?? "",
+    blockNumber: inner.blockNumber,
   };
 }

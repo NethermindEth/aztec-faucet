@@ -4,6 +4,14 @@ const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {
     root: process.cwd(),
+    resolveAlias: {
+      // Turbopack injects globalThis.Buffer by importing from
+      // next/dist/compiled/buffer (which lacks writeBigUInt64BE).
+      // Redirect that internal path to the full npm `buffer` package so the
+      // Aztec SDK's BigInt serialisation methods are available in browser bundles.
+      "next/dist/compiled/buffer/index.js": "./node_modules/buffer/index.js",
+      "next/dist/compiled/buffer": "./node_modules/buffer/index.js",
+    },
   },
   // Aztec SDK packages are ESM-only with native modules;
   // keep them server-side only to avoid bundling issues

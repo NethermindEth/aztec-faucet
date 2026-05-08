@@ -42,32 +42,40 @@ export default function RootLayout({
         <Script id="buffer-bigint-shim" strategy="beforeInteractive">
           {`
 (function(){
-  if (typeof globalThis === "undefined" || !globalThis.Buffer) return;
-  var p = globalThis.Buffer.prototype;
-  if (p.writeBigUInt64BE && p.readBigUInt64BE) return;
-  if (typeof p.writeBigUInt64BE !== "function") {
-    p.writeBigUInt64BE = function(v, o){ o=o||0; this.writeUInt32BE(Number((v>>32n)&0xffffffffn),o); this.writeUInt32BE(Number(v&0xffffffffn),o+4); return o+8; };
+  function shimProto(p) {
+    if (!p || typeof p.writeUInt32BE !== "function") return;
+    if (typeof p.writeBigUInt64BE !== "function") {
+      p.writeBigUInt64BE = function(v, o){ o=o||0; this.writeUInt32BE(Number((v>>32n)&0xffffffffn),o); this.writeUInt32BE(Number(v&0xffffffffn),o+4); return o+8; };
+    }
+    if (typeof p.writeBigUInt64LE !== "function") {
+      p.writeBigUInt64LE = function(v, o){ o=o||0; this.writeUInt32LE(Number(v&0xffffffffn),o); this.writeUInt32LE(Number((v>>32n)&0xffffffffn),o+4); return o+8; };
+    }
+    if (typeof p.writeBigInt64BE !== "function") {
+      p.writeBigInt64BE = function(v, o){ var u = v < 0n ? v + (1n<<64n) : v; return p.writeBigUInt64BE.call(this, u, o); };
+    }
+    if (typeof p.writeBigInt64LE !== "function") {
+      p.writeBigInt64LE = function(v, o){ var u = v < 0n ? v + (1n<<64n) : v; return p.writeBigUInt64LE.call(this, u, o); };
+    }
+    if (typeof p.readBigUInt64BE !== "function") {
+      p.readBigUInt64BE = function(o){ o=o||0; return (BigInt(this.readUInt32BE(o))<<32n)|BigInt(this.readUInt32BE(o+4)); };
+    }
+    if (typeof p.readBigUInt64LE !== "function") {
+      p.readBigUInt64LE = function(o){ o=o||0; return (BigInt(this.readUInt32LE(o+4))<<32n)|BigInt(this.readUInt32LE(o)); };
+    }
+    if (typeof p.readBigInt64BE !== "function") {
+      p.readBigInt64BE = function(o){ var u = p.readBigUInt64BE.call(this, o); return u >= (1n<<63n) ? u - (1n<<64n) : u; };
+    }
+    if (typeof p.readBigInt64LE !== "function") {
+      p.readBigInt64LE = function(o){ var u = p.readBigUInt64LE.call(this, o); return u >= (1n<<63n) ? u - (1n<<64n) : u; };
+    }
   }
-  if (typeof p.writeBigUInt64LE !== "function") {
-    p.writeBigUInt64LE = function(v, o){ o=o||0; this.writeUInt32LE(Number(v&0xffffffffn),o); this.writeUInt32LE(Number((v>>32n)&0xffffffffn),o+4); return o+8; };
+  if (typeof globalThis !== "undefined" && globalThis.Buffer) {
+    shimProto(globalThis.Buffer.prototype);
   }
-  if (typeof p.writeBigInt64BE !== "function") {
-    p.writeBigInt64BE = function(v, o){ var u = v < 0n ? v + (1n<<64n) : v; return p.writeBigUInt64BE.call(this, u, o); };
-  }
-  if (typeof p.writeBigInt64LE !== "function") {
-    p.writeBigInt64LE = function(v, o){ var u = v < 0n ? v + (1n<<64n) : v; return p.writeBigUInt64LE.call(this, u, o); };
-  }
-  if (typeof p.readBigUInt64BE !== "function") {
-    p.readBigUInt64BE = function(o){ o=o||0; return (BigInt(this.readUInt32BE(o))<<32n)|BigInt(this.readUInt32BE(o+4)); };
-  }
-  if (typeof p.readBigUInt64LE !== "function") {
-    p.readBigUInt64LE = function(o){ o=o||0; return (BigInt(this.readUInt32LE(o+4))<<32n)|BigInt(this.readUInt32LE(o)); };
-  }
-  if (typeof p.readBigInt64BE !== "function") {
-    p.readBigInt64BE = function(o){ var u = p.readBigUInt64BE.call(this, o); return u >= (1n<<63n) ? u - (1n<<64n) : u; };
-  }
-  if (typeof p.readBigInt64LE !== "function") {
-    p.readBigInt64LE = function(o){ var u = p.readBigUInt64LE.call(this, o); return u >= (1n<<63n) ? u - (1n<<64n) : u; };
+  // Re-run after Turbopack has loaded its bundle (which may replace globalThis.Buffer
+  // with a fresh stripped copy, undoing the patch above). This catches any later swap.
+  if (typeof window !== "undefined") {
+    window.__bufferShimProto = shimProto;
   }
 })();
           `}

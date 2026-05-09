@@ -22,6 +22,16 @@ const CHAIN_MAP: Record<number, Chain> = {
   [foundry.id]: foundry,
 };
 
+export class FaucetInsufficientFundsError extends Error {
+  constructor(asset: string) {
+    super(
+      `The faucet has insufficient ${asset} balance to process this request. ` +
+        "Please try again later or contact the faucet operator.",
+    );
+    this.name = "FaucetInsufficientFundsError";
+  }
+}
+
 export class L1Faucet {
   private publicClient;
   private walletClient;
@@ -59,14 +69,27 @@ export class L1Faucet {
   }
 
   async sendEth(to: Hex): Promise<Hex> {
-    const hash = await this.walletClient.sendTransaction({
-      account: this.account,
-      to,
-      value: parseEther(this.config.ethDripAmount),
-      chain: this.chain,
-    });
-    await this.publicClient.waitForTransactionReceipt({ hash });
-    return hash;
+    try {
+      const hash = await this.walletClient.sendTransaction({
+        account: this.account,
+        to,
+        value: parseEther(this.config.ethDripAmount),
+        chain: this.chain,
+      });
+      await this.publicClient.waitForTransactionReceipt({ hash });
+      return hash;
+    } catch (err) {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (
+        msg.includes("insufficient funds") ||
+        msg.includes("insufficient balance") ||
+        msg.includes("not enough balance") ||
+        msg.includes("sender balance")
+      ) {
+        throw new FaucetInsufficientFundsError("ETH");
+      }
+      throw err;
+    }
   }
 
 }

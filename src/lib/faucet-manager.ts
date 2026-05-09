@@ -1,4 +1,4 @@
-import { type Hex, formatEther, isAddress } from "viem";
+import { type Hex, formatEther } from "viem";
 import { L1Faucet } from "./l1-faucet";
 import { L2Faucet, type FeeJuiceClaimData } from "./l2-faucet";
 import { Throttle, ThrottleError } from "./throttle";
@@ -124,6 +124,14 @@ export class FaucetManager {
     const trimmed = address.trim();
     this.validateAddress(trimmed, asset);
 
+    // Lowercase once and use *only* the normalized form past this point.
+    // EIP-55 accepts mixed case for Ethereum addresses and Aztec addresses
+    // are byte-equivalent regardless of hex case, so this is purely a
+    // bookkeeping invariant: the same address must resolve to the same
+    // throttle key, the same stored claim record, and the same bridge
+    // recipient. Pass-through to bridgeFeeJuice() / claimStore.add() also
+    // gets the normalized form so audit log lines and persisted claim
+    // records all agree on a single canonical case.
     const normalizedAddress = trimmed.toLowerCase();
     this.throttle.check(normalizedAddress, asset);
     if (ip) this.ipThrottle.check(ip, asset);
@@ -137,8 +145,8 @@ export class FaucetManager {
         break;
       }
       case "fee-juice": {
-        const claimData = await this.l2Faucet.bridgeFeeJuice(trimmed);
-        const claimId = this.claimStore.add(trimmed, claimData);
+        const claimData = await this.l2Faucet.bridgeFeeJuice(normalizedAddress);
+        const claimId = this.claimStore.add(normalizedAddress, claimData);
         result = {
           success: true,
           asset,
@@ -171,7 +179,7 @@ export class FaucetManager {
     }
 
     if (asset === "eth") {
-      if (!isAddress(address)) {
+      if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
         throw new AddressValidationError(
           "Invalid Ethereum address. Expected a 0x-prefixed 40-character hex string (e.g. 0xAbC...123)",
         );

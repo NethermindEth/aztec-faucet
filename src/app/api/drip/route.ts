@@ -5,6 +5,7 @@ import {
   AddressValidationError,
   type Asset,
 } from "@/lib/faucet-manager";
+import { FaucetInsufficientFundsError } from "@/lib/l1-faucet";
 import { extractClientIp } from "@/lib/client-ip";
 
 const VALID_ASSETS: Asset[] = ["eth", "fee-juice"];
@@ -74,6 +75,14 @@ export async function POST(request: Request) {
         { error: err.message, retryAfter: throttleErr.retryAfter },
         { status: 429 },
       );
+    }
+
+    if (
+      err instanceof FaucetInsufficientFundsError ||
+      (err instanceof Error && err.name === "FaucetInsufficientFundsError")
+    ) {
+      console.error("Drip error (insufficient funds):", err);
+      return NextResponse.json({ error: err.message }, { status: 503 });
     }
 
     console.error("Drip error:", err);

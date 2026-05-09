@@ -145,6 +145,17 @@ export class L2Faucet {
       );
     } catch (err) {
       console.error("[faucet] Bridge tx failed:", err);
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (
+        msg.includes("insufficient funds") ||
+        msg.includes("insufficient balance") ||
+        msg.includes("not enough balance") ||
+        msg.includes("erc20: transfer amount exceeds balance") ||
+        msg.includes("transfer amount exceeds balance")
+      ) {
+        const { FaucetInsufficientFundsError } = await import("./l1-faucet");
+        throw new FaucetInsufficientFundsError("Fee Juice");
+      }
       throw new Error(
         "The Fee Juice bridge transaction failed. " +
         "This may be a temporary network issue. Please wait a moment and try again.",

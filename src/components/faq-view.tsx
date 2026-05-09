@@ -14,9 +14,9 @@ const FAQ_ITEMS: FaqItem[] = [
       "Your secret key never touches any server. The SDK snippets and curl commands run entirely on your own machine, so your keys stay local. The faucet only sees your Aztec address.",
   },
   {
-    question: "Why does it take a minute or two to receive Fee Juice?",
+    question: "Why does it take 3-4 minutes to receive Fee Juice?",
     answer:
-      "When the faucet bridges Fee Juice, it sends a message through the Fee Juice Portal on L1. That message sits in a pending state until the next Aztec rollup block is processed. Once a rollup is proven and submitted, the message moves from pending to ready and you can claim it. On testnet this typically takes one to two minutes depending on block timing.",
+      "When the faucet bridges Fee Juice, it sends a message through the Fee Juice Portal on L1. That message sits in a pending state until the next Aztec rollup block is processed. Once a rollup is proven and submitted, the message moves from pending to ready and you can claim it. On testnet this typically takes three to four minutes depending on block timing.",
   },
   {
     question: "My claim proof seems to have expired. What happened?",
@@ -26,7 +26,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "How often can I request tokens?",
     answer:
-      "Each wallet address can request once every 24 hours per asset. So you can get ETH once per day and Fee Juice once per day. If you hit the limit, try again the next day.",
+      "Each wallet address can request once every 8 hours per asset. So you can get ETH once every 8 hours and Fee Juice once every 8 hours. If you hit the limit, try again after 8 hours.",
   },
   {
     question: "What is Fee Juice exactly?",

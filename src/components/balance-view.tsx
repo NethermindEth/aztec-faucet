@@ -162,7 +162,7 @@ export function BalanceView() {
 
               {isZero && (
                 <p className="mt-2 font-label text-xs text-on-surface-variant opacity-40">
-                  Zero balance. If you just bridged, wait ~2 min for the L1 to L2 message to land.
+                  Zero balance. If you just bridged, wait 3-4 min for the L1 to L2 message to land.
                 </p>
               )}
 

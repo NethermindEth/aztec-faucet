@@ -99,18 +99,15 @@ function PendingPanel({ asset }: { asset: string }) {
   );
 }
 
-export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingProgress }: { footer?: React.ReactNode; onGoToAccount?: () => void; onSplitChange?: (isSplit: boolean) => void; onBridgingProgress?: (progress: number, isReady: boolean) => void }) {
+export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { footer?: React.ReactNode; onSplitChange?: (isSplit: boolean) => void; onBridgingProgress?: (progress: number, isReady: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
   const [activeAsset, setActiveAsset] = useState<string>("fee-juice");
-  // walletAddress = the bar's outgoing intent (set on connect / cleared on disconnect)
-  // formAddress   = whatever is currently typed in the form (mirrors user edits)
-  // The bar compares the two to decide whether to show "Connected" or "Connect".
+  // walletAddress = wallet bar's intent; formAddress = what's in the input.
+  // Bar diffs these to flip between "Connected" and "Connect".
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [connectedWallet, setConnectedWallet] = useState<Wallet | null>(null);
   const [formAddress, setFormAddress] = useState<string>("");
 
-  // URL helpers — update ?claim=...&r=...&asset=... so a page reload can
-  // rehydrate the claim tracker instead of showing a blank form.
   const pushClaimUrl = useCallback((claimId: string, recipient: string, asset: string) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -131,7 +128,6 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
     history.replaceState(null, "", url.pathname + (qs ? "?" + qs : ""));
   }, []);
 
-  // On mount: rehydrate from URL if a claim is in progress.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const claimId = params.get("claim");
@@ -174,8 +170,6 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
   const pendingStart = useRef<number>(0);
   const rightPanelRef = useRef<HTMLDivElement>(null);
 
-  // Move keyboard focus into the right panel when it first appears so keyboard
-  // users don't have to tab through the locked form to reach the tracker.
   useEffect(() => {
     if (isSplit) rightPanelRef.current?.focus();
   }, [isSplit]);
@@ -184,8 +178,7 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
     onSplitChange?.(isSplit);
   }, [isSplit, onSplitChange]);
 
-  // Drive walking character during pending phase (0 -> 0.15 over ~20s)
-  // Real L1 tx takes ~15-20s before claim-tracker takes over
+  // Pending phase progress: 0 → 0.15 over ~20s before claim-tracker takes over.
   const isPendingFeeJuice = rightPanel?.kind === "pending" && rightPanel.asset === "fee-juice";
   useEffect(() => {
     if (!isPendingFeeJuice) return;
@@ -217,7 +210,6 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
               onPending={handlePending}
               onError={handleError}
               locked={isSplit}
-              onGoToAccount={onGoToAccount}
               onAssetChange={setActiveAsset}
               prefilledAddress={walletAddress}
               onAddressChange={setFormAddress}

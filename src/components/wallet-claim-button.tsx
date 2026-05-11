@@ -15,18 +15,10 @@ type ClaimState =
 
 type Props = {
   claimData: ClaimDataInput;
-  // Address the drip was sent to. The bridge message can only be claimed
-  // by a tx whose sender == this recipient. Used for the pre-flight
-  // mismatch check below — without this, a user who typed address A but
-  // connects a wallet for address B silently gets a misleading
-  // "already claimed" error from the chain.
   recipient: string;
-  // Fires once the wallet claim succeeds.
   onClaimComplete?: (txHash: string) => void;
-  // When the header bar's wallet is already connected to the same address
-  // as the drip recipient, pass it here. The claim goes straight to the
-  // transaction without re-running the full connection + requestCapabilities
-  // flow, eliminating the duplicate capabilities popup.
+  // If set, skip the connect modal and claim directly with this wallet —
+  // avoids the duplicate requestCapabilities popup.
   preConnectedWallet?: Wallet;
   preConnectedAddress?: string;
 };
@@ -42,8 +34,6 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef<HTMLDivElement>(null);
 
-  // When the header bar wallet is already connected to the same account as
-  // the recipient, skip the full connection flow and go straight to claim.
   const canSkipConnect =
     preConnectedWallet !== undefined &&
     preConnectedAddress !== undefined &&
@@ -60,8 +50,6 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [infoOpen]);
 
-  // Connection-modal path: fires when the user connects via the claim button's
-  // own modal (canSkipConnect is false).
   useEffect(() => {
     if (canSkipConnect) return;
     if (phase.kind !== "connected" || claim.kind !== "none") return;
@@ -117,9 +105,6 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
 
   return (
     <>
-      {/* Default + claiming: button stays in place. While claiming we
-          disable it and show a small caption underneath so users know
-          to look at the wallet popup. */}
       {(claim.kind === "none" || claim.kind === "claiming") && (
         <div className="relative flex gap-2">
           <button
@@ -131,7 +116,6 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
             {claim.kind === "claiming" ? "Approve in wallet…" : "Claim in wallet"}
           </button>
 
-          {/* Info tooltip */}
           <div ref={infoRef} className="relative shrink-0">
             <button
               type="button"
@@ -166,9 +150,6 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
         </div>
       )}
 
-      {/* Inline error: replaces the button. Surface a human-readable
-          message (translated in claim-via-wallet.ts via humaniseClaimError)
-          and a Try again action. wrap-break-word handles long hex strings. */}
       {claim.kind === "error" && (
         <div className="border border-red-400/40 bg-red-500/5 px-4 py-3">
           <p className="font-label text-[10px] font-bold uppercase tracking-widest text-red-400">

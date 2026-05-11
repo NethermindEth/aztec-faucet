@@ -63,10 +63,7 @@ export async function GET(
           Fr.fromHexString(messageHash),
         );
         if (witness !== undefined) {
-          // No createdAt available in the stateless fallback path so we
-          // can't anchor an exact expiresAt. The client preserves whatever
-          // expiresAt it learned from the initial drip response — see the
-          // client's local-countdown logic.
+          // Stateless path: no createdAt → no expiresAt. Client keeps its own.
           return NextResponse.json({
             status: "ready",
             elapsedSeconds: 0,
@@ -81,9 +78,7 @@ export async function GET(
         console.error("[claim] Stateless fallback failed:", err);
       }
     }
-    // Genuine unknown claim id (or pruned past 2× expiry). The client
-    // distinguishes this from server-known expiry below by checking the
-    // HTTP status code: 404 = unknown, 410 = known-expired.
+    // 404 unknown vs 410 known-expired (handled below).
     return NextResponse.json(
       { error: "Claim not found", reason: "unknown" },
       { status: 404, headers: CORS_HEADERS_GET },
@@ -91,11 +86,7 @@ export async function GET(
   }
 
   const elapsed = Math.floor((Date.now() - claim.createdAt) / 1000);
-  // Absolute expiry timestamp (ms). Sent in every successful response so
-  // the client can count down locally even if subsequent polls 404
-  // (e.g. server restart between polls). Without this, the client sees a
-  // fresh "expiresInSeconds" each tick and would lose the countdown if
-  // the server forgets the claim mid-flow.
+  // Absolute expiry lets the client count down locally across server 404s.
   const expiresAt = claim.createdAt + CLAIM_EXPIRY_MS;
 
   switch (claim.status) {
@@ -120,9 +111,6 @@ export async function GET(
       }, { headers: CORS_HEADERS_GET });
 
     case "expired":
-      // 410 Gone is the right status for "we know this resource existed
-      // and is now permanently expired" — distinguishes from 404
-      // ("never seen this id" or "pruned, may exist on another pod").
       return NextResponse.json({
         status: "expired",
         elapsedSeconds: elapsed,

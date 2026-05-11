@@ -18,15 +18,8 @@ import { L1_CHAIN_ID } from "@/lib/network-config";
 
 type Props = {
   asset: string;
-  // What's *currently* in the form's address input. Used to decide whether
-  // the connected wallet is actually the source of truth for the form. If
-  // the user edits the input away from the wallet's address, the bar flips
-  // back to "Connect" — clicking it re-fills the form from the stored
-  // wallet address (no popup needed when one is already saved).
   currentFormAddress?: string;
   onAddress: (address: string) => void;
-  // Exposes the live Wallet object upward so the parent can pass it to
-  // WalletClaimButton for the skip-reconnect optimisation.
   onWalletConnect?: (wallet: Wallet | null) => void;
 };
 
@@ -35,9 +28,7 @@ const STORAGE_KEY = "faucet:wallet-connections";
 type Persisted = {
   aztec?: string | null;
   eth?: string | null;
-  // Remember which Ethereum wallet (by EIP-6963 rdns) the user picked last
-  // time so we can re-attach to the same one without re-prompting if they
-  // come back. Falls back to a fresh picker if the rdns isn't announced.
+  // EIP-6963 rdns of last-picked wallet — used to re-attach without prompting.
   ethRdns?: string | null;
 };
 
@@ -74,41 +65,24 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   const [ethBusy, setEthBusy] = useState(false);
   const [ethError, setEthError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  // Hint shown after the connect popup hasn't been resolved within ~1.5s.
-  // Common case: MetaMask popup opens behind the main window on multi-
-  // monitor setups and the user doesn't notice it's there.
+  // Shown if MetaMask popup hasn't resolved in 1.5s — popup may be off-screen.
   const [showBusyHint, setShowBusyHint] = useState(false);
 
-  // The active Ethereum provider — the one we're talking to right now.
-  // Pinned to a specific EIP-6963 announce, not window.ethereum, so when
-  // the user has Rabby + MetaMask + Coinbase installed, calls go to the
-  // wallet they actually picked, not whichever overwrote the global last.
+  // Pinned EIP-6963 provider, not window.ethereum — Rabby/MetaMask/Coinbase
+  // overwrite each other's global, this keeps calls on the picked wallet.
   const ethProviderRef = useRef<EthereumProvider | null>(null);
 
-  // Hydrate from localStorage on first render so the connect state survives
-  // form-into-split remounts and quick tab navigations.
-  //
-  // ⚠️ React StrictMode runs effects twice in dev. The `hydrated` ref
-  // guards against double-fire, which today is harmless because all we do
-  // is read once and call setters with stable values. If you ever extend
-  // this effect to perform side-effects beyond initial state seeding (e.g.
-  // dispatch network calls, mutate persisted state, increment counters),
-  // the StrictMode double-invoke WILL fire your new logic twice in dev
-  // and you'll have a real bug. Either keep this effect strictly
-  // idempotent, or move side-effects out of it.
+  // Aztec connections don't survive reloads (Wallet object isn't serialisable);
+  // clear any stale aztec key written by older code.
   const hydrated = useRef(false);
   useEffect(() => {
     if (hydrated.current) return;
     hydrated.current = true;
     const p = readPersisted();
     if (p.eth) setEthAddr(p.eth);
-    // Aztec connections are not persisted across reloads (the Wallet object
-    // doesn't survive a page load). Clear any stale aztec key written by
-    // older versions of this code.
     if (p.aztec) writePersisted({ ...p, aztec: null });
   }, []);
 
-  // ── Aztec / Azguard ────────────────────────────────────────────────────
   const azguard = useWalletConnect();
 
   useEffect(() => {
@@ -123,12 +97,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     azguard.reset();
   }, [azguard, onAddress, isEth, onWalletConnect]);
 
-  // ── Ethereum (EIP-6963 + legacy fallback) ──────────────────────────────
   const { providers: ethProviders } = useEthereumProviders();
 
-  // Wire account / chain change listeners onto whichever provider we're
-  // currently using. Re-runs when we swap providers (e.g. user disconnects
-  // MetaMask and picks Rabby).
   const attachProviderListeners = useCallback(
     (p: EthereumProvider) => {
       if (!p.on) return () => undefined;
@@ -152,11 +122,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     [onAddress, isEth],
   );
 
-  // Map common wallet RPC errors to friendlier messages. The big one we
-  // care about is -32002 ("Already processing eth_requestAccounts"): users
-  // who don't see the first popup (often hidden behind the main window on
-  // multi-monitor setups) click again, and the second call rejects with
-  // this opaque code. We translate it into actionable language.
+  // -32002 = "Already processing eth_requestAccounts" — user double-clicked
+  // because they didn't see the first popup. Translate to actionable text.
   const friendlyEthError = (err: unknown): string => {
     const e = err as { code?: number; message?: string } | null;
     const code = e?.code;
@@ -170,12 +137,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     return e?.message || "Connection failed.";
   };
 
-  // Connect flow once a provider has been picked. Pulled out so both the
-  // single-wallet auto-pick and the multi-wallet picker can call it.
-  // Fetches the chain id in parallel with eth_requestAccounts so the
-  // wrong-chain banner can render in the same paint as the connected
-  // address — avoids a flicker where the address renders without the
-  // warning for a few hundred ms.
+  // Fetch chainId in parallel with eth_requestAccounts so the wrong-chain
+  // banner renders in the same paint as the connected address.
   const connectWithProvider = useCallback(
     async (announced: AnnouncedProvider) => {
       ethProviderRef.current = announced.provider;
@@ -191,9 +154,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           setEthError(`${announced.info.name} returned no accounts.`);
           return;
         }
-        // Set chain first so the wrongChain memo flips before the address
-        // memo and the user never sees an "all good" frame on a wrong-chain
-        // wallet.
+        // Chain before address so wrongChain memo flips first; no "all good" flash.
         if (typeof chainResult === "string") setChainId(chainResult);
         setEthAddr(addr);
         writePersisted({
@@ -211,18 +172,10 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     [onAddress, isEth],
   );
 
-  // Entry point for the "Connect Ethereum Wallet" click.
-  // Discovery rules:
-  //  - If we previously connected to a known rdns and it's still announced,
-  //    use it directly (no picker).
-  //  - If exactly one provider is announced, auto-pick.
-  //  - If multiple, open the picker.
-  //  - If none, refresh + wait briefly. If still none, fall back to legacy
-  //    window.ethereum if any (so users on old wallets aren't stranded).
+  // Discovery: remembered rdns → single auto-pick → picker → legacy window.ethereum.
   const startEthConnect = useCallback(async () => {
     setEthError(null);
     refreshEthereumProviders();
-    // small wait so late-injected wallets get a chance to announce
     await new Promise((r) => setTimeout(r, 80));
     const list = getEthereumProviders();
     const persisted = readPersisted();
@@ -243,8 +196,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       setPickerOpen(true);
       return;
     }
-    // No EIP-6963 providers seen. Try one more refresh + a longer wait,
-    // then fall back to legacy window.ethereum.
     refreshEthereumProviders();
     await new Promise((r) => setTimeout(r, 250));
     const second = getEthereumProviders();
@@ -277,28 +228,15 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     setEthError("No Ethereum wallet detected. Install MetaMask, Rabby, or another Web3 wallet and reload.");
   }, []);
 
-  // Re-attach listeners whenever the underlying provider reference changes.
   useEffect(() => {
     const p = ethProviderRef.current;
     if (!p) return;
     return attachProviderListeners(p);
   }, [attachProviderListeners, ethAddr]);
 
-  // Azguard presence probe.
-  //
-  // Azguard has no `accountsChanged` equivalent, so we can't react to
-  // wallet-side disconnects in real time. Best we can do on mount is run
-  // a short discovery probe: if Azguard doesn't announce within the
-  // timeout, the wallet is uninstalled / disabled / on a different
-  // network, and any cached aztec address is stale. Clear it.
-  //
-  // This catches:
-  //   - Uninstall between sessions
-  //   - Wallet disabled / different browser profile
-  //   - Wallet switched to a different Aztec network
-  // It does NOT catch session revocation inside Azguard while the
-  // extension stays present — that surfaces only when the user clicks
-  // something that requires the wallet (which then re-prompts).
+  // Azguard has no accountsChanged equivalent. Probe on mount; if it doesn't
+  // announce in 5s, cached aztec address is stale (uninstall / disabled /
+  // wrong network) — clear it.
   useEffect(() => {
     const persisted = readPersisted();
     if (!persisted.aztec) return;
@@ -307,7 +245,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     let session: { cancel: () => void } | null = null;
     const fallback = setTimeout(() => {
       if (cancelled || seen) return;
-      // No Azguard announce within 5s — clear the stored aztec connection.
       setAztecAddr(null);
       writePersisted({ ...readPersisted(), aztec: null });
       if (!isEth) onAddress("");
@@ -326,9 +263,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           5000,
         );
       } catch {
-        // If chainInfo fetch fails (offline / node down) we can't tell
-        // whether the wallet is still there. Leave the cache alone — the
-        // next user-driven action will sort it out.
+        // node unreachable — can't tell, leave cache alone
         clearTimeout(fallback);
       }
     })();
@@ -340,17 +275,12 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Multi-tab sync. If another faucet tab disconnects (or connects to a
-  // different account), the storage event fires here. Without this,
-  // closing in tab 1 leaves tab 2 stuck showing a stale "Connected" badge
-  // and pre-filling the form with an address the user just disconnected.
+  // Multi-tab sync — without this, disconnecting in tab 1 leaves tab 2 stale.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handler = (e: StorageEvent) => {
       if (e.key !== STORAGE_KEY) return;
       const next = readPersisted();
-      // Only reflect changes for the currently active asset's address —
-      // changing the other one doesn't need to re-render the form.
       setEthAddr(next.eth ?? null);
       setAztecAddr(next.aztec ?? null);
       if (isEth) onAddress(next.eth ?? "");
@@ -360,9 +290,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     return () => window.removeEventListener("storage", handler);
   }, [isEth, onAddress]);
 
-  // Busy-hint timer. Show "Check your wallet — popup may be hidden behind
-  // this window" 1.5s into a connect attempt. Cleared as soon as ethBusy
-  // flips back to false (success or error).
   useEffect(() => {
     if (!ethBusy) {
       setShowBusyHint(false);
@@ -372,21 +299,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     return () => clearTimeout(t);
   }, [ethBusy]);
 
-  // Silent reconciliation with the wallet. Runs on every mount and
-  // whenever the announced-providers list changes. Critically, this
-  // does NOT depend on `isEth` — the bar is unmounted while the form is
-  // in split mode (during a drip), and the user can disconnect / switch
-  // accounts in their wallet during that 60s window. accountsChanged
-  // doesn't fire if no listener is attached, so we have to verify
-  // explicitly when the bar comes back.
-  //
-  // Three outcomes:
-  //   a) wallet returns [addr] matching cache  → keep, refresh chain
-  //   b) wallet returns [addr] DIFFERENT       → user switched accounts;
-  //                                              adopt the new one
-  //   c) wallet returns []                     → revoked; clear cache
-  //
-  // Uses `eth_accounts` (silent), not `eth_requestAccounts` (pops).
+  // Silent reconciliation via eth_accounts (no popup). The bar unmounts during
+  // a drip; accountsChanged doesn't fire while detached, so we verify on
+  // remount. Handles: matching cache, switched account, revoked permission.
   useEffect(() => {
     const persisted = readPersisted();
     if (!persisted.ethRdns) return;
@@ -395,10 +310,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       list.find((p) => p.info.rdns === persisted.ethRdns) ??
       getLegacyEthereumProvider();
     if (!match) {
-      // Provider was remembered but is no longer available (extension
-      // disabled, removed, or in a different browser profile). Clear the
-      // stale state so the UI doesn't show a "Use 0x..." address the user
-      // can no longer actually access.
       setEthAddr(null);
       writePersisted({ ...readPersisted(), eth: null, ethRdns: null });
       if (isEth) onAddress("");
@@ -409,8 +320,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       match.provider.request({ method: "eth_accounts" }).catch(() => null),
       match.provider.request({ method: "eth_chainId" }).catch(() => null),
     ]).then(([accounts, chain]) => {
-      // Update chainId first so any wrong-chain warning paints in the
-      // same render as the address, not in a follow-up tick.
       if (typeof chain === "string") setChainId(chain);
       const addr = (accounts as string[] | undefined)?.[0] ?? null;
       if (addr) {
@@ -427,10 +336,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEth, ethProviders.length]);
 
-  // When the user toggles between assets, push the *current asset's* stored
-  // address into the form — but only if the wallet was driving the form or
-  // we have an address for the new asset. Prevents the toggle from wiping
-  // an address the user manually typed (which has no associated wallet).
+  // Asset toggle: push the new asset's stored address. Only clear the form
+  // if the wallet was driving it; preserve manually-typed addresses.
   const lastAssetRef = useRef<string | null>(null);
   useEffect(() => {
     if (lastAssetRef.current === asset) return;
@@ -438,15 +345,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     lastAssetRef.current = asset;
     const next = isEth ? ethAddr : aztecAddr;
     if (next !== null) {
-      // New asset has a wallet address — use it.
       onAddress(next);
     } else {
-      // No wallet for the new asset. Only clear the form if the wallet was
-      // previously driving it (currentFormAddress matched the old wallet
-      // address). If the user typed something different, leave it alone —
-      // the type-mismatch validation will guide them instead.
-      const prevIsEth = prevAsset === "eth";
-      const oldWalletAddr = prevIsEth ? ethAddr : aztecAddr;
+      const oldWalletAddr = prevAsset === "eth" ? ethAddr : aztecAddr;
       const formWasDrivenByWallet =
         !!oldWalletAddr &&
         !!currentFormAddress &&
@@ -457,9 +358,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     }
   }, [asset, isEth, ethAddr, aztecAddr, onAddress, currentFormAddress]);
 
-  // Local "forget" — clears the dApp's view of the connection. We can't
-  // programmatically revoke a wallet's account permission (that's a
-  // wallet-side action), so this is purely UI state.
+  // dApp-side disconnect only — can't revoke wallet permissions from here.
   const disconnect = useCallback(() => {
     if (isEth) {
       setEthAddr(null);
@@ -476,10 +375,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   const connectedAddr = isEth ? ethAddr : aztecAddr;
   const idleLabel = isEth ? "Connect Ethereum Wallet" : "Connect Aztec Wallet";
 
-  // The button reflects the form's *effective* state, not just whether we
-  // remember a wallet. If the user edits the input away from the wallet's
-  // address, the wallet is no longer the source of truth → button flips
-  // back to "Connect" so the UI doesn't lie.
   const formMatchesWallet =
     !!connectedAddr &&
     !!currentFormAddress &&
@@ -487,29 +382,21 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
 
   const startWalletFlow = isEth ? startEthConnect : azguard.start;
 
-  // Two-click confirm before the "Use 0x..." button overwrites a manually-
-  // typed address. First click flips `confirmReplace` → button label changes
-  // to "Confirm replace?" and auto-resets after 2.5s if the user doesn't act.
+  // Two-click confirm before overwriting a manually-typed address;
+  // auto-resets after 2.5s.
   const [confirmReplace, setConfirmReplace] = useState(false);
   useEffect(() => {
     if (!confirmReplace) return;
     const t = setTimeout(() => setConfirmReplace(false), 2500);
     return () => clearTimeout(t);
   }, [confirmReplace]);
-  // Reset when the wallet state changes (e.g., user disconnects mid-confirm).
   useEffect(() => {
     setConfirmReplace(false);
   }, [connectedAddr, formMatchesWallet]);
 
-  // Click on the connected button opens a small menu (Switch account /
-  // Disconnect / hint) instead of disconnecting outright. Single-click
-  // disconnect was a misclick magnet — and there was no way to tell the
-  // wallet to switch accounts without the user knowing to do it inside
-  // the extension UI first.
   const [menuOpen, setMenuOpen] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
 
-  // Close the menu on outside click or Escape.
   useEffect(() => {
     if (!menuOpen) return;
     const onDocClick = (e: MouseEvent) => {
@@ -529,12 +416,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     };
   }, [menuOpen]);
 
-  // Switch account.
-  //  - ETH: wallet_requestPermissions with eth_accounts re-prompts the user
-  //    to pick an account in MetaMask/Rabby/etc.
-  //  - Aztec: no equivalent API; clear the stored connection and restart
-  //    discovery so the user can reconnect (and pick a different account
-  //    inside Azguard).
+  // ETH: wallet_requestPermissions re-prompts account pick.
+  // Aztec: no equivalent — clear and restart discovery.
   const switchAccount = useCallback(async () => {
     setMenuOpen(false);
     if (isEth) {
@@ -561,8 +444,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
         setEthError(friendlyEthError(err));
       }
     } else {
-      // Aztec path: forget the current connection and re-run discovery.
-      // User can pick a different account inside Azguard's UI.
       setAztecAddr(null);
       onWalletConnect?.(null);
       azguard.start();
@@ -586,25 +467,13 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
 
   const disabled = isEth && ethBusy;
 
-  // Sepolia chain id is L1_CHAIN_ID (decimal); wallets report 0x-prefixed hex.
-  //
-  // ⚠️ Format note for future Aztec chain id checks: EIP-1193 wallets are
-  // *case-sensitive* about hex strings — MetaMask reports "0xaa36a7",
-  // Coinbase Wallet has historically reported "0xAA36A7", and a strict
-  // === would treat them as different chains. We toLowerCase() both
-  // sides here. If you add an analogous comparison for the Aztec rollup
-  // version / chain id, do not assume it's the same shape: Azguard and
-  // other Aztec wallets may return raw bigints, decimal strings, or
-  // 0x-prefixed hex without uniform casing. Normalize before compare.
+  // Wallets return chain ids in mixed case; normalize both sides.
   const expectedChainHex = `0x${Number(L1_CHAIN_ID).toString(16)}`;
   const wrongChain = isEth && !!ethAddr && chainId !== null && chainId.toLowerCase() !== expectedChainHex;
 
-  // Switch to Sepolia. If the wallet doesn't have Sepolia configured at all
-  // (returns code 4902), fall back to wallet_addEthereumChain with full
-  // params, which most wallets implicitly switch to after adding.
+  // Code 4902 = chain not configured → fall back to wallet_addEthereumChain.
   //
-  // RPC URLs are intentionally public and key-less. Our server-side
-  // L1_RPC_URL is an Alchemy URL with a private key and must NOT leak into
+  // Public RPC URLs only. Our server-side L1_RPC_URL has a private key and
   // the browser bundle.
   const switchToSepolia = useCallback(async () => {
     const p = ethProviderRef.current;
@@ -650,30 +519,20 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
             method: "wallet_switchEthereumChain",
             params: [{ chainId: expectedChainHex }],
           });
-        } catch {
-          // ignore — adding the chain is the meaningful step
-        }
+        } catch {}
       } catch (addErr) {
         setEthError(friendlyEthError(addErr));
       }
     }
   }, [expectedChainHex]);
 
-  // Auto-prompt the wallet to switch to Sepolia the moment we detect the
-  // wrong chain — same UX pattern as Uniswap / most modern dApps. The user
-  // sees a MetaMask (or equivalent) popup immediately rather than having to
-  // notice and click the amber "Wrong network" link. We only fire once per
-  // wrongChain transition; if the user rejects the prompt, they see the
-  // manual link. ethError is cleared before the call so an old error doesn't
-  // persist alongside the new prompt.
+  // Auto-prompt Sepolia switch on wrong-chain detection (Uniswap pattern).
   useEffect(() => {
     if (wrongChain) void switchToSepolia();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wrongChain]);
 
-  // Show one status line at a time, error takes priority over wrong-chain.
-  // Stacking two amber/red messages on top of each other was visually noisy
-  // and gave the user no signal about which to act on first.
+  // One status line at a time; error > hint.
   const statusLine: { kind: "error" | "warn" | "hint"; text: string } | null =
     isEth && ethError
       ? { kind: "error", text: ethError }
@@ -681,9 +540,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       ? { kind: "hint", text: "Check your wallet. The popup may be hidden behind this window." }
       : null;
 
-  // The connected button needs a meaningful screen-reader label —
-  // shortAddr alone reads as "0x1234 ellipsis abcd, button". The aria-label
-  // describes the action (open menu) and identifies the account.
   const connectedAriaLabel = formMatchesWallet
     ? `Wallet menu for ${connectedAddr}. Press Enter to open.`
     : connectedAddr
@@ -697,10 +553,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           type="button"
           onClick={handleClick}
           disabled={disabled}
-          // min-w stops the bar from jumping width when the user toggles
-          // between assets ("Connect Ethereum Wallet" is wider than
-          // "Connect Aztec Wallet" which is wider than "0xabc…123 ⌄").
-          // Stable width = no layout shift.
           className={`group flex min-w-52 items-center justify-center gap-2 border px-3 py-2 font-label text-[11px] uppercase tracking-wider transition-all disabled:opacity-50 ${
             formMatchesWallet
               ? "border-accent/40 bg-accent/5 text-accent hover:border-accent hover:bg-accent/10"
@@ -721,10 +573,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
         >
           {formMatchesWallet ? (
             <>
-              {/* Two non-colour cues so colour-blind users get the same
-                  signal as everyone else: a check icon (states "this is
-                  the active connection") and a chevron (states "this
-                  opens a menu"). The animated dot is purely decorative. */}
               <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3 shrink-0" aria-hidden="true">
                 <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -765,9 +613,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           )}
         </button>
 
-        {/* Account menu — only renders for the connected state. Closes on
-            outside-click and Escape. Disconnect is no longer a single
-            misclick away; it's an explicit menu item. */}
         {formMatchesWallet && menuOpen && (
           <div
             role="menu"
@@ -814,28 +659,12 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
         )}
       </div>
 
-      {/* Value prop / safety caption. Shown only when the user is *not*
-          connected — answers two questions at once:
-          1. "Why bother? I can just paste an address." → saves the copy-paste.
-          2. "Wait, what's it actually doing?" → reads address only,
-             no signature, no funds touched. Explicitly calling this out
-             reduces the trust friction users feel when a Web3 dApp asks
-             for a wallet connection.
-          When connected, the caption disappears — the green check + dot
-          + visible address already conveys "we have what we need". */}
       {!connectedAddr && !statusLine && (
         <p className="max-w-full text-right font-label text-[10px] leading-relaxed text-on-surface-variant opacity-50 sm:max-w-xs">
           Reads your address only. No signature, no transaction.
         </p>
       )}
 
-      {/* Single status line — show one message at a time (priority: error
-          > busy-hint > wrong-chain). Stacking two amber/red messages was
-          noisy and gave no signal about which to act on first.
-          Mixed-case + leading-relaxed beats uppercase tracking-wider for
-          longer error strings on small viewports — much more readable
-          when the text wraps. Width caps at the bar's full width on
-          narrow screens (sm:max-w-xs on wider). */}
       {statusLine ? (
         <p
           role={statusLine.kind === "error" ? "alert" : undefined}
@@ -857,7 +686,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
         </button>
       ) : null}
 
-      {/* Ethereum multi-wallet picker (only for ETH asset). */}
       {isEth && (
         <EthereumWalletPicker
           open={pickerOpen}
@@ -868,7 +696,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
         />
       )}
 
-      {/* Aztec wallet picker (only for Fee Juice asset). */}
       {!isEth && (
         <WalletConnectModal
           phase={azguard.phase}

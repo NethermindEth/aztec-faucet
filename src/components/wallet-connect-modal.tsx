@@ -36,15 +36,24 @@ type Props = {
   reject: () => void;
   reset: () => void;
   start: () => void;
+  pickAccount: (address: string) => void;
 };
 
-export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, start }: Props) {
+export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, start, pickAccount }: Props) {
   if (phase.kind === "idle" || phase.kind === "connected") return null;
 
   if (phase.kind === "discovering") {
     return (
       <Modal title="Choose a wallet" onClose={reset}>
         <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} start={start} />
+      </Modal>
+    );
+  }
+
+  if (phase.kind === "picking-account") {
+    return (
+      <Modal title="Choose an account" onClose={reset}>
+        <AccountPickerBody accounts={phase.accounts} pickAccount={pickAccount} reset={reset} />
       </Modal>
     );
   }
@@ -239,6 +248,38 @@ function ErrorBody({ message }: { message: string }) {
   }
 
   return <p className="font-label text-xs leading-relaxed text-red-400 wrap-break-word">{message}</p>;
+}
+
+function AccountPickerBody({
+  accounts,
+  pickAccount,
+  reset,
+}: {
+  accounts: string[];
+  pickAccount: (address: string) => void;
+  reset: () => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="font-label text-[11px] leading-relaxed text-on-surface-variant opacity-80">
+        Your wallet has multiple accounts. Pick the one to use with the faucet.
+      </p>
+      {accounts.map((addr) => (
+        <button
+          key={addr}
+          type="button"
+          onClick={() => pickAccount(addr)}
+          className="flex w-full items-start gap-3 border border-outline-variant bg-surface-low px-3 py-2.5 text-left transition-colors hover:border-accent hover:bg-accent/5"
+        >
+          <span className="mt-0.5 h-1.5 w-1.5 shrink-0 bg-accent/50" aria-hidden="true" />
+          <span className="break-all font-mono text-[11px] text-on-surface">{addr}</span>
+        </button>
+      ))}
+      <button type="button" onClick={reset} className="btn-ghost w-full py-2 text-[10px] uppercase tracking-widest">
+        Cancel
+      </button>
+    </div>
+  );
 }
 
 function Modal({

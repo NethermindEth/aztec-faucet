@@ -20,6 +20,7 @@ export type ConnectPhase =
   | { kind: "discovering"; providers: WalletProvider[] }
   | { kind: "connecting"; provider: WalletProvider }
   | { kind: "verifying"; provider: WalletProvider; pending: PendingConnection; emojis: string }
+  | { kind: "picking-account"; wallet: Wallet; accounts: string[] }
   | { kind: "connected"; wallet: Wallet; address: string }
   | { kind: "error"; message: string };
 
@@ -88,37 +89,44 @@ export function useWalletConnect() {
           const wallet = await confirmConnection(prev.pending);
           const { unwrapAddress } = await import("@/lib/wallet-client");
 
-          // pending.confirm() already grants capabilities; call getAccounts
-          // directly to avoid a redundant requestCapabilities popup.
-          let raw: unknown;
+          let rawAccounts: unknown[] | undefined;
           try {
             const accounts = await wallet.getAccounts();
-            raw = accounts[0];
+            rawAccounts = Array.from(accounts as unknown[]);
           } catch {
             const { faucetCapabilities } = await import("@/lib/wallet-capabilities");
             try {
               const granted = await wallet.requestCapabilities(faucetCapabilities());
               const accountsCap = granted.granted.find((c) => c.type === "accounts");
-              const accounts = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
-              raw = accounts?.[0];
+              const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
+              rawAccounts = cap ? [cap[0]] : undefined;
             } catch (capErr) {
               console.warn("requestCapabilities failed:", capErr);
             }
           }
-          if (raw === undefined) {
-            // Phrasing here is matched by ErrorBody for the "create account" panel.
+
+          if (!rawAccounts || rawAccounts.length === 0) {
             setPhase({
               kind: "error",
               message: "Your wallet has no accounts. Create or import an Aztec account in the wallet, then connect again.",
             });
             return;
           }
-          const address = unwrapAddress(raw);
-          if (!address || address === "[object Object]") {
+
+          const addresses = rawAccounts
+            .map((a) => unwrapAddress(a))
+            .filter((a) => a && a !== "[object Object]");
+
+          if (addresses.length === 0) {
             setPhase({ kind: "error", message: "Could not parse account address from wallet" });
             return;
           }
-          setPhase({ kind: "connected", wallet, address });
+
+          if (addresses.length === 1) {
+            setPhase({ kind: "connected", wallet, address: addresses[0] });
+          } else {
+            setPhase({ kind: "picking-account", wallet, accounts: addresses });
+          }
         } catch (err) {
           setPhase({
             kind: "error",
@@ -128,6 +136,19 @@ export function useWalletConnect() {
       })();
       return prev;
     });
+  }, []);
+
+  const pickAccount = useCallback((address: string) => {
+    setPhase((prev) => {
+      if (prev.kind !== "picking-account") return prev;
+      return { kind: "connected", wallet: prev.wallet, address };
+    });
+  }, []);
+
+  // Called by the bar's "Switch account" to re-show the picker without
+  // going through discovery again.
+  const enterAccountPicker = useCallback((wallet: Wallet, accounts: string[]) => {
+    setPhase({ kind: "picking-account", wallet, accounts });
   }, []);
 
   const reject = useCallback(() => {
@@ -142,5 +163,5 @@ export function useWalletConnect() {
     setPhase({ kind: "idle" });
   }, [cleanup]);
 
-  return { phase, start, pickProvider, confirm, reject, reset };
+  return { phase, start, pickProvider, confirm, reject, reset, pickAccount, enterAccountPicker };
 }

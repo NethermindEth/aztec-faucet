@@ -60,6 +60,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   const isEth = asset === "eth";
 
   const [aztecAddr, setAztecAddr] = useState<string | null>(null);
+  const aztecWalletRef = useRef<import("@aztec/aztec.js/wallet").Wallet | null>(null);
   const [ethAddr, setEthAddr] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
   const [ethBusy, setEthBusy] = useState(false);
@@ -89,6 +90,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     if (azguard.phase.kind !== "connected") return;
     const addr = azguard.phase.address;
     const wallet = azguard.phase.wallet;
+    aztecWalletRef.current = wallet;
     setAztecAddr(addr);
     if (!isEth) {
       onAddress(addr);
@@ -367,6 +369,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       writePersisted({ ...readPersisted(), eth: null, ethRdns: null });
     } else {
       setAztecAddr(null);
+      aztecWalletRef.current = null;
       onWalletConnect?.(null);
     }
     onAddress("");
@@ -444,6 +447,22 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
         setEthError(friendlyEthError(err));
       }
     } else {
+      const wallet = aztecWalletRef.current;
+      if (wallet) {
+        try {
+          const accounts = await wallet.getAccounts();
+          const { unwrapAddress } = await import("@/lib/wallet-client");
+          const addrs = Array.from(accounts as unknown[])
+            .map((a) => unwrapAddress(a))
+            .filter((a) => a && a !== "[object Object]");
+          if (addrs.length > 1) {
+            azguard.enterAccountPicker(wallet, addrs);
+            return;
+          }
+        } catch {
+          // wallet may be stale — fall through to fresh discovery
+        }
+      }
       setAztecAddr(null);
       onWalletConnect?.(null);
       azguard.start();
@@ -704,6 +723,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           reject={azguard.reject}
           reset={azguard.reset}
           start={azguard.start}
+          pickAccount={azguard.pickAccount}
         />
       )}
     </div>

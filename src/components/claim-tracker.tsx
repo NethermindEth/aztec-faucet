@@ -24,9 +24,7 @@ type ClaimResponse = {
   status: ClaimStatus;
   elapsedSeconds: number;
   expiresInSeconds?: number;
-  // Absolute expiry timestamp (ms). When present, the client uses this
-  // to drive a local countdown that survives transient 404s — e.g. the
-  // server pruning the claim record while the user is still on the page.
+  // Drives a local countdown that survives transient server 404s.
   expiresAt?: number;
   claimData?: ClaimData;
 };
@@ -66,10 +64,6 @@ export function ClaimTracker({
   claimId: string;
   initialClaimData?: ClaimData;
   l1TxHash?: string;
-  // The Aztec address the drip was sent to. Only this account can claim
-  // the bridge message — passed through to WalletClaimButton for the
-  // pre-flight wallet/recipient match check, and rendered in the UI so
-  // the user can sanity-check before connecting any wallet.
   recipient: string;
   onReset: () => void;
   onProgressChange?: (progress: number, isReady: boolean) => void;
@@ -79,25 +73,20 @@ export function ClaimTracker({
   const [status, setStatus] = useState<ClaimStatus>("bridging");
   const [elapsed, setElapsed] = useState(0);
   const [expiresIn, setExpiresIn] = useState<number | null>(null);
-  // Absolute expiry timestamp learned from the API. Survives 404s from
-  // the server (multi-instance miss, restart, pruning). Stored in a ref
-  // because we read it inside the poll callback and don't need re-renders
-  // when it updates — the poll loop reads the latest value on each tick.
+  // Survives 404s from multi-instance misses / restarts / pruning.
   const expiresAtRef = useRef<number | null>(null);
-  // Seed claimData from the drip response — available immediately without polling
   const [claimData, setClaimData] = useState<ClaimData | null>(initialClaimData ?? null);
   const [error, setError] = useState<string | null>(null);
   const [showAllFields, setShowAllFields] = useState(false);
-  // Once the wallet-side claim completes, collapse the wallet button + CLI
-  // section into a "claim complete" panel. Bridge message is nullified at
-  // that point so the CLI fallback would no longer work anyway.
+  // Once the wallet-side claim succeeds the bridge message is nullified;
+  // collapse the wallet button + CLI fallback into a completion panel.
   const [walletClaimedTx, setWalletClaimedTx] = useState<string | null>(null);
   const startTimeRef = useRef(Date.now());
 
   const poll = useCallback(async () => {
     try {
-      // Pass messageHash so the server can fall back to a stateless L2 node
-      // check if the claim isn't in its local memory (multi-instance deployments).
+      // messageHash lets the server fall back to a stateless L2 node check
+      // on cache-miss (multi-instance deployments).
       const msgHash = initialClaimData?.messageHashHex;
       const params = new URLSearchParams();
       if (msgHash) params.set("messageHash", msgHash);
@@ -112,24 +101,12 @@ export function ClaimTracker({
           return;
         }
         if (res.status === 404) {
-          // 404 — server doesn't know this id. Could be a multi-instance
-          // miss (the drip went to pod A, this poll hit pod B), pruned
-          // past the retention window, or a server restart that lost
-          // in-memory state.
-          //
-          // If we have the L1 tx hash, keep polling silently — the
-          // stateless fallback should resolve it once the L2 indexer
-          // catches up.
-          //
-          // If we have a *local* expiresAtRef, trust the local clock:
-          // showing the countdown is still useful even when the server
-          // has forgotten us. Only declare expiry once the local clock
-          // says we're past it.
+          // 404 = multi-instance miss / pruned / restart. With L1 tx hash,
+          // the stateless fallback will resolve once L2 indexer catches up.
+          // Local expiry clock survives 404s — only declare expired when it
+          // passes.
           if (l1TxHash) return;
           if (expiresAtRef.current !== null && Date.now() < expiresAtRef.current) {
-            // Server forgot us, but we know the claim hasn't expired
-            // locally yet. Keep showing the existing state and let the
-            // next tick try again.
             return;
           }
           setError("This drip has expired. Each Fee Juice drip stays valid for 30 minutes after the bridge becomes ready.");
@@ -142,23 +119,15 @@ export function ClaimTracker({
       setStatus(data.status);
       setElapsed(data.elapsedSeconds);
 
-      // Anchor the local expiry timestamp once we learn it. Subsequent
-      // 404s (server restart, pod miss) can then be evaluated against
-      // the local clock instead of giving up immediately.
       if (data.expiresAt !== undefined) expiresAtRef.current = data.expiresAt;
 
       if (data.status === "ready") {
-        // claimData may be absent in stateless fallback responses — the initial
-        // claimData seeded from the drip response is already in state.
         if (data.claimData) setClaimData(data.claimData);
         if (data.expiresInSeconds !== undefined) setExpiresIn(data.expiresInSeconds);
       }
-    } catch {
-      // Silently retry on network errors
-    }
+    } catch {}
   }, [claimId, initialClaimData?.messageHashHex, l1TxHash]);
 
-  // Poll the backend while bridging
   useEffect(() => {
     if (status !== "bridging") return;
     poll();
@@ -166,7 +135,6 @@ export function ClaimTracker({
     return () => clearInterval(interval);
   }, [status, poll]);
 
-  // Local elapsed timer for smooth display
   useEffect(() => {
     if (status !== "bridging") return;
     const interval = setInterval(() => {
@@ -175,9 +143,7 @@ export function ClaimTracker({
     return () => clearInterval(interval);
   }, [status]);
 
-  // Report bridging progress to parent (drives walking character in footer)
-  // Pending phase covers 0->0.15 (~20s L1 tx), bridge phase covers 0.15->0.95 (~150s)
-  // Real timing: total 140-185s, bridge phase alone is 120-150s
+  // Progress for the walking character: 0→0.15 L1 tx, 0.15→0.95 bridge (~150s).
   const onProgressRef = useRef(onProgressChange);
   onProgressRef.current = onProgressChange;
   useEffect(() => {
@@ -189,7 +155,6 @@ export function ClaimTracker({
     }
   }, [status, elapsed]);
 
-  // Countdown timer once claim is ready; flip to expired when it hits 0
   useEffect(() => {
     if (status !== "ready" || expiresIn === null) return;
     const interval = setInterval(() => {
@@ -203,8 +168,6 @@ export function ClaimTracker({
   }, [status, expiresIn === null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const expiryCritical = expiresIn !== null && expiresIn < 60;
-
-  // key={statusKey} forces remount → fires animate-panel-state-in on every transition
   const statusKey = error ? "error" : status;
 
   if (error || status === "expired") {

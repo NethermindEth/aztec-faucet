@@ -4,14 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ConnectPhase } from "@/lib/use-wallet-connect";
 
-function splitEmojis(joined: string): string[] {
-  return Array.from(joined);
-}
-
-// Wallet providers expose `icon` as a URL the extension hands us at discovery.
-// Azguard's URL doesn't resolve in dev mode, so we ship a local logo and
-// short-circuit to it for that wallet. For unknown wallets, we use the
-// wallet-supplied icon and fall back to a letter tile if it fails to load.
+// Azguard's discovery icon URL doesn't resolve in dev — ship a local logo.
 function ProviderIcon({ icon, name }: { icon?: string; name: string }) {
   const [broken, setBroken] = useState(false);
   const isAzguard = /azguard/i.test(name);
@@ -42,10 +35,7 @@ type Props = {
   confirm: () => void;
   reject: () => void;
   reset: () => void;
-  // Retry discovery — used when the user unlocks their wallet after the
-  // initial 6s discovery window has elapsed.
   start: () => void;
-  // Called once the wallet returns an address. Modal hides itself after.
   onConnected?: (address: string) => void;
 };
 
@@ -76,16 +66,13 @@ export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset
   if (phase.kind === "verifying") {
     return (
       <Modal title="Verify connection" onClose={reject}>
-        {/* MITM context: first-time users have no idea why we're showing
-            them emojis. The two-line explanation makes the security
-            theatre actually feel like security. */}
         <p className="font-label text-[11px] leading-relaxed text-on-surface-variant opacity-80">
           Your wallet is showing the same set of emojis right now. Match them
           to confirm the connection isn&apos;t being intercepted by another
           page or extension impersonating your wallet.
         </p>
         <div className="my-3 grid grid-cols-3 gap-2 border border-outline-variant bg-surface-low p-3">
-          {splitEmojis(phase.emojis).map((emoji, i) => (
+          {Array.from(phase.emojis).map((emoji, i) => (
             <div key={i} className="flex aspect-square items-center justify-center text-3xl">
               {emoji}
             </div>
@@ -106,8 +93,6 @@ export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset
     );
   }
 
-  // Error state. Some specific cases get actionable guidance instead of
-  // raw error text.
   return (
     <Modal title="Couldn't connect" onClose={reset}>
       <ErrorBody message={phase.message} />
@@ -129,12 +114,8 @@ function DiscoveringBody({
   reset: () => void;
   start: () => void;
 }) {
-  // After the wallet-sdk's discovery timeout expires (10s), if zero
-  // providers responded, the modal would otherwise sit forever on
-  // "Looking for installed wallets..." Surface a clear "not found yet"
-  // state with Retry and Install actions. Retry covers the common case
-  // where the user was unlocking their wallet (entering a password) and
-  // didn't finish before the initial probe expired.
+  // After 10s with zero providers we'd sit forever on "looking…". Show a
+  // Retry path so users who were unlocking can re-probe without dismissing.
   const [attempt, setAttempt] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
@@ -210,8 +191,6 @@ function DiscoveringBody({
 }
 
 function ConnectingBody() {
-  // If the wallet hasn't responded after a couple of seconds, hint at
-  // common causes: popup blocker, hidden window, or extension permissions.
   const [showHint, setShowHint] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => setShowHint(true), 2500);
@@ -234,7 +213,6 @@ function ConnectingBody() {
 }
 
 function ErrorBody({ message }: { message: string }) {
-  // Translate known, common error shapes into actionable guidance.
   const lower = message.toLowerCase();
 
   if (

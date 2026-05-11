@@ -93,7 +93,7 @@ try {
   ${_C.di}secret${_C.rs}   ${secretKey.toString()}
   ${_C.di}address${_C.rs}  ${account.address.toString()}
 
-  ${_C.di}Next:${_C.rs} paste your address into the faucet, wait ~2 min for the bridge,
+  ${_C.di}Next:${_C.rs} paste your address into the faucet, wait ~3-4 min for the bridge,
   then run the claim command shown in the faucet UI.
 `);
 

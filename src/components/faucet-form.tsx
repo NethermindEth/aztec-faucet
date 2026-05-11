@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
+import type React from "react";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
@@ -84,25 +85,42 @@ export function FaucetForm({
   onPending,
   onError,
   locked = false,
-  onGoToAccount,
   onAssetChange,
+  prefilledAddress,
+  onAddressChange,
+  headerRight,
 }: {
-  onSuccess: (data: DripResultData) => void;
-  onClaim: (claimId: string, initialClaimData?: InitialClaimData) => void;
+  onSuccess: (data: DripResultData, recipient: string) => void;
+  onClaim: (claimId: string, initialClaimData: InitialClaimData | undefined, recipient: string) => void;
   onPending: (asset: string) => void;
   onError: () => void;
   locked?: boolean;
-  onGoToAccount?: () => void;
   onAssetChange?: (asset: string) => void;
+  prefilledAddress?: string | null;
+  onAddressChange?: (addr: string) => void;
+  headerRight?: React.ReactNode;
 }) {
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("fee-juice");
+
+  // null/undefined = no opinion; empty string = explicit clear (e.g. disconnect).
+  useEffect(() => {
+    if (prefilledAddress === undefined || prefilledAddress === null) return;
+    const cleaned = prefilledAddress.replace(/\s+/g, "");
+    if (cleaned !== address) {
+      setAddress(cleaned);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefilledAddress]);
+
+  useEffect(() => {
+    onAddressChange?.(address);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
-  const [openAccordion, setOpenAccordion] = useState<"address" | "timing" | null>(null);
-  const toggleAccordion = (name: "address" | "timing") =>
-    setOpenAccordion((prev) => (prev === name ? null : name));
+  const [clipboardBlocked, setClipboardBlocked] = useState(false);
 
   const currentAsset = ASSETS.find((a) => a.value === asset)!;
   const isEthAddress = currentAsset.addressType === "ethereum";
@@ -117,6 +135,9 @@ export function FaucetForm({
 
     if (isEthAddress) {
       if (!isValidEthAddress(trimmed)) {
+        if (isValidAztecAddress(trimmed)) {
+          return `This looks like an Aztec address. ${currentAsset.label} requires an Ethereum address (0x + 40 hex chars)`;
+        }
         return "Invalid Ethereum address: expected 0x followed by 40 hex characters";
       }
     } else {
@@ -146,7 +167,7 @@ export function FaucetForm({
     onPending(asset);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60_000);
+    const timeout = setTimeout(() => controller.abort(), 120_000);
 
     try {
       const res = await fetch("/api/drip", {
@@ -170,9 +191,9 @@ export function FaucetForm({
       }
 
       if (data.claimId) {
-        onClaim(data.claimId, data.claimData);
+        onClaim(data.claimId, data.claimData, address.trim());
       } else {
-        onSuccess(data);
+        onSuccess(data, address.trim());
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
@@ -194,18 +215,20 @@ export function FaucetForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {/* Form Header */}
-      <div className="flex justify-between items-end border-b border-outline-variant pb-3">
+      <div className="flex justify-between items-center border-b border-outline-variant pb-3">
         <div>
           <h2 className="font-headline text-xl md:text-2xl text-on-surface uppercase tracking-tight">
             Claim Tokens
           </h2>
           <p className="font-label text-[10px] text-on-surface-variant mt-0.5">
-            ESTIMATED ARRIVAL: <span className="text-accent">{asset === "eth" ? "~24 SECONDS" : "~1-2 MINUTES"}</span>
+            ESTIMATED ARRIVAL: <span className="text-accent">{asset === "eth" ? "~24 SECONDS" : "~3-4 MINUTES"}</span>
           </p>
         </div>
-        <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-accent shrink-0">
-          <path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8z" />
-        </svg>
+        {headerRight ?? (
+          <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6 text-accent shrink-0">
+            <path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8z" />
+          </svg>
+        )}
       </div>
 
       {/* Wallet Address Input */}
@@ -219,7 +242,16 @@ export function FaucetForm({
             value={address}
             onChange={(e) => {
               if (locked) return;
-              setAddress(e.target.value);
+              // Addresses are 0x + hex; strip any whitespace.
+              setAddress(e.target.value.replace(/\s+/g, ""));
+              if (error) setError(null);
+            }}
+            onPaste={(e) => {
+              if (locked) return;
+              const pasted = e.clipboardData.getData("text").replace(/\s+/g, "");
+              if (!pasted) return;
+              e.preventDefault();
+              setAddress(pasted);
               if (error) setError(null);
             }}
             readOnly={locked}
@@ -231,29 +263,38 @@ export function FaucetForm({
             }`}
           />
           {!locked && (
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  const text = await navigator.clipboard.readText();
-                  setAddress(text.trim());
-                  if (error) setError(null);
-                } catch {
-                  // clipboard permission denied
-                }
-              }}
-              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 border border-outline-variant bg-surface-high px-2 sm:px-3 py-1.5 font-label text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
-              title="Paste from clipboard"
-            >
-              Paste
-            </button>
+            <div className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const text = await navigator.clipboard.readText();
+                    setAddress(text.trim());
+                    if (error) setError(null);
+                    setClipboardBlocked(false);
+                  } catch {
+                    setClipboardBlocked(true);
+                  }
+                }}
+                className="flex items-center gap-1.5 border border-outline-variant bg-surface-high px-2 sm:px-3 py-1.5 font-label text-[10px] sm:text-[11px] uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
+                title="Paste from clipboard"
+              >
+                Paste
+              </button>
+            </div>
           )}
         </div>
-        <p className="font-label text-[10px] text-on-surface-variant opacity-60 uppercase tracking-wider">
-          {isEthAddress
-            ? "Ethereum address (0x + 40 hex chars)"
-            : "Aztec address (0x + 64 hex chars)"}
-        </p>
+        {clipboardBlocked ? (
+          <p className="font-label text-[10px] text-amber-400 uppercase tracking-wider">
+            Clipboard blocked by browser. Use Ctrl+V / Cmd+V to paste manually.
+          </p>
+        ) : (
+          <p className="font-label text-[10px] text-on-surface-variant opacity-60 uppercase tracking-wider">
+            {isEthAddress
+              ? "Ethereum address (0x + 40 hex chars)"
+              : "Aztec address (0x + 64 hex chars)"}
+          </p>
+        )}
       </div>
 
       {/* Asset Selection */}
@@ -370,6 +411,8 @@ export function FeeJuiceHelpers({ onGoToAccount }: { onGoToAccount?: () => void 
         <button
           type="button"
           onClick={() => toggleAccordion("address")}
+          aria-expanded={openAccordion === "address"}
+          aria-controls="faq-address-panel"
           className="flex w-full items-center justify-between px-4 py-2 text-left"
         >
           <span className="font-label text-[10px] uppercase tracking-wider text-on-surface-variant transition-colors hover:text-accent">
@@ -382,6 +425,7 @@ export function FeeJuiceHelpers({ onGoToAccount }: { onGoToAccount?: () => void 
           </span>
         </button>
         <div
+          id="faq-address-panel"
           className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
           style={{ gridTemplateRows: openAccordion === "address" ? "1fr" : "0fr" }}
         >
@@ -431,10 +475,12 @@ export function FeeJuiceHelpers({ onGoToAccount }: { onGoToAccount?: () => void 
         <button
           type="button"
           onClick={() => toggleAccordion("timing")}
+          aria-expanded={openAccordion === "timing"}
+          aria-controls="faq-timing-panel"
           className="flex w-full items-center justify-between px-4 py-2 text-left"
         >
           <span className="font-label text-[10px] uppercase tracking-wider text-accent/80 transition-colors hover:text-accent">
-            Why does Fee Juice take 1-2 minutes?
+            Why does Fee Juice take 3-4 minutes?
           </span>
           <span className={`shrink-0 text-accent/60 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${openAccordion === "timing" ? "rotate-45" : ""}`}>
             <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
@@ -443,13 +489,14 @@ export function FeeJuiceHelpers({ onGoToAccount }: { onGoToAccount?: () => void 
           </span>
         </button>
         <div
+          id="faq-timing-panel"
           className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
           style={{ gridTemplateRows: openAccordion === "timing" ? "1fr" : "0fr" }}
         >
           <div className="overflow-hidden">
             <div className="border-t border-accent/20 px-4 pb-3 pt-2">
               <p className="text-[11px] text-accent/50">
-                Fee Juice must be <strong className="text-accent/70">bridged from L1 to L2</strong>. The faucet sends an L1 transaction to the Fee Juice Portal contract, then the Aztec sequencer picks up that message and includes it in an L2 block. That relay step takes 1-2 minutes.
+                Fee Juice must be <strong className="text-accent/70">bridged from L1 to L2</strong>. The faucet sends an L1 transaction to the Fee Juice Portal contract, then the Aztec sequencer picks up that message and includes it in an L2 block. That relay step takes 3-4 minutes.
               </p>
             </div>
           </div>

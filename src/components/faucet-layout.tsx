@@ -1,13 +1,23 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import React from "react";
+import type { Wallet } from "@aztec/aztec.js/wallet";
+import dynamic from "next/dynamic";
 import { FaucetForm } from "./faucet-form";
 
 import { DripResult, type DripResultData } from "./drip-result";
 import { ClaimTracker } from "./claim-tracker";
 import { ConfettiBurst } from "./confetti-burst";
 import { L1_CHAIN_ID } from "@/lib/network-config";
+
+const WalletConnectBar = dynamic(
+  () => import("./wallet-connect-bar").then((m) => m.WalletConnectBar),
+  {
+    ssr: false,
+    loading: () => <div className="h-9 min-w-52 border border-outline-variant bg-surface-high" />,
+  },
+);
 
 type InitialClaimData = {
   claimAmount: string;
@@ -20,8 +30,8 @@ type InitialClaimData = {
 
 type RightPanel =
   | { kind: "pending"; asset: string }
-  | { kind: "result"; data: DripResultData }
-  | { kind: "claim"; claimId: string; initialClaimData?: InitialClaimData }
+  | { kind: "result"; data: DripResultData; recipient: string }
+  | { kind: "claim"; claimId: string; initialClaimData?: InitialClaimData; recipient: string }
   | null;
 
 const PENDING_LABELS: Record<string, string> = {
@@ -89,41 +99,86 @@ function PendingPanel({ asset }: { asset: string }) {
   );
 }
 
-export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingProgress }: { footer?: React.ReactNode; onGoToAccount?: () => void; onSplitChange?: (isSplit: boolean) => void; onBridgingProgress?: (progress: number, isReady: boolean) => void }) {
+export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { footer?: React.ReactNode; onSplitChange?: (isSplit: boolean) => void; onBridgingProgress?: (progress: number, isReady: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
   const [activeAsset, setActiveAsset] = useState<string>("fee-juice");
+  // walletAddress = wallet bar's intent; formAddress = what's in the input.
+  // Bar diffs these to flip between "Connected" and "Connect".
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [connectedWallet, setConnectedWallet] = useState<Wallet | null>(null);
+  const [formAddress, setFormAddress] = useState<string>("");
+
+  const pushClaimUrl = useCallback((claimId: string, recipient: string, asset: string) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("claim", claimId);
+    url.searchParams.set("r", recipient);
+    url.searchParams.set("asset", asset);
+    history.replaceState(null, "", url.pathname + "?" + url.searchParams.toString());
+  }, []);
+
+  const clearClaimUrl = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("claim")) return;
+    url.searchParams.delete("claim");
+    url.searchParams.delete("r");
+    url.searchParams.delete("asset");
+    const qs = url.searchParams.toString();
+    history.replaceState(null, "", url.pathname + (qs ? "?" + qs : ""));
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const claimId = params.get("claim");
+    const recipient = params.get("r");
+    const asset = params.get("asset");
+    if (claimId && recipient) {
+      setRightPanel({ kind: "claim", claimId, recipient, initialClaimData: undefined });
+      if (asset) setActiveAsset(asset);
+    }
+  }, []);
 
   const handlePending = (asset: string) => {
     setRightPanel({ kind: "pending", asset });
+    clearClaimUrl();
   };
 
-  const handleSuccess = (data: DripResultData) => {
-    setRightPanel({ kind: "result", data });
+  const handleSuccess = (data: DripResultData, recipient: string) => {
+    setRightPanel({ kind: "result", data, recipient });
+    clearClaimUrl();
   };
 
-  const handleClaim = (claimId: string, initialClaimData?: InitialClaimData) => {
-    setRightPanel({ kind: "claim", claimId, initialClaimData });
+  const handleClaim = (claimId: string, initialClaimData: InitialClaimData | undefined, recipient: string) => {
+    setRightPanel({ kind: "claim", claimId, initialClaimData, recipient });
+    pushClaimUrl(claimId, recipient, activeAsset);
   };
 
   const handleError = () => {
     setRightPanel(null);
+    clearClaimUrl();
     onBridgingProgress?.(0, false);
   };
 
   const handleReset = () => {
     setRightPanel(null);
+    clearClaimUrl();
     onBridgingProgress?.(0, false);
   };
 
   const isSplit = rightPanel !== null;
   const pendingStart = useRef<number>(0);
+  const rightPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isSplit) rightPanelRef.current?.focus();
+  }, [isSplit]);
 
   useEffect(() => {
     onSplitChange?.(isSplit);
   }, [isSplit, onSplitChange]);
 
-  // Drive walking character during pending phase (0 -> 0.15 over ~20s)
-  // Real L1 tx takes ~15-20s before claim-tracker takes over
+  // Pending phase progress: 0 → 0.15 over ~20s before claim-tracker takes over.
   const isPendingFeeJuice = rightPanel?.kind === "pending" && rightPanel.asset === "fee-juice";
   useEffect(() => {
     if (!isPendingFeeJuice) return;
@@ -155,15 +210,28 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
               onPending={handlePending}
               onError={handleError}
               locked={isSplit}
-              onGoToAccount={onGoToAccount}
               onAssetChange={setActiveAsset}
+              prefilledAddress={walletAddress}
+              onAddressChange={setFormAddress}
+              headerRight={
+                <WalletConnectBar
+                  asset={activeAsset}
+                  currentFormAddress={formAddress}
+                  onAddress={setWalletAddress}
+                  onWalletConnect={setConnectedWallet}
+                />
+              }
             />
           </div>
         </div>
 
         {/* Right panel — slides in */}
         {isSplit && (
-          <div className={`w-full xl:w-1/2 xl:shrink-0 min-h-0 animate-slide-in-right ${rightPanel.kind === "pending" ? "self-stretch" : "self-start"}`}>
+          <div
+            ref={rightPanelRef}
+            tabIndex={-1}
+            className={`w-full xl:w-1/2 xl:shrink-0 min-h-0 animate-slide-in-right outline-none ${rightPanel.kind === "pending" ? "self-stretch" : "self-start"}`}
+          >
             <div className={`bg-surface-container border border-outline-variant/40 p-4 sm:p-5 md:p-7 shadow-2xl ${rightPanel.kind === "pending" ? "flex flex-col h-full overflow-x-hidden" : ""}`}>
               <div key={rightPanel.kind} className="flex flex-col animate-panel-state-in">
                 {rightPanel.kind === "pending" ? (
@@ -173,7 +241,10 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
                     result={rightPanel.data}
                     error={null}
                     retryAfter={null}
+                    recipient={rightPanel.recipient}
                     onReset={handleReset}
+                    connectedWallet={connectedWallet ?? undefined}
+                    connectedAddress={walletAddress ?? undefined}
                   />
                 ) : (
                   <>
@@ -182,8 +253,11 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
                       claimId={rightPanel.claimId}
                       initialClaimData={rightPanel.initialClaimData}
                       l1TxHash={rightPanel.initialClaimData?.l1TxHash}
+                      recipient={rightPanel.recipient}
                       onReset={handleReset}
                       onProgressChange={onBridgingProgress}
+                      connectedWallet={connectedWallet ?? undefined}
+                      connectedAddress={walletAddress ?? undefined}
                     />
                   </>
                 )}

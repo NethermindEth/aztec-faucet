@@ -63,6 +63,7 @@ export async function GET(
           Fr.fromHexString(messageHash),
         );
         if (witness !== undefined) {
+          // Stateless path: no createdAt → no expiresAt. Client keeps its own.
           return NextResponse.json({
             status: "ready",
             elapsedSeconds: 0,
@@ -77,19 +78,23 @@ export async function GET(
         console.error("[claim] Stateless fallback failed:", err);
       }
     }
+    // 404 unknown vs 410 known-expired (handled below).
     return NextResponse.json(
-      { error: "Claim not found" },
+      { error: "Claim not found", reason: "unknown" },
       { status: 404, headers: CORS_HEADERS_GET },
     );
   }
 
   const elapsed = Math.floor((Date.now() - claim.createdAt) / 1000);
+  // Absolute expiry lets the client count down locally across server 404s.
+  const expiresAt = claim.createdAt + CLAIM_EXPIRY_MS;
 
   switch (claim.status) {
     case "bridging":
       return NextResponse.json({
         status: "bridging",
         elapsedSeconds: elapsed,
+        expiresAt,
       }, { headers: CORS_HEADERS_GET });
 
     case "ready":
@@ -98,8 +103,9 @@ export async function GET(
         elapsedSeconds: elapsed,
         expiresInSeconds: Math.max(
           0,
-          Math.floor((claim.createdAt + CLAIM_EXPIRY_MS - Date.now()) / 1000),
+          Math.floor((expiresAt - Date.now()) / 1000),
         ),
+        expiresAt,
         claimData: claim.claimData,
         sdkSnippet: buildSdkSnippet(claim.claimData),
       }, { headers: CORS_HEADERS_GET });
@@ -108,6 +114,7 @@ export async function GET(
       return NextResponse.json({
         status: "expired",
         elapsedSeconds: elapsed,
-      }, { headers: CORS_HEADERS_GET });
+        expiresAt,
+      }, { status: 410, headers: CORS_HEADERS_GET });
   }
 }

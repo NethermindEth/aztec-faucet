@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Newsreader, Manrope, Space_Grotesk } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { BufferPolyfillMount } from "@/components/buffer-polyfill-mount";
 
 const newsreader = Newsreader({
   variable: "--font-newsreader",
@@ -35,7 +36,44 @@ export default function RootLayout({
         className={`${newsreader.variable} ${manrope.variable} ${spaceGrotesk.variable} antialiased overflow-x-hidden min-h-screen flex flex-col font-[family-name:var(--font-manrope)] text-[var(--on-surface)] select-none`}
         suppressHydrationWarning
       >
-        {/* Grain texture overlay */}
+        {/* Pre-hydration Buffer shim — Aztec SDK calls writeBigUInt64BE which
+            Turbopack's slim Buffer lacks. buffer-polyfill.ts does the full
+            swap after this, but it runs after hydration. */}
+        <Script id="buffer-bigint-shim" strategy="beforeInteractive">
+          {`
+(function(){
+  function shim(p) {
+    if (!p || typeof p.writeUInt32BE !== "function") return;
+    if (typeof p.writeBigUInt64BE !== "function") {
+      p.writeBigUInt64BE = function(v, o){ o=o||0; this.writeUInt32BE(Number((v>>32n)&0xffffffffn),o); this.writeUInt32BE(Number(v&0xffffffffn),o+4); return o+8; };
+    }
+    if (typeof p.writeBigUInt64LE !== "function") {
+      p.writeBigUInt64LE = function(v, o){ o=o||0; this.writeUInt32LE(Number(v&0xffffffffn),o); this.writeUInt32LE(Number((v>>32n)&0xffffffffn),o+4); return o+8; };
+    }
+    if (typeof p.writeBigInt64BE !== "function") {
+      p.writeBigInt64BE = function(v, o){ var u = v < 0n ? v + (1n<<64n) : v; return p.writeBigUInt64BE.call(this, u, o); };
+    }
+    if (typeof p.writeBigInt64LE !== "function") {
+      p.writeBigInt64LE = function(v, o){ var u = v < 0n ? v + (1n<<64n) : v; return p.writeBigUInt64LE.call(this, u, o); };
+    }
+    if (typeof p.readBigUInt64BE !== "function") {
+      p.readBigUInt64BE = function(o){ o=o||0; return (BigInt(this.readUInt32BE(o))<<32n)|BigInt(this.readUInt32BE(o+4)); };
+    }
+    if (typeof p.readBigUInt64LE !== "function") {
+      p.readBigUInt64LE = function(o){ o=o||0; return (BigInt(this.readUInt32LE(o+4))<<32n)|BigInt(this.readUInt32LE(o)); };
+    }
+    if (typeof p.readBigInt64BE !== "function") {
+      p.readBigInt64BE = function(o){ var u = p.readBigUInt64BE.call(this, o); return u >= (1n<<63n) ? u - (1n<<64n) : u; };
+    }
+    if (typeof p.readBigInt64LE !== "function") {
+      p.readBigInt64LE = function(o){ var u = p.readBigUInt64LE.call(this, o); return u >= (1n<<63n) ? u - (1n<<64n) : u; };
+    }
+  }
+  if (typeof globalThis !== "undefined" && globalThis.Buffer) shim(globalThis.Buffer.prototype);
+})();
+          `}
+        </Script>
+        <BufferPolyfillMount />
         <div className="grain" />
         {children}
         {process.env.NEXT_PUBLIC_CLARITY_TAG_ID && (

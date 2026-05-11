@@ -1,4 +1,4 @@
-import { type Hex, formatEther, isAddress } from "viem";
+import { type Hex, formatEther } from "viem";
 import { L1Faucet } from "./l1-faucet";
 import { L2Faucet, type FeeJuiceClaimData } from "./l2-faucet";
 import { Throttle, ThrottleError } from "./throttle";
@@ -79,6 +79,10 @@ export class FaucetManager {
   private throttle: Throttle;
   private ipThrottle: Throttle;
   private claimStore: ClaimStore;
+  // Prevents concurrent bridge txs for the same address — two overlapping requests
+  // both pass throttle.check() before either calls throttle.record(), causing a
+  // nonce conflict on L1. The set is keyed by "address:asset".
+  private inFlight = new Set<string>();
   private constructor() {
     const l1PrivateKey = requireEnv("FAUCET_PRIVATE_KEY") as Hex;
     const l1RpcUrl = requireEnv("L1_RPC_URL");
@@ -124,36 +128,52 @@ export class FaucetManager {
     const trimmed = address.trim();
     this.validateAddress(trimmed, asset);
 
+    // Lowercase once and use *only* the normalized form past this point.
+    // EIP-55 accepts mixed case for Ethereum addresses and Aztec addresses
+    // are byte-equivalent regardless of hex case, so this is purely a
+    // bookkeeping invariant: the same address must resolve to the same
+    // throttle key, the same stored claim record, and the same bridge
+    // recipient. Pass-through to bridgeFeeJuice() / claimStore.add() also
+    // gets the normalized form so audit log lines and persisted claim
+    // records all agree on a single canonical case.
     const normalizedAddress = trimmed.toLowerCase();
     this.throttle.check(normalizedAddress, asset);
     if (ip) this.ipThrottle.check(ip, asset);
 
+    const inFlightKey = `${normalizedAddress}:${asset}`;
+    if (this.inFlight.has(inFlightKey)) {
+      throw new ThrottleError(asset, 30_000);
+    }
+    this.inFlight.add(inFlightKey);
+
     let result: DripResult;
 
-    switch (asset) {
-      case "eth": {
-        const txHash = await this.l1Faucet.sendEth(normalizedAddress as Hex);
-        result = { success: true, asset, txHash };
-        break;
+    try {
+      switch (asset) {
+        case "eth": {
+          const txHash = await this.l1Faucet.sendEth(normalizedAddress as Hex);
+          result = { success: true, asset, txHash };
+          break;
+        }
+        case "fee-juice": {
+          const claimData = await this.l2Faucet.bridgeFeeJuice(normalizedAddress);
+          const claimId = this.claimStore.add(normalizedAddress, claimData);
+          result = {
+            success: true,
+            asset,
+            claimId,
+            claimStatus: "bridging",
+            claimData,
+          };
+          break;
+        }
+        default: {
+          const _exhaustive: never = asset;
+          throw new Error(`Unknown asset: ${_exhaustive}`);
+        }
       }
-      case "fee-juice": {
-        const claimData = await this.l2Faucet.bridgeFeeJuice(trimmed);
-        const claimId = this.claimStore.add(trimmed, claimData);
-        result = {
-          success: true,
-          asset,
-          claimId,
-          claimStatus: "bridging",
-          // Include claimData in the initial response so the client has it
-          // even if the polling endpoint later fails (e.g., server restart).
-          claimData,
-        };
-        break;
-      }
-      default: {
-        const _exhaustive: never = asset;
-        throw new Error(`Unknown asset: ${_exhaustive}`);
-      }
+    } finally {
+      this.inFlight.delete(inFlightKey);
     }
 
     this.throttle.record(normalizedAddress, asset);
@@ -171,7 +191,7 @@ export class FaucetManager {
     }
 
     if (asset === "eth") {
-      if (!isAddress(address)) {
+      if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
         throw new AddressValidationError(
           "Invalid Ethereum address. Expected a 0x-prefixed 40-character hex string (e.g. 0xAbC...123)",
         );

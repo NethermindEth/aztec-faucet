@@ -144,74 +144,53 @@ export default function Home() {
           view === "faucet" ? "animate-panel-state-in w-full h-full" :
           "hidden"
         }>
-          <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-8 items-center h-full">
-            {/* Left: Editorial branding — hidden when result panel is showing */}
-            <div className={`${faucetSplit ? "hidden" : "flex"} lg:col-span-5 flex-col gap-3 justify-center`}>
-              <div className="flex items-center gap-3">
-                <span className="w-8 h-px bg-accent" />
-                <span className="font-label text-[10px] tracking-[0.3em] uppercase text-accent">
-                  Testnet Faucet
-                </span>
-              </div>
-              <h1 className="font-headline text-4xl md:text-5xl lg:text-6xl leading-[0.9] italic tracking-tighter text-on-surface">
-                The Next <br /> Renaissance.
-              </h1>
-              <p className="font-body text-sm md:text-base text-on-surface-variant max-w-sm leading-relaxed opacity-80">
-                Get testnet tokens for the first decentralized, privacy-preserving L2 on Ethereum. Fee Juice and ETH, one click away.
-              </p>
-              <div className="p-4 bg-surface-high border-l-4 border-accent max-w-xs">
-                <span className="font-label text-[9px] text-accent uppercase block mb-1">Aztec Network</span>
-                <p className="text-xs font-body italic text-on-surface-variant">
-                  &ldquo;Don&apos;t take our word for it. Trust the code.&rdquo;
-                </p>
-              </div>
-
-              {/* Links */}
-              <div className="flex flex-wrap gap-2 mt-1">
-                <a
-                  href="https://docs.aztec.network"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-ghost px-4 py-2 text-[10px]"
-                >
-                  Documentation
-                </a>
-                <a
-                  href="https://docs.aztec.network/guides/getting_started"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-ghost px-4 py-2 text-[10px]"
-                >
-                  Getting Started
-                </a>
-                <button
-                  type="button"
-                  onClick={() => switchTab("status")}
-                  className="btn-ghost px-4 py-2 text-[10px]"
-                >
-                  API Status
-                </button>
-              </div>
-
-              {/* Fee Juice helper accordions */}
-              <FeeJuiceHelpers onGoToAccount={() => switchTab("keys")} />
-            </div>
-
-            {/* Right: Faucet form card */}
-            <div className={faucetSplit ? "lg:col-span-12" : "lg:col-span-7"}>
+          <div className="w-full max-w-7xl mx-auto flex flex-col items-center gap-4 h-full pt-8 md:pt-12">
+            {/* Faucet form */}
+            <div className={faucetSplit ? "w-full" : "w-full max-w-2xl"}>
               <FaucetLayout
-                onGoToAccount={() => switchTab("keys")}
                 onSplitChange={setFaucetSplit}
                 onBridgingProgress={handleBridgingProgress}
                 footer={
                   <div className="mt-3">
                     <p className="font-label text-[10px] text-center text-on-surface-variant uppercase tracking-widest opacity-40">
-                      One request per token per 24 hours
+                      One request per token per 8 hours
                     </p>
                   </div>
                 }
               />
             </div>
+
+            {/* Links + FAQ accordions — hidden during split (bridging/claim) */}
+            {!faucetSplit && (
+              <div className="w-full max-w-2xl flex flex-col gap-3 mt-10">
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <a
+                    href="https://docs.aztec.network"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-ghost px-4 py-2 text-[10px]"
+                  >
+                    Documentation
+                  </a>
+                  <a
+                    href="https://docs.aztec.network/guides/getting_started"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-ghost px-4 py-2 text-[10px]"
+                  >
+                    Getting Started
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => switchTab("status")}
+                    className="btn-ghost px-4 py-2 text-[10px]"
+                  >
+                    API Status
+                  </button>
+                </div>
+                <FeeJuiceHelpers onGoToAccount={() => switchTab("keys")} />
+              </div>
+            )}
           </div>
         </div>
 

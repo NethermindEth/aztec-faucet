@@ -245,7 +245,7 @@ try {
       "No matching L1 to L2 message found on the node.\n" +
       "         Possible causes:\n" +
       "           - Your secret key does not match the address you dripped to\n" +
-      "           - The bridge is not ready yet — wait ~2 minutes and try again\n" +
+      "           - The bridge is not ready yet — wait ~3-4 minutes and try again\n" +
       "           - The claim values (amount, secret, leaf index) are incorrect"
     );
   }

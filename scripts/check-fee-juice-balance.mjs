@@ -106,7 +106,7 @@ try {
   if (balance === 0n) {
     console.log(`  No balance found. Possible reasons:
     - Haven't requested Fee Juice from the faucet yet
-    - L1→L2 bridge is still pending (~2 minutes)
+    - L1→L2 bridge is still pending (~3-4 minutes)
     - Haven't claimed yet (run the claim command from the faucet UI)
     - Fee Juice was already spent on transactions
 `);

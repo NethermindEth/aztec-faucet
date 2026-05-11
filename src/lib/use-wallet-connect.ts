@@ -44,7 +44,7 @@ export function useWalletConnect() {
             ? { kind: "discovering", providers: [...prev.providers, p] }
             : prev,
         );
-      }, 6000);
+      }, 10000);
     } catch (err) {
       setPhase({
         kind: "error",

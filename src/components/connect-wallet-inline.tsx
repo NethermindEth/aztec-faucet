@@ -42,6 +42,7 @@ export function ConnectWalletInline({ onAddress }: Props) {
         pickProvider={pickProvider}
         confirm={confirm}
         reject={reject}
+        start={start}
         reset={reset}
       />
     </>

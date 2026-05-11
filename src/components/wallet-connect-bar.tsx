@@ -876,6 +876,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           confirm={azguard.confirm}
           reject={azguard.reject}
           reset={azguard.reset}
+          start={azguard.start}
         />
       )}
     </div>

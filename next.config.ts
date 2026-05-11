@@ -5,10 +5,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
     resolveAlias: {
-      // Turbopack injects globalThis.Buffer by importing from
-      // next/dist/compiled/buffer (which lacks writeBigUInt64BE).
-      // Redirect that internal path to the full npm `buffer` package so the
-      // Aztec SDK's BigInt serialisation methods are available in browser bundles.
+      // Turbopack's stripped Buffer lacks writeBigUInt64BE — swap to full npm buffer.
       "next/dist/compiled/buffer/index.js": "./node_modules/buffer/index.js",
       "next/dist/compiled/buffer": "./node_modules/buffer/index.js",
     },
@@ -30,14 +27,8 @@ const nextConfig: NextConfig = {
     "pino-pretty",
     "thread-stream",
   ],
-  // Explicitly include pino transport packages in the standalone output.
-  // These are dynamically loaded by the Aztec SDK's pino logger via worker
-  // threads — the static file tracer misses them without this hint.
-  // COOP/COEP headers are needed in production for Barretenberg WASM
-  // (SharedArrayBuffer in cross-origin-isolated context). On localhost,
-  // browsers auto-enable SharedArrayBuffer without these headers, AND the
-  // headers can interfere with browser extension content-script messaging
-  // (Azguard discovery broadcasts time out). Skip in dev.
+  // Barretenberg WASM needs cross-origin isolation in prod for SharedArrayBuffer.
+  // In dev these headers break browser-extension messaging (Azguard discovery).
   async headers() {
     if (process.env.NODE_ENV !== "production") return [];
     return [

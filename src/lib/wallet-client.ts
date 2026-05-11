@@ -30,7 +30,6 @@ export async function getChainInfo(): Promise<ChainInfo> {
       return cachedChainInfo;
     }
   }
-  // fallback: ask the node directly via aztec.js
   const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
   const node = createAztecNodeClient(NODE_URL);
   const info = await node.getNodeInfo();
@@ -77,8 +76,7 @@ export function verificationEmojis(pending: PendingConnection): string {
   return hashToEmoji(pending.verificationHash);
 }
 
-// Aliased<AztecAddress> unwrap helper. The wrapper might have .item or .address;
-// the inner can be an AztecAddress object (use toString) or a hex string.
+// Aliased<AztecAddress> unwrap — wrapper may have .item or .address.
 export function unwrapAddress(raw: unknown): string {
   if (typeof raw === "string") return raw;
   const r = raw as {

@@ -60,9 +60,6 @@ export function useWalletConnect() {
       const emojis = verificationEmojis(pending);
       setPhase({ kind: "verifying", provider, pending, emojis });
     } catch (err) {
-      // Detect popup-blocker symptoms so the modal's ErrorBody can render
-      // the "allow popups" guidance. Some web wallets (and some extension
-      // wallets that delegate to a popup window) silently fail this way.
       const raw = err instanceof Error ? err.message : "Failed to connect";
       const lower = raw.toLowerCase();
       const looksLikePopupBlocked =
@@ -80,17 +77,9 @@ export function useWalletConnect() {
     }
   }, []);
 
-  // Note for support / future maintainers:
-  //
-  // If the user hard-refreshes (or closes the tab) while the modal is in
-  // the "verifying" phase, the wallet side ends up holding a
-  // PendingConnection that we never confirm or cancel. The wallet-sdk
-  // protocol gives us no clean way to cancel that from the dApp on the
-  // next page load — pending.cancel() requires a live PendingConnection
-  // reference that's gone with the page. Most wallets time these out
-  // server-side after a few minutes; if a user reports "Azguard says
-  // connection is still pending" right after a refresh, that's why.
-  // Workaround for the user is to dismiss the prompt inside the wallet.
+  // Hard-refresh while "verifying" leaves a PendingConnection orphaned on the
+  // wallet side; the SDK has no cross-page cancel. Wallets time it out
+  // server-side. Support workaround: user dismisses the prompt in the wallet.
   const confirm = useCallback(async () => {
     setPhase((prev) => {
       if (prev.kind !== "verifying") return prev;
@@ -99,13 +88,8 @@ export function useWalletConnect() {
           const wallet = await confirmConnection(prev.pending);
           const { unwrapAddress } = await import("@/lib/wallet-client");
 
-          // Azguard shows the "Permission request" popup (capabilities + emoji
-          // verification) as part of pending.confirm() — by the time
-          // confirmConnection() resolves here, all capabilities are already
-          // granted. Call getAccounts() directly to avoid triggering a
-          // redundant requestCapabilities popup. Fall back to
-          // requestCapabilities only if getAccounts is still unauthorized
-          // (older wallet / SDK versions that don't pre-grant via confirm).
+          // pending.confirm() already grants capabilities; call getAccounts
+          // directly to avoid a redundant requestCapabilities popup.
           let raw: unknown;
           try {
             const accounts = await wallet.getAccounts();
@@ -122,10 +106,7 @@ export function useWalletConnect() {
             }
           }
           if (raw === undefined) {
-            // Specific phrasing the modal's ErrorBody picks up to render
-            // an actionable "create an account in your wallet" panel
-            // instead of a generic error string. Common with brand-new
-            // Azguard installs that haven't completed onboarding yet.
+            // Phrasing here is matched by ErrorBody for the "create account" panel.
             setPhase({
               kind: "error",
               message: "Your wallet has no accounts. Create or import an Aztec account in the wallet, then connect again.",

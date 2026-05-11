@@ -36,16 +36,10 @@ type Props = {
   reject: () => void;
   reset: () => void;
   start: () => void;
-  onConnected?: (address: string) => void;
 };
 
-export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, start, onConnected }: Props) {
-  if (phase.kind === "idle") return null;
-
-  if (phase.kind === "connected") {
-    onConnected?.(phase.address);
-    return null;
-  }
+export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, start }: Props) {
+  if (phase.kind === "idle" || phase.kind === "connected") return null;
 
   if (phase.kind === "discovering") {
     return (

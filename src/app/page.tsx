@@ -148,7 +148,6 @@ export default function Home() {
             {/* Faucet form */}
             <div className={faucetSplit ? "w-full" : "w-full max-w-2xl"}>
               <FaucetLayout
-                onGoToAccount={() => switchTab("keys")}
                 onSplitChange={setFaucetSplit}
                 onBridgingProgress={handleBridgingProgress}
                 footer={

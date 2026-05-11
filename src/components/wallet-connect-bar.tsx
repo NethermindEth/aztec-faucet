@@ -83,7 +83,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     if (p.aztec) writePersisted({ ...p, aztec: null });
   }, []);
 
-  // ── Aztec / Azguard ────────────────────────────────────────────────────
   const azguard = useWalletConnect();
 
   useEffect(() => {
@@ -98,12 +97,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     azguard.reset();
   }, [azguard, onAddress, isEth, onWalletConnect]);
 
-  // ── Ethereum (EIP-6963 + legacy fallback) ──────────────────────────────
   const { providers: ethProviders } = useEthereumProviders();
 
-  // Wire account / chain change listeners onto whichever provider we're
-  // currently using. Re-runs when we swap providers (e.g. user disconnects
-  // MetaMask and picks Rabby).
   const attachProviderListeners = useCallback(
     (p: EthereumProvider) => {
       if (!p.on) return () => undefined;
@@ -280,10 +275,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Multi-tab sync. If another faucet tab disconnects (or connects to a
-  // different account), the storage event fires here. Without this,
-  // closing in tab 1 leaves tab 2 stuck showing a stale "Connected" badge
-  // and pre-filling the form with an address the user just disconnected.
+  // Multi-tab sync — without this, disconnecting in tab 1 leaves tab 2 stale.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handler = (e: StorageEvent) => {

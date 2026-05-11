@@ -85,7 +85,6 @@ export function FaucetForm({
   onPending,
   onError,
   locked = false,
-  onGoToAccount,
   onAssetChange,
   prefilledAddress,
   onAddressChange,
@@ -96,7 +95,6 @@ export function FaucetForm({
   onPending: (asset: string) => void;
   onError: () => void;
   locked?: boolean;
-  onGoToAccount?: () => void;
   onAssetChange?: (asset: string) => void;
   prefilledAddress?: string | null;
   onAddressChange?: (addr: string) => void;
@@ -123,9 +121,6 @@ export function FaucetForm({
   const [error, setError] = useState<string | null>(null);
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
   const [clipboardBlocked, setClipboardBlocked] = useState(false);
-  const [openAccordion, setOpenAccordion] = useState<"address" | "timing" | null>(null);
-  const toggleAccordion = (name: "address" | "timing") =>
-    setOpenAccordion((prev) => (prev === name ? null : name));
 
   const currentAsset = ASSETS.find((a) => a.value === asset)!;
   const isEthAddress = currentAsset.addressType === "ethereum";

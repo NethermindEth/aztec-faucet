@@ -36,13 +36,13 @@ export default function RootLayout({
         className={`${newsreader.variable} ${manrope.variable} ${spaceGrotesk.variable} antialiased overflow-x-hidden min-h-screen flex flex-col font-[family-name:var(--font-manrope)] text-[var(--on-surface)] select-none`}
         suppressHydrationWarning
       >
-        {/* Patch globalThis.Buffer.prototype before any other client JS runs.
-            Some Aztec SDK serialize paths use Buffer.writeBigUInt64BE which is
-            missing from Turbopack's slim Buffer shim. */}
+        {/* Pre-hydration Buffer shim — Aztec SDK calls writeBigUInt64BE which
+            Turbopack's slim Buffer lacks. buffer-polyfill.ts does the full
+            swap after this, but it runs after hydration. */}
         <Script id="buffer-bigint-shim" strategy="beforeInteractive">
           {`
 (function(){
-  function shimProto(p) {
+  function shim(p) {
     if (!p || typeof p.writeUInt32BE !== "function") return;
     if (typeof p.writeBigUInt64BE !== "function") {
       p.writeBigUInt64BE = function(v, o){ o=o||0; this.writeUInt32BE(Number((v>>32n)&0xffffffffn),o); this.writeUInt32BE(Number(v&0xffffffffn),o+4); return o+8; };
@@ -69,19 +69,11 @@ export default function RootLayout({
       p.readBigInt64LE = function(o){ var u = p.readBigUInt64LE.call(this, o); return u >= (1n<<63n) ? u - (1n<<64n) : u; };
     }
   }
-  if (typeof globalThis !== "undefined" && globalThis.Buffer) {
-    shimProto(globalThis.Buffer.prototype);
-  }
-  // Re-run after Turbopack has loaded its bundle (which may replace globalThis.Buffer
-  // with a fresh stripped copy, undoing the patch above). This catches any later swap.
-  if (typeof window !== "undefined") {
-    window.__bufferShimProto = shimProto;
-  }
+  if (typeof globalThis !== "undefined" && globalThis.Buffer) shim(globalThis.Buffer.prototype);
 })();
           `}
         </Script>
         <BufferPolyfillMount />
-        {/* Grain texture overlay */}
         <div className="grain" />
         {children}
         {process.env.NEXT_PUBLIC_CLARITY_TAG_ID && (

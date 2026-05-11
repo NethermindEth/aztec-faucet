@@ -99,7 +99,7 @@ function PendingPanel({ asset }: { asset: string }) {
   );
 }
 
-export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingProgress }: { footer?: React.ReactNode; onGoToAccount?: () => void; onSplitChange?: (isSplit: boolean) => void; onBridgingProgress?: (progress: number, isReady: boolean) => void }) {
+export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { footer?: React.ReactNode; onSplitChange?: (isSplit: boolean) => void; onBridgingProgress?: (progress: number, isReady: boolean) => void }) {
   const [rightPanel, setRightPanel] = useState<RightPanel>(null);
   const [activeAsset, setActiveAsset] = useState<string>("fee-juice");
   // walletAddress = wallet bar's intent; formAddress = what's in the input.
@@ -210,7 +210,6 @@ export function FaucetLayout({ footer, onGoToAccount, onSplitChange, onBridgingP
               onPending={handlePending}
               onError={handleError}
               locked={isSplit}
-              onGoToAccount={onGoToAccount}
               onAssetChange={setActiveAsset}
               prefilledAddress={walletAddress}
               onAddressChange={setFormAddress}

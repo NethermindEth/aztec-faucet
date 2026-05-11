@@ -42,11 +42,14 @@ type Props = {
   confirm: () => void;
   reject: () => void;
   reset: () => void;
+  // Retry discovery — used when the user unlocks their wallet after the
+  // initial 6s discovery window has elapsed.
+  start: () => void;
   // Called once the wallet returns an address. Modal hides itself after.
   onConnected?: (address: string) => void;
 };
 
-export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, onConnected }: Props) {
+export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, start, onConnected }: Props) {
   if (phase.kind === "idle") return null;
 
   if (phase.kind === "connected") {
@@ -57,7 +60,7 @@ export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset
   if (phase.kind === "discovering") {
     return (
       <Modal title="Choose a wallet" onClose={reset}>
-        <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} />
+        <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} start={start} />
       </Modal>
     );
   }
@@ -119,29 +122,46 @@ function DiscoveringBody({
   providers,
   pickProvider,
   reset,
+  start,
 }: {
   providers: import("@/lib/wallet-client").WalletProvider[];
   pickProvider: (p: import("@/lib/wallet-client").WalletProvider) => void;
   reset: () => void;
+  start: () => void;
 }) {
-  // After the wallet-sdk's discovery timeout expires (6s), if zero
+  // After the wallet-sdk's discovery timeout expires (10s), if zero
   // providers responded, the modal would otherwise sit forever on
-  // "Looking for installed wallets..." Bump it to a clear "no wallets
-  // detected" state with a link to install Azguard, and an explicit
-  // close button so the user isn't trapped.
+  // "Looking for installed wallets..." Surface a clear "not found yet"
+  // state with Retry and Install actions. Retry covers the common case
+  // where the user was unlocking their wallet (entering a password) and
+  // didn't finish before the initial probe expired.
+  const [attempt, setAttempt] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setTimedOut(true), 6000);
+    setTimedOut(false);
+    const t = setTimeout(() => setTimedOut(true), 10000);
     return () => clearTimeout(t);
-  }, []);
+  }, [attempt]);
+
+  const handleRetry = () => {
+    setAttempt((a) => a + 1);
+    start();
+  };
 
   if (providers.length === 0 && timedOut) {
     return (
       <div className="space-y-3">
         <p className="font-label text-xs leading-relaxed text-on-surface-variant">
-          No Aztec wallets detected. Install Azguard or another Aztec-compatible
-          wallet, then click Connect again.
+          No Aztec wallets found yet. If your wallet is locked, unlock it and
+          click Retry. Otherwise, install Azguard to continue.
         </p>
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="block w-full border border-accent bg-accent/10 px-3 py-2 font-label text-xs uppercase tracking-wider text-accent transition-colors hover:bg-accent/20"
+        >
+          Retry
+        </button>
         <a
           href="https://chromewebstore.google.com/detail/azguard-wallet/pliilpgjnbkndmcgkfpdmmpkagblcmgi"
           target="_blank"

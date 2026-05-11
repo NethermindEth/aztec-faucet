@@ -193,6 +193,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
         confirm={confirm}
         reject={reject}
         reset={reset}
+        start={start}
       />
       {claim.kind === "success" && (
         <Modal title="Claim complete" onClose={closeClaim}>

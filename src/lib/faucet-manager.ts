@@ -79,6 +79,10 @@ export class FaucetManager {
   private throttle: Throttle;
   private ipThrottle: Throttle;
   private claimStore: ClaimStore;
+  // Prevents concurrent bridge txs for the same address — two overlapping requests
+  // both pass throttle.check() before either calls throttle.record(), causing a
+  // nonce conflict on L1. The set is keyed by "address:asset".
+  private inFlight = new Set<string>();
   private constructor() {
     const l1PrivateKey = requireEnv("FAUCET_PRIVATE_KEY") as Hex;
     const l1RpcUrl = requireEnv("L1_RPC_URL");
@@ -136,32 +140,40 @@ export class FaucetManager {
     this.throttle.check(normalizedAddress, asset);
     if (ip) this.ipThrottle.check(ip, asset);
 
+    const inFlightKey = `${normalizedAddress}:${asset}`;
+    if (this.inFlight.has(inFlightKey)) {
+      throw new ThrottleError(asset, 30_000);
+    }
+    this.inFlight.add(inFlightKey);
+
     let result: DripResult;
 
-    switch (asset) {
-      case "eth": {
-        const txHash = await this.l1Faucet.sendEth(normalizedAddress as Hex);
-        result = { success: true, asset, txHash };
-        break;
+    try {
+      switch (asset) {
+        case "eth": {
+          const txHash = await this.l1Faucet.sendEth(normalizedAddress as Hex);
+          result = { success: true, asset, txHash };
+          break;
+        }
+        case "fee-juice": {
+          const claimData = await this.l2Faucet.bridgeFeeJuice(normalizedAddress);
+          const claimId = this.claimStore.add(normalizedAddress, claimData);
+          result = {
+            success: true,
+            asset,
+            claimId,
+            claimStatus: "bridging",
+            claimData,
+          };
+          break;
+        }
+        default: {
+          const _exhaustive: never = asset;
+          throw new Error(`Unknown asset: ${_exhaustive}`);
+        }
       }
-      case "fee-juice": {
-        const claimData = await this.l2Faucet.bridgeFeeJuice(normalizedAddress);
-        const claimId = this.claimStore.add(normalizedAddress, claimData);
-        result = {
-          success: true,
-          asset,
-          claimId,
-          claimStatus: "bridging",
-          // Include claimData in the initial response so the client has it
-          // even if the polling endpoint later fails (e.g., server restart).
-          claimData,
-        };
-        break;
-      }
-      default: {
-        const _exhaustive: never = asset;
-        throw new Error(`Unknown asset: ${_exhaustive}`);
-      }
+    } finally {
+      this.inFlight.delete(inFlightKey);
     }
 
     this.throttle.record(normalizedAddress, asset);

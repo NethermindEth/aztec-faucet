@@ -105,10 +105,7 @@ export function FaucetForm({
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("fee-juice");
 
-  // External wallet-connect bar pushes an address in (or "" to clear on
-  // disconnect). `null`/`undefined` means "no opinion" — leave the form
-  // alone. Strip whitespace defensively in case a wallet hands us a
-  // padded string.
+  // null/undefined = no opinion; empty string = explicit clear (e.g. disconnect).
   useEffect(() => {
     if (prefilledAddress === undefined || prefilledAddress === null) return;
     const cleaned = prefilledAddress.replace(/\s+/g, "");
@@ -118,8 +115,6 @@ export function FaucetForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefilledAddress]);
 
-  // Notify parent of every address change so it can correlate with the
-  // connected wallet's stored address.
   useEffect(() => {
     onAddressChange?.(address);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,9 +140,6 @@ export function FaucetForm({
 
     if (isEthAddress) {
       if (!isValidEthAddress(trimmed)) {
-        // Surface the inverse mistake too: a 64-hex Aztec address pasted
-        // into the ETH field would otherwise just say "Invalid Ethereum
-        // address" and leave the user guessing.
         if (isValidAztecAddress(trimmed)) {
           return `This looks like an Aztec address. ${currentAsset.label} requires an Ethereum address (0x + 40 hex chars)`;
         }
@@ -255,18 +247,11 @@ export function FaucetForm({
             value={address}
             onChange={(e) => {
               if (locked) return;
-              // Strip whitespace on every change. Catches Cmd-V pastes
-              // (which bypass the Paste button's trim()) and the common
-              // copy-with-trailing-newline case from terminals. Also
-              // squashes any internal whitespace — addresses are 0x
-              // followed by hex; whitespace anywhere is meaningless.
+              // Addresses are 0x + hex; strip any whitespace.
               setAddress(e.target.value.replace(/\s+/g, ""));
               if (error) setError(null);
             }}
             onPaste={(e) => {
-              // Belt-and-suspenders: some browsers fire onChange with the
-              // un-cleaned value before we can react. Pre-clean the
-              // pasted text so the cursor lands at the right column.
               if (locked) return;
               const pasted = e.clipboardData.getData("text").replace(/\s+/g, "");
               if (!pasted) return;

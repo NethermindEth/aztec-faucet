@@ -154,12 +154,8 @@ type DripResultProps = {
   result: DripResultData | null;
   error: string | null;
   retryAfter: number | null;
-  // Address the drip was sent to. Threaded through to WalletClaimButton
-  // so it can do the wallet/recipient mismatch pre-flight check.
   recipient?: string;
   onReset?: () => void;
-  // Pre-connected wallet from the header bar. Passed to WalletClaimButton
-  // so it can skip the connection flow when the addresses match.
   connectedWallet?: Wallet;
   connectedAddress?: string;
 };
@@ -413,10 +409,7 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
 
 
 export function DripResult({ result, error, retryAfter, recipient, onReset, connectedWallet, connectedAddress }: DripResultProps) {
-  // Tracks the wallet-side claim. Once set, the wallet button + CLI block
-  // collapse into a single "claim complete" panel — at that point the
-  // bridge message is already nullified, so showing the CLI fallback would
-  // just confuse users.
+  // Once the wallet claim lands, bridge message is nullified → hide CLI fallback.
   const [walletClaimedTx, setWalletClaimedTx] = useState<string | null>(null);
 
   if (error) {

@@ -99,6 +99,26 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     azguard.reset();
   }, [azguard, onAddress, isEth, onWalletConnect]);
 
+  // Picker click handler — applies the pick synchronously to bar state and the
+  // parent form, then transitions phase. Avoids relying solely on the
+  // connected-phase useEffect, which has missed the update in some flows.
+  const handlePickAccount = useCallback(
+    (addr: string) => {
+      const wallet =
+        azguard.phase.kind === "picking-account"
+          ? azguard.phase.wallet
+          : aztecWalletRef.current;
+      aztecWalletRef.current = wallet;
+      setAztecAddr(addr);
+      if (!isEth) {
+        onAddress(addr);
+        if (wallet) onWalletConnect?.(wallet);
+      }
+      azguard.pickAccount(addr);
+    },
+    [azguard, isEth, onAddress, onWalletConnect],
+  );
+
   const { providers: ethProviders } = useEthereumProviders();
 
   const attachProviderListeners = useCallback(
@@ -723,7 +743,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           reject={azguard.reject}
           reset={azguard.reset}
           start={azguard.start}
-          pickAccount={azguard.pickAccount}
+          pickAccount={handlePickAccount}
         />
       )}
     </div>

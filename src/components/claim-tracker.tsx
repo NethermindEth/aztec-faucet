@@ -80,7 +80,33 @@ export function ClaimTracker({
   const [showAllFields, setShowAllFields] = useState(false);
   // Once the wallet-side claim succeeds the bridge message is nullified;
   // collapse the wallet button + CLI fallback into a completion panel.
-  const [walletClaimedTx, setWalletClaimedTx] = useState<string | null>(null);
+  // Persisted per claimId so a refresh doesn't resurrect the Claim button on
+  // an already-consumed bridge message. CLI/snippet claims happen outside our
+  // UI so we can't detect those — only the in-wallet path is trackable.
+  const [walletClaimedTx, setWalletClaimedTxState] = useState<string | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      try {
+        return window.localStorage.getItem(`faucet:claim-tx:${claimId}`);
+      } catch {
+        return null;
+      }
+    },
+  );
+  const setWalletClaimedTx = useCallback(
+    (tx: string | null) => {
+      setWalletClaimedTxState(tx);
+      if (typeof window === "undefined") return;
+      try {
+        const key = `faucet:claim-tx:${claimId}`;
+        if (tx) window.localStorage.setItem(key, tx);
+        else window.localStorage.removeItem(key);
+      } catch {
+        // ignore quota / disabled storage
+      }
+    },
+    [claimId],
+  );
   const startTimeRef = useRef(Date.now());
 
   const poll = useCallback(async () => {

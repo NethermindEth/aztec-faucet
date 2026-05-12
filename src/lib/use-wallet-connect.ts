@@ -99,7 +99,7 @@ export function useWalletConnect() {
               const granted = await wallet.requestCapabilities(faucetCapabilities());
               const accountsCap = granted.granted.find((c) => c.type === "accounts");
               const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
-              rawAccounts = cap ? [cap[0]] : undefined;
+              rawAccounts = cap ? Array.from(cap) : undefined;
             } catch (capErr) {
               console.warn("requestCapabilities failed:", capErr);
             }

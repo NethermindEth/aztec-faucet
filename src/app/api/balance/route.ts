@@ -14,7 +14,7 @@ const FEE_JUICE_CONTRACT_ADDRESS = AztecAddress.fromBigInt(5n);
 // FeeJuice contract stores per-account balances in a Noir Map at storage slot 1.
 const FEE_JUICE_BALANCES_SLOT = new Fr(1);
 
-export type DeploymentStatus = "deployed" | "pending" | "not_deployed";
+export type DeploymentStatus = "deployed" | "not_deployed";
 
 function formatFeeJuice(raw: bigint): string {
   const str = raw.toString().padStart(19, "0");
@@ -38,22 +38,21 @@ export async function GET(request: Request) {
     const node = createAztecNodeClient(NODE_URL);
     const owner = AztecAddress.fromString(address);
     const balanceSlot = await deriveStorageSlotInMap(FEE_JUICE_BALANCES_SLOT, owner);
-    // Public storage reads from the latest *proposed* block, while getContract
-    // reads from *proven* state. After a fresh deploy+claim, the balance is
-    // visible on the proposed tip (immediately) but the contract instance only
-    // becomes visible on the proven tip (~5–15 min later on testnet). We
-    // surface this gap as a tri-state instead of saying "Not Deployed" while
-    // a balance is sitting on the address.
+    // Mirror wallet behavior (Grego, Aztec alpha team): wallets consider txs
+    // mined on the proposed chain. Balance reads "latest" (proposed). For
+    // deployment, treat "either getContract resolves OR balance > 0" as
+    // deployed. The second clause kills the proven-tip-lag gap right after a
+    // fresh claim (the FJ payment method runs claim_and_end_setup atomically
+    // with the wallet's entrypoint wrap, so balance > 0 implies an account
+    // tx landed). Edge case ignored: FJ transferred to a never-deployed
+    // address would also report deployed.
     const [balanceField, instance] = await Promise.all([
       node.getPublicStorageAt("latest", FEE_JUICE_CONTRACT_ADDRESS, balanceSlot),
       node.getContract(owner).catch(() => undefined),
     ]);
     const balance = balanceField.toBigInt();
-    const deploymentStatus: DeploymentStatus = instance
-      ? "deployed"
-      : balance > 0n
-        ? "pending"
-        : "not_deployed";
+    const deploymentStatus: DeploymentStatus =
+      instance || balance > 0n ? "deployed" : "not_deployed";
 
     return NextResponse.json({
       address,

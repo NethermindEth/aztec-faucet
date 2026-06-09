@@ -9,11 +9,36 @@ import {
   discoverWallets,
   getChainInfo,
   initiateConnection,
+  unwrapAddress,
   verificationEmojis,
   type DiscoverySession,
   type PendingConnection,
   type WalletProvider,
 } from "@/lib/wallet-client";
+import { faucetCapabilities } from "@/lib/wallet-capabilities";
+
+// Opaque wallet-account wrappers; SDK doesn't export a stable shape.
+type RawWalletAccount = unknown;
+type RawWalletAccounts = readonly RawWalletAccount[];
+
+// requestCapabilities first per wallet-sdk spec; getAccounts as fallback.
+async function resolveGrantedAccounts(wallet: Wallet): Promise<RawWalletAccounts> {
+  try {
+    const granted = await wallet.requestCapabilities(faucetCapabilities());
+    const accountsCap = granted.granted.find((c) => c.type === "accounts");
+    const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
+    if (cap) return Array.from(cap);
+  } catch (capErr) {
+    console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
+  }
+  try {
+    const accounts = await wallet.getAccounts();
+    return Array.from(accounts as unknown[]);
+  } catch (getErr) {
+    console.warn("getAccounts fallback also failed:", getErr);
+    return [];
+  }
+}
 
 export type ConnectPhase =
   | { kind: "idle" }
@@ -27,10 +52,7 @@ export type ConnectPhase =
 export function useWalletConnect() {
   const [phase, setPhase] = useState<ConnectPhase>({ kind: "idle" });
   const sessionRef = useRef<DiscoverySession | null>(null);
-  // Mirrors `phase` so callbacks can read the latest value without becoming
-  // stale closures and without putting side-effecty reads in setState updaters
-  // (React StrictMode dev-mode runs updaters twice, which fires wallet popups
-  // twice for any side effect placed inside an updater).
+  // phaseRef so callbacks read latest phase without side effects in setState updaters (StrictMode double-invokes those).
   const phaseRef = useRef(phase);
   useEffect(() => {
     phaseRef.current = phase;
@@ -86,38 +108,15 @@ export function useWalletConnect() {
     }
   }, []);
 
-  // Hard-refresh while "verifying" leaves a PendingConnection orphaned on the
-  // wallet side; the SDK has no cross-page cancel. Wallets time it out
-  // server-side. Support workaround: user dismisses the prompt in the wallet.
+  // Hard-refresh mid-verify orphans the PendingConnection wallet-side; SDK has no cross-page cancel. Wallets time it out; user can also dismiss in the wallet.
   const confirm = useCallback(async () => {
     const current = phaseRef.current;
     if (current.kind !== "verifying") return;
     try {
       const wallet = await confirmConnection(current.pending);
-      const { unwrapAddress } = await import("@/lib/wallet-client");
+      const rawAccounts = await resolveGrantedAccounts(wallet);
 
-      // wallet-sdk spec: request the appCapabilities manifest first so the
-      // wallet knows what scope to grant. getAccounts is the fallback for
-      // wallets that grant accounts implicitly.
-      let rawAccounts: unknown[] | undefined;
-      try {
-        const { faucetCapabilities } = await import("@/lib/wallet-capabilities");
-        const granted = await wallet.requestCapabilities(faucetCapabilities());
-        const accountsCap = granted.granted.find((c) => c.type === "accounts");
-        const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
-        rawAccounts = cap ? Array.from(cap) : undefined;
-      } catch (capErr) {
-        console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
-        try {
-          const accounts = await wallet.getAccounts();
-          rawAccounts = Array.from(accounts as unknown[]);
-        } catch {
-          // both paths failed; rawAccounts stays undefined and we surface
-          // the empty-accounts error below
-        }
-      }
-
-      if (!rawAccounts || rawAccounts.length === 0) {
+      if (rawAccounts.length === 0) {
         setPhase({
           kind: "error",
           message: "Your wallet has no accounts. Create or import an Aztec account in the wallet, then connect again.",
@@ -127,7 +126,7 @@ export function useWalletConnect() {
 
       const addresses = rawAccounts
         .map((a) => unwrapAddress(a))
-        .filter((a) => a && a !== "[object Object]");
+        .filter((a): a is string => a !== null);
 
       if (addresses.length === 0) {
         setPhase({ kind: "error", message: "Could not parse account address from wallet" });
@@ -154,17 +153,15 @@ export function useWalletConnect() {
     });
   }, []);
 
-  // Called by the bar's "Switch account" to re-show the picker without
-  // going through discovery again.
+  // "Switch account" entry: re-show picker without re-running discovery.
   const enterAccountPicker = useCallback((wallet: Wallet, accounts: string[]) => {
     setPhase({ kind: "picking-account", wallet, accounts });
   }, []);
 
   const reject = useCallback(() => {
-    setPhase((prev) => {
-      if (prev.kind === "verifying") cancelConnection(prev.pending);
-      return { kind: "idle" };
-    });
+    const current = phaseRef.current;
+    if (current.kind === "verifying") cancelConnection(current.pending);
+    setPhase({ kind: "idle" });
   }, []);
 
   const reset = useCallback(() => {

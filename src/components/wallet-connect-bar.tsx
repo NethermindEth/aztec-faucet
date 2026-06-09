@@ -13,7 +13,7 @@ import {
   type AnnouncedProvider,
   type EthereumProvider,
 } from "@/lib/ethereum-providers";
-import { discoverWallets, getChainInfo } from "@/lib/wallet-client";
+import { discoverWallets, getChainInfo, unwrapAddress } from "@/lib/wallet-client";
 import { L1_CHAIN_ID } from "@/lib/network-config";
 
 type Props = {
@@ -471,10 +471,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       if (wallet) {
         try {
           const accounts = await wallet.getAccounts();
-          const { unwrapAddress } = await import("@/lib/wallet-client");
           const addrs = Array.from(accounts as unknown[])
             .map((a) => unwrapAddress(a))
-            .filter((a) => a && a !== "[object Object]");
+            .filter((a): a is string => a !== null);
           if (addrs.length > 1) {
             azguard.enterAccountPicker(wallet, addrs);
             return;

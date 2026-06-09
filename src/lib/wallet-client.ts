@@ -76,21 +76,23 @@ export function verificationEmojis(pending: PendingConnection): string {
   return hashToEmoji(pending.verificationHash);
 }
 
-// Aliased<AztecAddress> unwrap — wrapper may have .item or .address.
-export function unwrapAddress(raw: unknown): string {
+// Aliased<AztecAddress> unwrap (wrapper may have .item or .address); null if no usable string form.
+export function unwrapAddress(raw: unknown): string | null {
   if (typeof raw === "string") return raw;
+  if (raw == null) return null;
   const r = raw as {
     item?: unknown;
     address?: unknown;
     toString?: () => string;
   };
-  const inner = r?.item ?? r?.address ?? r;
+  const inner = r.item ?? r.address ?? r;
   if (typeof inner === "string") return inner;
   if (inner && typeof (inner as { toString?: () => string }).toString === "function") {
     const s = (inner as { toString: () => string }).toString();
+    // Default Object.prototype.toString = unwrap failed.
     if (s && s !== "[object Object]") return s;
   }
-  return String(inner);
+  return null;
 }
 
 export type { WalletProvider, PendingConnection, DiscoverySession };

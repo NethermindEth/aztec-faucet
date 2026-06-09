@@ -474,7 +474,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           const { unwrapAddress } = await import("@/lib/wallet-client");
           const addrs = Array.from(accounts as unknown[])
             .map((a) => unwrapAddress(a))
-            .filter((a) => a && a !== "[object Object]");
+            .filter((a): a is string => a !== null);
           if (addrs.length > 1) {
             azguard.enterAccountPicker(wallet, addrs);
             return;

@@ -77,20 +77,25 @@ export function verificationEmojis(pending: PendingConnection): string {
 }
 
 // Aliased<AztecAddress> unwrap — wrapper may have .item or .address.
-export function unwrapAddress(raw: unknown): string {
+// Returns null if no usable address representation can be extracted, so
+// callers can filter with a plain null check instead of a sentinel string.
+export function unwrapAddress(raw: unknown): string | null {
   if (typeof raw === "string") return raw;
+  if (raw == null) return null;
   const r = raw as {
     item?: unknown;
     address?: unknown;
     toString?: () => string;
   };
-  const inner = r?.item ?? r?.address ?? r;
+  const inner = r.item ?? r.address ?? r;
   if (typeof inner === "string") return inner;
   if (inner && typeof (inner as { toString?: () => string }).toString === "function") {
     const s = (inner as { toString: () => string }).toString();
+    // Default Object.prototype.toString returns "[object Object]" — the
+    // value has no usable string form, so unwrapping has failed.
     if (s && s !== "[object Object]") return s;
   }
-  return String(inner);
+  return null;
 }
 
 export type { WalletProvider, PendingConnection, DiscoverySession };

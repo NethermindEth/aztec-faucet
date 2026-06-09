@@ -9,11 +9,40 @@ import {
   discoverWallets,
   getChainInfo,
   initiateConnection,
+  unwrapAddress,
   verificationEmojis,
   type DiscoverySession,
   type PendingConnection,
   type WalletProvider,
 } from "@/lib/wallet-client";
+import { faucetCapabilities } from "@/lib/wallet-capabilities";
+
+// Each entry is a wallet-side account wrapper (Aliased<AztecAddress> or
+// similar); we don't know the concrete shape, only that unwrapAddress
+// knows how to extract a string from it.
+type RawWalletAccounts = unknown[];
+
+// Per wallet-sdk spec, request the appCapabilities manifest first so the
+// wallet knows what scope to grant. getAccounts is the fallback for
+// wallets that grant accounts implicitly without requiring a capability
+// handshake.
+async function resolveGrantedAccounts(wallet: Wallet): Promise<RawWalletAccounts> {
+  try {
+    const granted = await wallet.requestCapabilities(faucetCapabilities());
+    const accountsCap = granted.granted.find((c) => c.type === "accounts");
+    const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
+    if (cap) return Array.from(cap);
+  } catch (capErr) {
+    console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
+  }
+  try {
+    const accounts = await wallet.getAccounts();
+    return Array.from(accounts as unknown[]);
+  } catch (getErr) {
+    console.warn("getAccounts fallback also failed:", getErr);
+    return [];
+  }
+}
 
 export type ConnectPhase =
   | { kind: "idle" }
@@ -94,30 +123,9 @@ export function useWalletConnect() {
     if (current.kind !== "verifying") return;
     try {
       const wallet = await confirmConnection(current.pending);
-      const { unwrapAddress } = await import("@/lib/wallet-client");
+      const rawAccounts = await resolveGrantedAccounts(wallet);
 
-      // wallet-sdk spec: request the appCapabilities manifest first so the
-      // wallet knows what scope to grant. getAccounts is the fallback for
-      // wallets that grant accounts implicitly.
-      let rawAccounts: unknown[] | undefined;
-      try {
-        const { faucetCapabilities } = await import("@/lib/wallet-capabilities");
-        const granted = await wallet.requestCapabilities(faucetCapabilities());
-        const accountsCap = granted.granted.find((c) => c.type === "accounts");
-        const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
-        rawAccounts = cap ? Array.from(cap) : undefined;
-      } catch (capErr) {
-        console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
-        try {
-          const accounts = await wallet.getAccounts();
-          rawAccounts = Array.from(accounts as unknown[]);
-        } catch {
-          // both paths failed; rawAccounts stays undefined and we surface
-          // the empty-accounts error below
-        }
-      }
-
-      if (!rawAccounts || rawAccounts.length === 0) {
+      if (rawAccounts.length === 0) {
         setPhase({
           kind: "error",
           message: "Your wallet has no accounts. Create or import an Aztec account in the wallet, then connect again.",
@@ -127,7 +135,7 @@ export function useWalletConnect() {
 
       const addresses = rawAccounts
         .map((a) => unwrapAddress(a))
-        .filter((a) => a && a !== "[object Object]");
+        .filter((a): a is string => a !== null);
 
       if (addresses.length === 0) {
         setPhase({ kind: "error", message: "Could not parse account address from wallet" });
@@ -161,10 +169,9 @@ export function useWalletConnect() {
   }, []);
 
   const reject = useCallback(() => {
-    setPhase((prev) => {
-      if (prev.kind === "verifying") cancelConnection(prev.pending);
-      return { kind: "idle" };
-    });
+    const current = phaseRef.current;
+    if (current.kind === "verifying") cancelConnection(current.pending);
+    setPhase({ kind: "idle" });
   }, []);
 
   const reset = useCallback(() => {

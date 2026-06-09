@@ -27,6 +27,14 @@ export type ConnectPhase =
 export function useWalletConnect() {
   const [phase, setPhase] = useState<ConnectPhase>({ kind: "idle" });
   const sessionRef = useRef<DiscoverySession | null>(null);
+  // Mirrors `phase` so callbacks can read the latest value without becoming
+  // stale closures and without putting side-effecty reads in setState updaters
+  // (React StrictMode dev-mode runs updaters twice, which fires wallet popups
+  // twice for any side effect placed inside an updater).
+  const phaseRef = useRef(phase);
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   const cleanup = useCallback(() => {
     sessionRef.current?.cancel();
@@ -82,65 +90,61 @@ export function useWalletConnect() {
   // wallet side; the SDK has no cross-page cancel. Wallets time it out
   // server-side. Support workaround: user dismisses the prompt in the wallet.
   const confirm = useCallback(async () => {
-    setPhase((prev) => {
-      if (prev.kind !== "verifying") return prev;
-      void (async () => {
+    const current = phaseRef.current;
+    if (current.kind !== "verifying") return;
+    try {
+      const wallet = await confirmConnection(current.pending);
+      const { unwrapAddress } = await import("@/lib/wallet-client");
+
+      // wallet-sdk spec: request the appCapabilities manifest first so the
+      // wallet knows what scope to grant. getAccounts is the fallback for
+      // wallets that grant accounts implicitly.
+      let rawAccounts: unknown[] | undefined;
+      try {
+        const { faucetCapabilities } = await import("@/lib/wallet-capabilities");
+        const granted = await wallet.requestCapabilities(faucetCapabilities());
+        const accountsCap = granted.granted.find((c) => c.type === "accounts");
+        const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
+        rawAccounts = cap ? Array.from(cap) : undefined;
+      } catch (capErr) {
+        console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
         try {
-          const wallet = await confirmConnection(prev.pending);
-          const { unwrapAddress } = await import("@/lib/wallet-client");
-
-          // wallet-sdk spec: request the appCapabilities manifest first so the
-          // wallet knows what scope to grant. getAccounts is the fallback for
-          // wallets that grant accounts implicitly.
-          let rawAccounts: unknown[] | undefined;
-          try {
-            const { faucetCapabilities } = await import("@/lib/wallet-capabilities");
-            const granted = await wallet.requestCapabilities(faucetCapabilities());
-            const accountsCap = granted.granted.find((c) => c.type === "accounts");
-            const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
-            rawAccounts = cap ? Array.from(cap) : undefined;
-          } catch (capErr) {
-            console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
-            try {
-              const accounts = await wallet.getAccounts();
-              rawAccounts = Array.from(accounts as unknown[]);
-            } catch {
-              // both paths failed; rawAccounts stays undefined and we surface
-              // the empty-accounts error below
-            }
-          }
-
-          if (!rawAccounts || rawAccounts.length === 0) {
-            setPhase({
-              kind: "error",
-              message: "Your wallet has no accounts. Create or import an Aztec account in the wallet, then connect again.",
-            });
-            return;
-          }
-
-          const addresses = rawAccounts
-            .map((a) => unwrapAddress(a))
-            .filter((a) => a && a !== "[object Object]");
-
-          if (addresses.length === 0) {
-            setPhase({ kind: "error", message: "Could not parse account address from wallet" });
-            return;
-          }
-
-          if (addresses.length === 1) {
-            setPhase({ kind: "connected", wallet, address: addresses[0] });
-          } else {
-            setPhase({ kind: "picking-account", wallet, accounts: addresses });
-          }
-        } catch (err) {
-          setPhase({
-            kind: "error",
-            message: err instanceof Error ? err.message : "Failed to confirm",
-          });
+          const accounts = await wallet.getAccounts();
+          rawAccounts = Array.from(accounts as unknown[]);
+        } catch {
+          // both paths failed; rawAccounts stays undefined and we surface
+          // the empty-accounts error below
         }
-      })();
-      return prev;
-    });
+      }
+
+      if (!rawAccounts || rawAccounts.length === 0) {
+        setPhase({
+          kind: "error",
+          message: "Your wallet has no accounts. Create or import an Aztec account in the wallet, then connect again.",
+        });
+        return;
+      }
+
+      const addresses = rawAccounts
+        .map((a) => unwrapAddress(a))
+        .filter((a) => a && a !== "[object Object]");
+
+      if (addresses.length === 0) {
+        setPhase({ kind: "error", message: "Could not parse account address from wallet" });
+        return;
+      }
+
+      if (addresses.length === 1) {
+        setPhase({ kind: "connected", wallet, address: addresses[0] });
+      } else {
+        setPhase({ kind: "picking-account", wallet, accounts: addresses });
+      }
+    } catch (err) {
+      setPhase({
+        kind: "error",
+        message: err instanceof Error ? err.message : "Failed to confirm",
+      });
+    }
   }, []);
 
   const pickAccount = useCallback((address: string) => {

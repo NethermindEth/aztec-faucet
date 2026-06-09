@@ -89,19 +89,24 @@ export function useWalletConnect() {
           const wallet = await confirmConnection(prev.pending);
           const { unwrapAddress } = await import("@/lib/wallet-client");
 
+          // wallet-sdk spec: request the appCapabilities manifest first so the
+          // wallet knows what scope to grant. getAccounts is the fallback for
+          // wallets that grant accounts implicitly.
           let rawAccounts: unknown[] | undefined;
           try {
-            const accounts = await wallet.getAccounts();
-            rawAccounts = Array.from(accounts as unknown[]);
-          } catch {
             const { faucetCapabilities } = await import("@/lib/wallet-capabilities");
+            const granted = await wallet.requestCapabilities(faucetCapabilities());
+            const accountsCap = granted.granted.find((c) => c.type === "accounts");
+            const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
+            rawAccounts = cap ? Array.from(cap) : undefined;
+          } catch (capErr) {
+            console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
             try {
-              const granted = await wallet.requestCapabilities(faucetCapabilities());
-              const accountsCap = granted.granted.find((c) => c.type === "accounts");
-              const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
-              rawAccounts = cap ? Array.from(cap) : undefined;
-            } catch (capErr) {
-              console.warn("requestCapabilities failed:", capErr);
+              const accounts = await wallet.getAccounts();
+              rawAccounts = Array.from(accounts as unknown[]);
+            } catch {
+              // both paths failed; rawAccounts stays undefined and we surface
+              // the empty-accounts error below
             }
           }
 

@@ -17,10 +17,13 @@ import {
 } from "@/lib/wallet-client";
 import { faucetCapabilities } from "@/lib/wallet-capabilities";
 
-// Each entry is a wallet-side account wrapper (Aliased<AztecAddress> or
-// similar); we don't know the concrete shape, only that unwrapAddress
-// knows how to extract a string from it.
-type RawWalletAccounts = unknown[];
+// A single wallet-side account wrapper (Aliased<AztecAddress> or similar).
+// The wallet-sdk doesn't export a stable shape for this — different wallets
+// return different concrete types — so we treat it as opaque and let
+// unwrapAddress() do the structural inspection. `readonly` marks the array
+// as not-our-business-to-mutate.
+type RawWalletAccount = unknown;
+type RawWalletAccounts = readonly RawWalletAccount[];
 
 // Per wallet-sdk spec, request the appCapabilities manifest first so the
 // wallet knows what scope to grant. getAccounts is the fallback for

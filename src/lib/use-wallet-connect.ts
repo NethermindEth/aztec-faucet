@@ -17,18 +17,11 @@ import {
 } from "@/lib/wallet-client";
 import { faucetCapabilities } from "@/lib/wallet-capabilities";
 
-// A single wallet-side account wrapper (Aliased<AztecAddress> or similar).
-// The wallet-sdk doesn't export a stable shape for this — different wallets
-// return different concrete types — so we treat it as opaque and let
-// unwrapAddress() do the structural inspection. `readonly` marks the array
-// as not-our-business-to-mutate.
+// Opaque wallet-account wrappers; SDK doesn't export a stable shape.
 type RawWalletAccount = unknown;
 type RawWalletAccounts = readonly RawWalletAccount[];
 
-// Per wallet-sdk spec, request the appCapabilities manifest first so the
-// wallet knows what scope to grant. getAccounts is the fallback for
-// wallets that grant accounts implicitly without requiring a capability
-// handshake.
+// requestCapabilities first per wallet-sdk spec; getAccounts as fallback.
 async function resolveGrantedAccounts(wallet: Wallet): Promise<RawWalletAccounts> {
   try {
     const granted = await wallet.requestCapabilities(faucetCapabilities());
@@ -59,10 +52,7 @@ export type ConnectPhase =
 export function useWalletConnect() {
   const [phase, setPhase] = useState<ConnectPhase>({ kind: "idle" });
   const sessionRef = useRef<DiscoverySession | null>(null);
-  // Mirrors `phase` so callbacks can read the latest value without becoming
-  // stale closures and without putting side-effecty reads in setState updaters
-  // (React StrictMode dev-mode runs updaters twice, which fires wallet popups
-  // twice for any side effect placed inside an updater).
+  // phaseRef so callbacks read latest phase without side effects in setState updaters (StrictMode double-invokes those).
   const phaseRef = useRef(phase);
   useEffect(() => {
     phaseRef.current = phase;
@@ -118,9 +108,7 @@ export function useWalletConnect() {
     }
   }, []);
 
-  // Hard-refresh while "verifying" leaves a PendingConnection orphaned on the
-  // wallet side; the SDK has no cross-page cancel. Wallets time it out
-  // server-side. Support workaround: user dismisses the prompt in the wallet.
+  // Hard-refresh mid-verify orphans the PendingConnection wallet-side; SDK has no cross-page cancel. Wallets time it out; user can also dismiss in the wallet.
   const confirm = useCallback(async () => {
     const current = phaseRef.current;
     if (current.kind !== "verifying") return;
@@ -165,8 +153,7 @@ export function useWalletConnect() {
     });
   }, []);
 
-  // Called by the bar's "Switch account" to re-show the picker without
-  // going through discovery again.
+  // "Switch account" entry: re-show picker without re-running discovery.
   const enterAccountPicker = useCallback((wallet: Wallet, accounts: string[]) => {
     setPhase({ kind: "picking-account", wallet, accounts });
   }, []);

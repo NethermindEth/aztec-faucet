@@ -76,9 +76,7 @@ export function verificationEmojis(pending: PendingConnection): string {
   return hashToEmoji(pending.verificationHash);
 }
 
-// Aliased<AztecAddress> unwrap — wrapper may have .item or .address.
-// Returns null if no usable address representation can be extracted, so
-// callers can filter with a plain null check instead of a sentinel string.
+// Aliased<AztecAddress> unwrap (wrapper may have .item or .address); null if no usable string form.
 export function unwrapAddress(raw: unknown): string | null {
   if (typeof raw === "string") return raw;
   if (raw == null) return null;
@@ -91,8 +89,7 @@ export function unwrapAddress(raw: unknown): string | null {
   if (typeof inner === "string") return inner;
   if (inner && typeof (inner as { toString?: () => string }).toString === "function") {
     const s = (inner as { toString: () => string }).toString();
-    // Default Object.prototype.toString returns "[object Object]" — the
-    // value has no usable string form, so unwrapping has failed.
+    // Default Object.prototype.toString = unwrap failed.
     if (s && s !== "[object Object]") return s;
   }
   return null;

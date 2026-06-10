@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CopyButton, SelfContainedDropdown } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
+import type { DeploymentStatus } from "@/app/api/balance/route";
 
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
@@ -28,8 +29,6 @@ const s = raw.toString().padStart(19, "0");
 console.log("Fee Juice:", (s.slice(0, s.length - 18) || "0") + "." + s.slice(s.length - 18, s.length - 14));
 AZTEC_EOF`;
 }
-
-type DeploymentStatus = "deployed" | "not_deployed";
 
 type BalanceResult = {
   balanceFormatted: string;

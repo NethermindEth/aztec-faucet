@@ -76,16 +76,16 @@ export function WalkingCharacter({
   const [visibleMsg, setVisibleMsg] = useState(message);
   const [showBubble, setShowBubble] = useState(true);
 
-  useEffect(() => {
-    if (message !== visibleMsg) {
-      setVisibleMsg(message);
-      setShowBubble(true);
-    }
-  }, [message, visibleMsg]);
+  // Render-phase adjustment: a new message re-shows the bubble. The ready
+  // message arrives through the same path, so isReady never needs to force
+  // the bubble separately.
+  if (message !== visibleMsg) {
+    setVisibleMsg(message);
+    setShowBubble(true);
+  }
 
   useEffect(() => {
-    if (isReady) { setShowBubble(true); return; }
-    if (!showBubble) return;
+    if (isReady || !showBubble) return;
     const timer = setTimeout(() => setShowBubble(false), 4000);
     return () => clearTimeout(timer);
   }, [showBubble, isReady]);

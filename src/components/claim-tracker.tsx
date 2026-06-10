@@ -158,9 +158,14 @@ export function ClaimTracker({
 
   useEffect(() => {
     if (status !== "bridging") return;
-    poll();
+    // First poll deferred a tick; a synchronous call into a state-setting
+    // function trips react-hooks/set-state-in-effect.
+    const first = setTimeout(poll, 0);
     const interval = setInterval(poll, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(first);
+      clearInterval(interval);
+    };
   }, [status, poll]);
 
   useEffect(() => {

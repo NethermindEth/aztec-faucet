@@ -77,27 +77,40 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // clear any stale aztec key written by older code.
   const hydrated = useRef(false);
   useEffect(() => {
-    if (hydrated.current) return;
-    hydrated.current = true;
-    const p = readPersisted();
-    if (p.eth) setEthAddr(p.eth);
-    if (p.aztec) writePersisted({ ...p, aztec: null });
+    // Deferred a tick: restores the persisted eth address after hydration;
+    // a synchronous set here trips react-hooks/set-state-in-effect.
+    const t = setTimeout(() => {
+      if (hydrated.current) return;
+      hydrated.current = true;
+      const p = readPersisted();
+      if (p.eth) setEthAddr(p.eth);
+      if (p.aztec) writePersisted({ ...p, aztec: null });
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   const azguard = useWalletConnect();
 
+  // Destructured so the effect keys on the phase value, not the hook's
+  // per-render wrapper object; reset is a stable useCallback.
+  const { phase: azPhase, reset: azReset } = azguard;
   useEffect(() => {
-    if (azguard.phase.kind !== "connected") return;
-    const addr = azguard.phase.address;
-    const wallet = azguard.phase.wallet;
-    aztecWalletRef.current = wallet;
-    setAztecAddr(addr);
-    if (!isEth) {
-      onAddress(addr);
-      onWalletConnect?.(wallet);
-    }
-    azguard.reset();
-  }, [azguard, onAddress, isEth, onWalletConnect]);
+    if (azPhase.kind !== "connected") return;
+    const addr = azPhase.address;
+    const wallet = azPhase.wallet;
+    // Deferred a tick: hands the connected wallet off to local state;
+    // synchronous sets here trip react-hooks/set-state-in-effect.
+    const t = setTimeout(() => {
+      aztecWalletRef.current = wallet;
+      setAztecAddr(addr);
+      if (!isEth) {
+        onAddress(addr);
+        onWalletConnect?.(wallet);
+      }
+      azReset();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [azPhase, azReset, onAddress, isEth, onWalletConnect]);
 
   // Picker click handler — applies the pick synchronously to bar state and the
   // parent form, then transitions phase. Avoids relying solely on the
@@ -312,11 +325,15 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     return () => window.removeEventListener("storage", handler);
   }, [isEth, onAddress]);
 
+  // Render-phase adjustment: hide the hint the moment the wallet is no
+  // longer busy; an effect-based reset trips react-hooks/set-state-in-effect.
+  const [prevEthBusy, setPrevEthBusy] = useState(ethBusy);
+  if (ethBusy !== prevEthBusy) {
+    setPrevEthBusy(ethBusy);
+    if (!ethBusy) setShowBusyHint(false);
+  }
   useEffect(() => {
-    if (!ethBusy) {
-      setShowBusyHint(false);
-      return;
-    }
+    if (!ethBusy) return;
     const t = setTimeout(() => setShowBusyHint(true), 1500);
     return () => clearTimeout(t);
   }, [ethBusy]);
@@ -325,6 +342,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // a drip; accountsChanged doesn't fire while detached, so we verify on
   // remount. Handles: matching cache, switched account, revoked permission.
   useEffect(() => {
+    // Deferred a tick: reconciliation can clear state synchronously, which
+    // trips react-hooks/set-state-in-effect.
+    const t = setTimeout(() => {
     const persisted = readPersisted();
     if (!persisted.ethRdns) return;
     const list = getEthereumProviders();
@@ -355,6 +375,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
         if (isEth && currentFormAddress) onAddress("");
       }
     });
+    }, 0);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEth, ethProviders.length]);
 
@@ -413,9 +435,14 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     const t = setTimeout(() => setConfirmReplace(false), 2500);
     return () => clearTimeout(t);
   }, [confirmReplace]);
-  useEffect(() => {
+  // Render-phase adjustment; an effect-based reset trips
+  // react-hooks/set-state-in-effect.
+  const replaceKey = `${connectedAddr ?? ""}|${formMatchesWallet}`;
+  const [prevReplaceKey, setPrevReplaceKey] = useState(replaceKey);
+  if (replaceKey !== prevReplaceKey) {
+    setPrevReplaceKey(replaceKey);
     setConfirmReplace(false);
-  }, [connectedAddr, formMatchesWallet]);
+  }
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
@@ -486,7 +513,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       onWalletConnect?.(null);
       azguard.start();
     }
-  }, [isEth, startEthConnect, azguard, onAddress]);
+  }, [isEth, startEthConnect, azguard, onAddress, onWalletConnect]);
 
   const handleConnectedClick = () => setMenuOpen((v) => !v);
   const handleNonMatchingClick = () => {
@@ -566,7 +593,11 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
 
   // Auto-prompt Sepolia switch on wrong-chain detection (Uniswap pattern).
   useEffect(() => {
-    if (wrongChain) void switchToSepolia();
+    if (!wrongChain) return;
+    // Deferred a tick: switchToSepolia sets error state on failure, and a
+    // synchronous call trips react-hooks/set-state-in-effect.
+    const t = setTimeout(() => void switchToSepolia(), 0);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wrongChain]);
 

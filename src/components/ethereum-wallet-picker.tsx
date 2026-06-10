@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AnnouncedProvider } from "@/lib/ethereum-providers";
+import { useMounted } from "@/lib/use-mounted";
 
 type Props = {
   open: boolean;
@@ -15,8 +16,7 @@ type Props = {
 };
 
 export function EthereumWalletPicker({ open, providers, onEmpty, onPick, onClose }: Props) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
 
   // Wait briefly for late-announced wallets before bailing out. 500ms is
   // long enough for slow extensions to inject, short enough that the user

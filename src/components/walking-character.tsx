@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useOnValueChange } from "@/lib/use-on-value-change";
 
 /**
  * Walking character with an elevated bridge in the middle of the track.
@@ -73,16 +74,11 @@ export function WalkingCharacter({
 
   const message = getMessage(progress, isReady);
 
-  const [visibleMsg, setVisibleMsg] = useState(message);
   const [showBubble, setShowBubble] = useState(true);
 
-  // Render-phase adjustment: a new message re-shows the bubble. The ready
-  // message arrives through the same path, so isReady never needs to force
-  // the bubble separately.
-  if (message !== visibleMsg) {
-    setVisibleMsg(message);
-    setShowBubble(true);
-  }
+  // A new message re-shows the bubble. The ready message arrives through the
+  // same path, so isReady never needs to force the bubble separately.
+  useOnValueChange(message, () => setShowBubble(true));
 
   useEffect(() => {
     if (isReady || !showBubble) return;

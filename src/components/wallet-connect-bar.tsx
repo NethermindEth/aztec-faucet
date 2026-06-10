@@ -16,6 +16,7 @@ import {
 import { discoverWallets, getChainInfo, unwrapAddress } from "@/lib/wallet-client";
 import { L1_CHAIN_ID } from "@/lib/network-config";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
+import { useOnValueChange } from "@/lib/use-on-value-change";
 
 type Props = {
   asset: string;
@@ -313,13 +314,10 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     return () => window.removeEventListener("storage", handler);
   }, [isEth, onAddress]);
 
-  // Render-phase adjustment: hide the hint the moment the wallet is no
-  // longer busy; an effect-based reset trips react-hooks/set-state-in-effect.
-  const [prevEthBusy, setPrevEthBusy] = useState(ethBusy);
-  if (ethBusy !== prevEthBusy) {
-    setPrevEthBusy(ethBusy);
+  // Hide the hint the moment the wallet is no longer busy.
+  useOnValueChange(ethBusy, () => {
     if (!ethBusy) setShowBusyHint(false);
-  }
+  });
   useEffect(() => {
     if (!ethBusy) return;
     const t = setTimeout(() => setShowBusyHint(true), 1500);
@@ -418,14 +416,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     const t = setTimeout(() => setConfirmReplace(false), 2500);
     return () => clearTimeout(t);
   }, [confirmReplace]);
-  // Render-phase adjustment; an effect-based reset trips
-  // react-hooks/set-state-in-effect.
+  // Pending confirm no longer applies once the wallet or match state moves.
   const replaceKey = `${connectedAddr ?? ""}|${formMatchesWallet}`;
-  const [prevReplaceKey, setPrevReplaceKey] = useState(replaceKey);
-  if (replaceKey !== prevReplaceKey) {
-    setPrevReplaceKey(replaceKey);
-    setConfirmReplace(false);
-  }
+  useOnValueChange(replaceKey, () => setConfirmReplace(false));
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement | null>(null);

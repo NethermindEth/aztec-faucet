@@ -1,0 +1,28 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Node 22 ships npm 10. npm 11 breaks `npm ci` on this lockfile
+          # (lockfileVersion 3 with npm-aliased packages).
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint

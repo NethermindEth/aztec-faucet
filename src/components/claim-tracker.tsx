@@ -107,15 +107,17 @@ export function ClaimTracker({
     },
     [claimId],
   );
-  const startTimeRef = useRef(Date.now());
+  // Set on first bridging tick (Date.now() in render trips react-hooks/purity).
+  const startTimeRef = useRef<number | null>(null);
 
+  // messageHash lets the server fall back to a stateless L2 node check
+  // on cache-miss (multi-instance deployments). Hoisted out of the callback
+  // so the dependency is a plain value the compiler can track.
+  const messageHash = initialClaimData?.messageHashHex;
   const poll = useCallback(async () => {
     try {
-      // messageHash lets the server fall back to a stateless L2 node check
-      // on cache-miss (multi-instance deployments).
-      const msgHash = initialClaimData?.messageHashHex;
       const params = new URLSearchParams();
-      if (msgHash) params.set("messageHash", msgHash);
+      if (messageHash) params.set("messageHash", messageHash);
       const qs = params.toString();
       const url = `/api/claim/${claimId}${qs ? `?${qs}` : ""}`;
       const res = await fetch(url);
@@ -152,7 +154,7 @@ export function ClaimTracker({
         if (data.expiresInSeconds !== undefined) setExpiresIn(data.expiresInSeconds);
       }
     } catch {}
-  }, [claimId, initialClaimData?.messageHashHex, l1TxHash]);
+  }, [claimId, messageHash, l1TxHash]);
 
   useEffect(() => {
     if (status !== "bridging") return;
@@ -163,15 +165,21 @@ export function ClaimTracker({
 
   useEffect(() => {
     if (status !== "bridging") return;
+    startTimeRef.current ??= Date.now();
+    const started = startTimeRef.current;
     const interval = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      setElapsed(Math.floor((Date.now() - started) / 1000));
     }, 1000);
     return () => clearInterval(interval);
   }, [status]);
 
   // Progress for the walking character: 0→0.15 L1 tx, 0.15→0.95 bridge (~150s).
+  // Latest-ref pattern; the write lives in an effect because ref writes
+  // during render trip react-hooks/refs.
   const onProgressRef = useRef(onProgressChange);
-  onProgressRef.current = onProgressChange;
+  useEffect(() => {
+    onProgressRef.current = onProgressChange;
+  });
   useEffect(() => {
     if (status === "bridging") {
       const bridgeProgress = Math.min(elapsed / 150, 1);

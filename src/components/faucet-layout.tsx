@@ -133,10 +133,14 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
     const claimId = params.get("claim");
     const recipient = params.get("r");
     const asset = params.get("asset");
-    if (claimId && recipient) {
+    if (!claimId || !recipient) return;
+    // Deferred a tick: this restores the claim panel after hydration, and a
+    // synchronous set here trips react-hooks/set-state-in-effect.
+    const t = setTimeout(() => {
       setRightPanel({ kind: "claim", claimId, recipient, initialClaimData: undefined });
       if (asset) setActiveAsset(asset);
-    }
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   const handlePending = (asset: string) => {

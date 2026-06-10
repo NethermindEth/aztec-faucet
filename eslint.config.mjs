@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local agent worktrees; not part of the repo, but ESLint scans them.
+    ".claude/**",
   ]),
 ]);
 

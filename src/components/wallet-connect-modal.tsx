@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useMounted } from "@/lib/use-mounted";
 import type { ConnectPhase } from "@/lib/use-wallet-connect";
 
 // Azguard's discovery icon URL doesn't resolve in dev — ship a local logo.
@@ -122,12 +123,12 @@ function DiscoveringBody({
   const [attempt, setAttempt] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    setTimedOut(false);
     const t = setTimeout(() => setTimedOut(true), 10000);
     return () => clearTimeout(t);
   }, [attempt]);
 
   const handleRetry = () => {
+    setTimedOut(false);
     setAttempt((a) => a + 1);
     start();
   };
@@ -291,8 +292,7 @@ function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
   if (!mounted) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">

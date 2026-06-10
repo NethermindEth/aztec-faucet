@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type React from "react";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
@@ -104,14 +104,16 @@ export function FaucetForm({
   const [asset, setAsset] = useState<Asset>("fee-juice");
 
   // null/undefined = no opinion; empty string = explicit clear (e.g. disconnect).
-  useEffect(() => {
-    if (prefilledAddress === undefined || prefilledAddress === null) return;
-    const cleaned = prefilledAddress.replace(/\s+/g, "");
-    if (cleaned !== address) {
-      setAddress(cleaned);
+  // Render-phase adjustment (React's "adjust state when a prop changes"
+  // pattern); the effect-based copy trips react-hooks/set-state-in-effect.
+  const [prevPrefilled, setPrevPrefilled] = useState(prefilledAddress);
+  if (prefilledAddress !== prevPrefilled) {
+    setPrevPrefilled(prefilledAddress);
+    if (prefilledAddress !== undefined && prefilledAddress !== null) {
+      const cleaned = prefilledAddress.replace(/\s+/g, "");
+      if (cleaned !== address) setAddress(cleaned);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefilledAddress]);
+  }
 
   useEffect(() => {
     onAddressChange?.(address);

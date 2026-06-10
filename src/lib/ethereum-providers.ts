@@ -3,7 +3,7 @@
 // EIP-6963 multi-wallet discovery — listener is permanent so late-injected
 // wallets still register.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 export type EthereumProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
@@ -23,13 +23,33 @@ export type AnnouncedProvider = {
   provider: EthereumProvider;
 };
 
-let cache: AnnouncedProvider[] = [];
-const subscribers = new Set<(list: AnnouncedProvider[]) => void>();
+// Stable empty reference: server snapshot and pre-discovery client snapshot
+// must be identical or useSyncExternalStore loops on hydration.
+const EMPTY: AnnouncedProvider[] = [];
+let cache: AnnouncedProvider[] = EMPTY;
+const subscribers = new Set<() => void>();
 let initialized = false;
 
 function notify() {
-  const snapshot = [...cache];
-  for (const cb of subscribers) cb(snapshot);
+  for (const cb of subscribers) cb();
+}
+
+function subscribe(cb: () => void): () => void {
+  init();
+  subscribers.add(cb);
+  return () => {
+    subscribers.delete(cb);
+  };
+}
+
+// cache is replaced immutably on every announcement, so the reference is a
+// valid useSyncExternalStore snapshot.
+function getSnapshot(): AnnouncedProvider[] {
+  return cache;
+}
+
+function getServerSnapshot(): AnnouncedProvider[] {
+  return EMPTY;
 }
 
 function init() {
@@ -76,23 +96,11 @@ export function getLegacyEthereumProvider(): AnnouncedProvider | null {
 }
 
 export function useEthereumProviders() {
-  const [list, setList] = useState<AnnouncedProvider[]>(() => {
-    init();
-    return [...cache];
-  });
-
-  useEffect(() => {
-    init();
-    subscribers.add(setList);
-    setList([...cache]);
-    return () => {
-      subscribers.delete(setList);
-    };
-  }, []);
+  const providers = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const refresh = useCallback(() => {
     refreshEthereumProviders();
   }, []);
 
-  return { providers: list, refresh };
+  return { providers, refresh };
 }

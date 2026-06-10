@@ -56,19 +56,22 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
     const wallet: Wallet = phase.wallet;
     const address = phase.address;
 
-    if (recipient && address.toLowerCase() !== recipient.toLowerCase()) {
-      setClaim({
-        kind: "error",
-        message:
-          `This drip was sent to ${shortAddr(recipient)} but the connected wallet account is ${shortAddr(address)}. ` +
-          `Switch to the wallet account that controls ${shortAddr(recipient)}, or request a fresh drip for ${shortAddr(address)}.`,
-      });
-      reset();
-      return;
-    }
+    // Deferred a tick: the wallet just connected and the claim kicks off on
+    // its own; synchronous sets here trip react-hooks/set-state-in-effect.
+    const kickoff = setTimeout(() => {
+      if (recipient && address.toLowerCase() !== recipient.toLowerCase()) {
+        setClaim({
+          kind: "error",
+          message:
+            `This drip was sent to ${shortAddr(recipient)} but the connected wallet account is ${shortAddr(address)}. ` +
+            `Switch to the wallet account that controls ${shortAddr(recipient)}, or request a fresh drip for ${shortAddr(address)}.`,
+        });
+        reset();
+        return;
+      }
 
-    setClaim({ kind: "claiming", address });
-    void (async () => {
+      setClaim({ kind: "claiming", address });
+      void (async () => {
       try {
         const result = await claimFeeJuiceViaWallet(wallet, address, claimData, recipient);
         setClaim({ kind: "success", txHash: result.txHash });
@@ -81,7 +84,9 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
       } finally {
         reset();
       }
-    })();
+      })();
+    }, 0);
+    return () => clearTimeout(kickoff);
   }, [phase, claim.kind, claimData, recipient, reset, onClaimComplete, canSkipConnect]);
 
   // Direct-claim path: used when the header bar wallet is already connected

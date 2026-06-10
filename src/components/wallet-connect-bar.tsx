@@ -15,6 +15,7 @@ import {
 } from "@/lib/ethereum-providers";
 import { discoverWallets, getChainInfo, unwrapAddress } from "@/lib/wallet-client";
 import { L1_CHAIN_ID } from "@/lib/network-config";
+import { useDeferredEffect } from "@/lib/use-deferred-effect";
 
 type Props = {
   asset: string;
@@ -73,20 +74,13 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // overwrite each other's global, this keeps calls on the picked wallet.
   const ethProviderRef = useRef<EthereumProvider | null>(null);
 
-  // Aztec connections don't survive reloads (Wallet object isn't serialisable);
-  // clear any stale aztec key written by older code.
-  const hydrated = useRef(false);
-  useEffect(() => {
-    // Deferred a tick: restores the persisted eth address after hydration;
-    // a synchronous set here trips react-hooks/set-state-in-effect.
-    const t = setTimeout(() => {
-      if (hydrated.current) return;
-      hydrated.current = true;
-      const p = readPersisted();
-      if (p.eth) setEthAddr(p.eth);
-      if (p.aztec) writePersisted({ ...p, aztec: null });
-    }, 0);
-    return () => clearTimeout(t);
+  // Restore the persisted eth address after hydration. Aztec connections
+  // don't survive reloads (Wallet object isn't serialisable); clear any
+  // stale aztec key written by older code.
+  useDeferredEffect(() => {
+    const p = readPersisted();
+    if (p.eth) setEthAddr(p.eth);
+    if (p.aztec) writePersisted({ ...p, aztec: null });
   }, []);
 
   const azguard = useWalletConnect();
@@ -94,22 +88,16 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // Destructured so the effect keys on the phase value, not the hook's
   // per-render wrapper object; reset is a stable useCallback.
   const { phase: azPhase, reset: azReset } = azguard;
-  useEffect(() => {
+  // Hands the connected wallet off to local state.
+  useDeferredEffect(() => {
     if (azPhase.kind !== "connected") return;
-    const addr = azPhase.address;
-    const wallet = azPhase.wallet;
-    // Deferred a tick: hands the connected wallet off to local state;
-    // synchronous sets here trip react-hooks/set-state-in-effect.
-    const t = setTimeout(() => {
-      aztecWalletRef.current = wallet;
-      setAztecAddr(addr);
-      if (!isEth) {
-        onAddress(addr);
-        onWalletConnect?.(wallet);
-      }
-      azReset();
-    }, 0);
-    return () => clearTimeout(t);
+    aztecWalletRef.current = azPhase.wallet;
+    setAztecAddr(azPhase.address);
+    if (!isEth) {
+      onAddress(azPhase.address);
+      onWalletConnect?.(azPhase.wallet);
+    }
+    azReset();
   }, [azPhase, azReset, onAddress, isEth, onWalletConnect]);
 
   // Picker click handler — applies the pick synchronously to bar state and the
@@ -341,10 +329,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // Silent reconciliation via eth_accounts (no popup). The bar unmounts during
   // a drip; accountsChanged doesn't fire while detached, so we verify on
   // remount. Handles: matching cache, switched account, revoked permission.
-  useEffect(() => {
-    // Deferred a tick: reconciliation can clear state synchronously, which
-    // trips react-hooks/set-state-in-effect.
-    const t = setTimeout(() => {
+  useDeferredEffect(() => {
     const persisted = readPersisted();
     if (!persisted.ethRdns) return;
     const list = getEthereumProviders();
@@ -375,8 +360,6 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
         if (isEth && currentFormAddress) onAddress("");
       }
     });
-    }, 0);
-    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEth, ethProviders.length]);
 
@@ -592,12 +575,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   }, [expectedChainHex]);
 
   // Auto-prompt Sepolia switch on wrong-chain detection (Uniswap pattern).
-  useEffect(() => {
+  useDeferredEffect(() => {
     if (!wrongChain) return;
-    // Deferred a tick: switchToSepolia sets error state on failure, and a
-    // synchronous call trips react-hooks/set-state-in-effect.
-    const t = setTimeout(() => void switchToSepolia(), 0);
-    return () => clearTimeout(t);
+    void switchToSepolia();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wrongChain]);
 

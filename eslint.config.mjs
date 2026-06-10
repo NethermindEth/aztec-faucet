@@ -5,6 +5,12 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      // useDeferredEffect wraps useEffect; keep its dep arrays checked.
+      "react-hooks/exhaustive-deps": ["warn", { additionalHooks: "(useDeferredEffect)" }],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

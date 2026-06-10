@@ -5,8 +5,8 @@ import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { createEthereumChain } from "@aztec/ethereum/chain";
 import { createLogger } from "@aztec/foundation/log";
 import { FeeJuicePortalAbi } from "@aztec/l1-artifacts/FeeJuicePortalAbi";
-import { privateKeyToAccount } from "viem/accounts";
-import { createPublicClient, http, maxUint256, nonceManager, parseEventLogs, type Hex, parseAbiItem } from "viem";
+import { createPublicClient, erc20Abi, http, maxUint256, parseEventLogs, type Hex } from "viem";
+import { getFaucetL1Account } from "./faucet-l1-account";
 import { sepolia, foundry } from "viem/chains";
 import type { Chain } from "viem";
 
@@ -41,9 +41,7 @@ export class L2Faucet {
 
   private getL1Client(): ReturnType<typeof createExtendedL1Client> {
     if (!this._l1Client) {
-      // Shared nonce manager (same singleton as L1Faucet): serializes nonce
-      // allocation for concurrent sends from the shared faucet wallet.
-      const account = privateKeyToAccount(this.config.l1PrivateKey, { nonceManager });
+      const account = getFaucetL1Account(this.config.l1PrivateKey);
       const chain = createEthereumChain([this.config.l1RpcUrl], this.config.l1ChainId);
       // viem is duplicated in the dep tree (root viem vs @aztec/ethereum's nested viem).
       // The two PrivateKeyAccount types are structurally identical but TypeScript can't
@@ -64,19 +62,19 @@ export class L2Faucet {
   private async ensureStandingAllowance(tokenAddress: Hex, portalAddress: Hex): Promise<void> {
     const l1Client = this.getL1Client();
     const owner = l1Client.account.address;
-    const allowance = (await l1Client.readContract({
+    const allowance = await l1Client.readContract({
       address: tokenAddress,
-      abi: [parseAbiItem("function allowance(address, address) view returns (uint256)")],
+      abi: erc20Abi,
       functionName: "allowance",
       args: [owner, portalAddress],
-    })) as bigint;
+    });
     // Anything below maxUint256 / 2 is either a leftover exact approve from
     // the old per-drip flow or another instance resetting it. Re-approve max.
     if (allowance >= maxUint256 / 2n) return;
     log.info(`Setting standing max Fee Juice allowance for portal ${portalAddress} (one-time)`);
     const hash = await l1Client.writeContract({
       address: tokenAddress,
-      abi: [parseAbiItem("function approve(address, uint256) returns (bool)")],
+      abi: erc20Abi,
       functionName: "approve",
       args: [portalAddress, maxUint256],
     });
@@ -115,11 +113,11 @@ export class L2Faucet {
       const publicClient = createPublicClient({ chain, transport: http(this.config.l1RpcUrl) });
       const balance = await publicClient.readContract({
         address: tokenAddress,
-        abi: [parseAbiItem("function balanceOf(address) view returns (uint256)")],
+        abi: erc20Abi,
         functionName: "balanceOf",
         args: [walletAddress],
       });
-      return balance as bigint;
+      return balance;
     } catch {
       return null;
     }

@@ -2,15 +2,15 @@ import {
   createPublicClient,
   createWalletClient,
   http,
-  nonceManager,
   parseEther,
   type Hex,
   type Chain,
   type HttpTransport,
   type Account,
 } from "viem";
-import { type PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
+import type { PrivateKeyAccount } from "viem/accounts";
 import { sepolia, foundry } from "viem/chains";
+import { getFaucetL1Account } from "./faucet-l1-account";
 type L1FaucetConfig = {
   rpcUrl: string;
   chainId: number;
@@ -47,10 +47,7 @@ export class L1Faucet {
       rpcUrls: { default: { http: [config.rpcUrl] } },
     };
 
-    // Process-wide nonce manager: ETH and Fee Juice drips send from the same
-    // wallet, possibly concurrently; without it simultaneous sends grab the
-    // same pending nonce.
-    this.account = privateKeyToAccount(config.privateKey, { nonceManager });
+    this.account = getFaucetL1Account(config.privateKey);
 
     this.publicClient = createPublicClient({
       chain: this.chain,

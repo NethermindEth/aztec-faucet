@@ -5,6 +5,7 @@ import type React from "react";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
+import { useOnValueChange } from "@/lib/use-on-value-change";
 
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
@@ -104,16 +105,12 @@ export function FaucetForm({
   const [asset, setAsset] = useState<Asset>("fee-juice");
 
   // null/undefined = no opinion; empty string = explicit clear (e.g. disconnect).
-  // Render-phase adjustment (React's "adjust state when a prop changes"
-  // pattern); the effect-based copy trips react-hooks/set-state-in-effect.
-  const [prevPrefilled, setPrevPrefilled] = useState(prefilledAddress);
-  if (prefilledAddress !== prevPrefilled) {
-    setPrevPrefilled(prefilledAddress);
+  useOnValueChange(prefilledAddress, () => {
     if (prefilledAddress !== undefined && prefilledAddress !== null) {
       const cleaned = prefilledAddress.replace(/\s+/g, "");
       if (cleaned !== address) setAddress(cleaned);
     }
-  }
+  });
 
   useEffect(() => {
     onAddressChange?.(address);

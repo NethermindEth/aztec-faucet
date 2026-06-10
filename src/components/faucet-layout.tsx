@@ -10,6 +10,7 @@ import { DripResult, type DripResultData } from "./drip-result";
 import { ClaimTracker } from "./claim-tracker";
 import { ConfettiBurst } from "./confetti-burst";
 import { L1_CHAIN_ID } from "@/lib/network-config";
+import { useDeferredEffect } from "@/lib/use-deferred-effect";
 
 const WalletConnectBar = dynamic(
   () => import("./wallet-connect-bar").then((m) => m.WalletConnectBar),
@@ -128,19 +129,15 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
     history.replaceState(null, "", url.pathname + (qs ? "?" + qs : ""));
   }, []);
 
-  useEffect(() => {
+  // Restores the claim panel from the URL after hydration.
+  useDeferredEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const claimId = params.get("claim");
     const recipient = params.get("r");
     const asset = params.get("asset");
     if (!claimId || !recipient) return;
-    // Deferred a tick: this restores the claim panel after hydration, and a
-    // synchronous set here trips react-hooks/set-state-in-effect.
-    const t = setTimeout(() => {
-      setRightPanel({ kind: "claim", claimId, recipient, initialClaimData: undefined });
-      if (asset) setActiveAsset(asset);
-    }, 0);
-    return () => clearTimeout(t);
+    setRightPanel({ kind: "claim", claimId, recipient, initialClaimData: undefined });
+    if (asset) setActiveAsset(asset);
   }, []);
 
   const handlePending = (asset: string) => {

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 import { DataField, ClaimCommands, ClaimCompletePanel } from "./drip-result";
+import { useDeferredEffect } from "@/lib/use-deferred-effect";
 
 const WalletClaimButton = dynamic(
   () => import("./wallet-claim-button").then((m) => m.WalletClaimButton),
@@ -156,16 +157,11 @@ export function ClaimTracker({
     } catch {}
   }, [claimId, messageHash, l1TxHash]);
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     if (status !== "bridging") return;
-    // First poll deferred a tick; a synchronous call into a state-setting
-    // function trips react-hooks/set-state-in-effect.
-    const first = setTimeout(poll, 0);
+    poll();
     const interval = setInterval(poll, POLL_INTERVAL_MS);
-    return () => {
-      clearTimeout(first);
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [status, poll]);
 
   useEffect(() => {

@@ -90,65 +90,39 @@ export async function claimFeeJuiceViaWallet(
     throw new ClaimRecipientMismatchError(recipientHex, fromAddressHex);
   }
 
-  // Two cases, split on deployment state:
+  // Single path for fresh AND initialized accounts: check_balance(0n) no-op
+  // + FeeJuicePaymentMethodWithClaim. The payment method's non-revertible
+  // setup phase runs claim_and_end_setup (consumes the bridge message, mints
+  // FJ, ends the setup phase) and the no-op call gives the wallet something
+  // to entrypoint-wrap; for an undeployed `from` the wallet bundles the
+  // account deploy into the same tx. An empty BatchCall doesn't work:
+  // nothing to wrap means no deploy, and on a brand-new wallet the tx times
+  // out entirely.
   //
-  // Undeployed: check_balance(0n) no-op + FeeJuicePaymentMethodWithClaim.
-  // The payment method's non-revertible setup phase runs claim_and_end_setup
-  // (consumes the bridge message, mints FJ, ends account setup) and the
-  // no-op call gives the wallet something to entrypoint-wrap, which is what
-  // makes it bundle the account deploy. An empty BatchCall doesn't work:
-  // nothing to wrap means no deploy, and on a brand-new wallet the tx
-  // times out entirely.
-  //
-  // Deployed: plain claim() with the fee paid from the existing FJ balance.
-  // claim_and_end_setup can only run once per account (it emits the setup
-  // nullifier), so reusing the payment method here fails with
-  // "Existing nullifier".
+  // Why not plain claim() with fee from the existing balance for initialized
+  // accounts: Azguard 0.13.x can't execute it. Its wallet-sdk bridge crashes
+  // when executionPayload.feePayer is unset ("Cannot read properties of
+  // undefined (reading 'paymentMethod')"), and when feePayer equals the
+  // sender it force-wraps the tx as fee-juice-with-claim, expecting the fee
+  // payload to carry the call that ends the setup phase; an empty fee
+  // payload then fails the kernel circuit with
+  // "min_revertible_side_effect_counter must not be 0 for tail_to_public".
+  // Repeat claims through claim_and_end_setup are safe on 4.3.x (verified
+  // on testnet); the "Existing nullifier" failure that forced the split was
+  // 4.2.0-rc.1 behavior.
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   const feeJuice = FeeJuiceContract.at(wallet);
 
-  // Initialization check. The wallet's PXE is the only definitive source:
-  // it holds the account instance and computes the private init nullifier
-  // (node.getContract can't see unpublished account contracts, and the
-  // public init nullifier isn't emitted by Schnorr accounts). If the wallet
-  // refuses the metadata call (capability scope), fall back to treating
-  // "has FJ balance" as initialized: faucet claims deploy + mint atomically,
-  // so FJ on the address implies a successful prior deploy.
-  let isDeployed: boolean;
-  try {
-    const metadata = await wallet.getContractMetadata(address);
-    const status = (metadata as { initializationStatus?: string }).initializationStatus;
-    isDeployed = status === "INITIALIZED";
-  } catch (metaErr) {
-    console.warn("[claim-via-wallet] getContractMetadata failed, using balance heuristic:", metaErr);
-    const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
-    const { deriveStorageSlotInMap } = await import("@aztec/stdlib/hash");
-    const { NODE_URL } = await import("@/lib/network-config");
-    const node = createAztecNodeClient(NODE_URL);
-    const feeJuiceAddress = AztecAddress.fromBigInt(5n);
-    const slot = await deriveStorageSlotInMap(new Fr(1), address);
-    const balanceField = await node
-      .getPublicStorageAt("latest", feeJuiceAddress, slot)
-      .catch(() => null);
-    isDeployed = (balanceField?.toBigInt() ?? 0n) > 0n;
-  }
-
   let receipt: unknown;
   try {
-    if (!isDeployed) {
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, {
-        claimAmount,
-        claimSecret,
-        messageLeafIndex,
-      });
-      receipt = await feeJuice.methods
-        .check_balance(0n)
-        .send({ from: address, fee: { paymentMethod } });
-    } else {
-      receipt = await feeJuice.methods
-        .claim(address, claimAmount, claimSecret, new Fr(messageLeafIndex))
-        .send({ from: address });
-    }
+    const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, {
+      claimAmount,
+      claimSecret,
+      messageLeafIndex,
+    });
+    receipt = await feeJuice.methods
+      .check_balance(0n)
+      .send({ from: address, fee: { paymentMethod } });
   } catch (err) {
     // Surface the raw wallet/SDK error to the browser console so devs can
     // see what actually broke. The humanised error below only catches

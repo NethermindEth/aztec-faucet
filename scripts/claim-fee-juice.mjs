@@ -149,12 +149,8 @@ try {
   const address = accountManager.address;
   s1.ok(address.toString().slice(0, 20) + '…');
 
-  // Step 2: Check deployment status.
-  // 4.3.x renamed isContractInitialized to initializationStatus
-  // (INITIALIZED | UNINITIALIZED | UNKNOWN). Support both so the script
-  // works across SDK versions; a wrong answer here routes an initialized
-  // account into the deploy path, which fails with "Existing nullifier"
-  // (the init nullifier can only be emitted once).
+  // Step 2: Check deployment status. 4.3.x renamed isContractInitialized
+  // to initializationStatus; support both so the script works across versions.
   const s2 = spin('Checking account status');
   const metadata = await wallet.getContractMetadata(address);
   const isDeployed = metadata.initializationStatus
@@ -207,11 +203,8 @@ try {
 `);
     if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   } else {
-    // Claim on already-initialized account: plain claim(), fee paid from the
-    // existing FJ balance. Do NOT use FeeJuicePaymentMethodWithClaim here —
-    // its setup phase runs claim_and_end_setup, and "end setup" can only
-    // happen once per account (emits the setup nullifier). On an initialized
-    // account that fails with "Invalid tx: Existing nullifier".
+    // Already-initialized account: plain claim(), fee paid from the
+    // existing balance.
     const s3 = spin('Claiming Fee Juice');
     const { FeeJuiceContract } = await import(`${SDK}/aztec.js/protocol`);
 

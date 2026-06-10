@@ -38,15 +38,9 @@ export async function GET(request: Request) {
     const node = createAztecNodeClient(NODE_URL);
     const owner = AztecAddress.fromString(address);
     const balanceSlot = await deriveStorageSlotInMap(FEE_JUICE_BALANCES_SLOT, owner);
-    // Deployment detection from an address alone is not possible server-side:
-    // node.getContract only indexes *published* instances (accounts initialize
-    // without publishing), Schnorr accounts don't emit the public init
-    // nullifier, and the private init nullifier needs the instance's
-    // initializationHash which can't be derived from the address. The wallet's
-    // own PXE is the only definitive source (used in the claim flows). Here we
-    // use balance > 0 as the proxy: faucet claims deploy + mint atomically, so
-    // FJ on the address implies the deploy landed. Reads "latest" (proposed),
-    // matching how wallets decide a tx is mined.
+    // balance > 0 is the deploy proxy: faucet claims deploy + mint atomically,
+    // and accounts initialize without publishing, so there is no reliable
+    // server-side deployment check from an address alone.
     const balanceField = await node.getPublicStorageAt(
       "latest",
       FEE_JUICE_CONTRACT_ADDRESS,

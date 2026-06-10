@@ -56,16 +56,10 @@ export class L2Faucet {
   }
 
   /**
-   * Ensures the faucet wallet has a standing max allowance for the portal,
-   * approving once and never again (OpenZeppelin v5 treats uint256.max as
-   * infinite and does not decrement it on transferFrom). The SDK's
-   * bridgeTokensPublic instead approves the exact amount before every
-   * deposit, which makes the allowance a shared resource: any other faucet
-   * process (or a concurrent drip in this one) can consume it between our
-   * approve and our deposit, reverting the deposit with
-   * ERC20InsufficientAllowance. A standing max allowance removes the
-   * dependency entirely. Safe: the portal only pulls from msg.sender, so
-   * this allowance is spendable only by the faucet wallet's own txs.
+   * One-time maxUint256 approve for the portal. OZ v5 never decrements an
+   * infinite allowance and the portal only pulls from msg.sender, so this
+   * removes the per-deposit approve whose allowance a concurrent drip can
+   * steal (ERC20InsufficientAllowance).
    */
   private async ensureStandingAllowance(tokenAddress: Hex, portalAddress: Hex): Promise<void> {
     const l1Client = this.getL1Client();
@@ -135,11 +129,9 @@ export class L2Faucet {
    * Bridge Fee Juice from L1 to L2 for a recipient.
    * Returns claim data that the recipient uses to claim on L2.
    *
-   * Deposits directly instead of using the SDK's bridgeTokensPublic, for two
-   * reasons: the SDK approves the exact amount before every deposit (see
-   * ensureStandingAllowance for the race that causes), and it logs
-   * "Deposited ... successfully" without checking receipt.status, so a
-   * reverted deposit surfaces as a confusing missing-event error.
+   * Deposits directly rather than via the SDK's bridgeTokensPublic, which
+   * approves per deposit (see ensureStandingAllowance) and reports success
+   * without checking receipt.status.
    */
   async bridgeFeeJuice(
     recipientAztecAddress: string,
@@ -175,8 +167,7 @@ export class L2Faucet {
         claimSecretHash.toString() as Hex,
       ] as const;
 
-      // Simulate first so reverts surface as readable errors before broadcast
-      // (e.g. ERC20InsufficientBalance when the faucet wallet runs dry).
+      // Simulate first so reverts surface as readable errors before broadcast.
       await l1Client.simulateContract({
         address: portalAddress,
         abi: FeeJuicePortalAbi,
@@ -198,8 +189,7 @@ export class L2Faucet {
         throw new Error(`L1 deposit transaction reverted on-chain (tx ${txHash})`);
       }
 
-      // The receipt only contains this tx's logs; the secretHash match is a
-      // belt-and-braces guard against ABI/event-shape drift.
+      // secretHash match is a guard against ABI/event-shape drift.
       const deposits = parseEventLogs({
         abi: FeeJuicePortalAbi,
         logs: receipt.logs,

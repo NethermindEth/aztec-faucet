@@ -38,21 +38,23 @@ export async function GET(request: Request) {
     const node = createAztecNodeClient(NODE_URL);
     const owner = AztecAddress.fromString(address);
     const balanceSlot = await deriveStorageSlotInMap(FEE_JUICE_BALANCES_SLOT, owner);
-    // Mirror wallet behavior (Grego, Aztec alpha team): wallets consider txs
-    // mined on the proposed chain. Balance reads "latest" (proposed). For
-    // deployment, treat "either getContract resolves OR balance > 0" as
-    // deployed. The second clause kills the proven-tip-lag gap right after a
-    // fresh claim (the FJ payment method runs claim_and_end_setup atomically
-    // with the wallet's entrypoint wrap, so balance > 0 implies an account
-    // tx landed). Edge case ignored: FJ transferred to a never-deployed
-    // address would also report deployed.
-    const [balanceField, instance] = await Promise.all([
-      node.getPublicStorageAt("latest", FEE_JUICE_CONTRACT_ADDRESS, balanceSlot),
-      node.getContract(owner).catch(() => undefined),
-    ]);
+    // Deployment detection from an address alone is not possible server-side:
+    // node.getContract only indexes *published* instances (accounts initialize
+    // without publishing), Schnorr accounts don't emit the public init
+    // nullifier, and the private init nullifier needs the instance's
+    // initializationHash which can't be derived from the address. The wallet's
+    // own PXE is the only definitive source (used in the claim flows). Here we
+    // use balance > 0 as the proxy: faucet claims deploy + mint atomically, so
+    // FJ on the address implies the deploy landed. Reads "latest" (proposed),
+    // matching how wallets decide a tx is mined.
+    const balanceField = await node.getPublicStorageAt(
+      "latest",
+      FEE_JUICE_CONTRACT_ADDRESS,
+      balanceSlot,
+    );
     const balance = balanceField.toBigInt();
     const deploymentStatus: DeploymentStatus =
-      instance || balance > 0n ? "deployed" : "not_deployed";
+      balance > 0n ? "deployed" : "not_deployed";
 
     return NextResponse.json({
       address,

@@ -90,29 +90,65 @@ export async function claimFeeJuiceViaWallet(
     throw new ClaimRecipientMismatchError(recipientHex, fromAddressHex);
   }
 
-  // FeeJuicePaymentMethodWithClaim's non-revertible setup phase runs
-  // claim_and_end_setup, which atomically consumes the bridge message and
-  // mints FJ. Sending an empty BatchCall alongside it minted FJ but the
-  // wallet couldn't wrap "no calls" in an entrypoint, so a brand-new
-  // account never got deployed (and on a fresh wallet the tx timed out
-  // entirely). Sending a real no-op call instead (check_balance(0n))
-  // gives the wallet something to entrypoint-wrap; if the from-account
-  // isn't deployed yet the wallet bundles the deploy into the same tx.
-  // Pattern matches Aztec's own e2e tests (fee_juice_payments.test.ts).
+  // Two cases, split on deployment state:
+  //
+  // Undeployed: check_balance(0n) no-op + FeeJuicePaymentMethodWithClaim.
+  // The payment method's non-revertible setup phase runs claim_and_end_setup
+  // (consumes the bridge message, mints FJ, ends account setup) and the
+  // no-op call gives the wallet something to entrypoint-wrap, which is what
+  // makes it bundle the account deploy. An empty BatchCall doesn't work:
+  // nothing to wrap means no deploy, and on a brand-new wallet the tx
+  // times out entirely.
+  //
+  // Deployed: plain claim() with the fee paid from the existing FJ balance.
+  // claim_and_end_setup can only run once per account (it emits the setup
+  // nullifier), so reusing the payment method here fails with
+  // "Existing nullifier".
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   const feeJuice = FeeJuiceContract.at(wallet);
 
-  const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, {
-    claimAmount,
-    claimSecret,
-    messageLeafIndex,
-  });
+  // Initialization check. The wallet's PXE is the only definitive source:
+  // it holds the account instance and computes the private init nullifier
+  // (node.getContract can't see unpublished account contracts, and the
+  // public init nullifier isn't emitted by Schnorr accounts). If the wallet
+  // refuses the metadata call (capability scope), fall back to treating
+  // "has FJ balance" as initialized: faucet claims deploy + mint atomically,
+  // so FJ on the address implies a successful prior deploy.
+  let isDeployed: boolean;
+  try {
+    const metadata = await wallet.getContractMetadata(address);
+    const status = (metadata as { initializationStatus?: string }).initializationStatus;
+    isDeployed = status === "INITIALIZED";
+  } catch (metaErr) {
+    console.warn("[claim-via-wallet] getContractMetadata failed, using balance heuristic:", metaErr);
+    const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
+    const { deriveStorageSlotInMap } = await import("@aztec/stdlib/hash");
+    const { NODE_URL } = await import("@/lib/network-config");
+    const node = createAztecNodeClient(NODE_URL);
+    const feeJuiceAddress = AztecAddress.fromBigInt(5n);
+    const slot = await deriveStorageSlotInMap(new Fr(1), address);
+    const balanceField = await node
+      .getPublicStorageAt("latest", feeJuiceAddress, slot)
+      .catch(() => null);
+    isDeployed = (balanceField?.toBigInt() ?? 0n) > 0n;
+  }
 
   let receipt: unknown;
   try {
-    receipt = await feeJuice.methods
-      .check_balance(0n)
-      .send({ from: address, fee: { paymentMethod } });
+    if (!isDeployed) {
+      const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, {
+        claimAmount,
+        claimSecret,
+        messageLeafIndex,
+      });
+      receipt = await feeJuice.methods
+        .check_balance(0n)
+        .send({ from: address, fee: { paymentMethod } });
+    } else {
+      receipt = await feeJuice.methods
+        .claim(address, claimAmount, claimSecret, new Fr(messageLeafIndex))
+        .send({ from: address });
+    }
   } catch (err) {
     // Surface the raw wallet/SDK error to the browser console so devs can
     // see what actually broke. The humanised error below only catches

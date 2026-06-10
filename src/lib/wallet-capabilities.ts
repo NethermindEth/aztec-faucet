@@ -28,10 +28,12 @@ export function faucetCapabilities(): AppCapabilities {
         utilities: { scope: [] },
         transactions: {
           scope: [
-            // claim_and_end_setup runs in the FeeJuicePaymentMethodWithClaim
-            // setup phase. check_balance(0n) is the outer no-op that gives the
-            // wallet something to entrypoint-wrap (including bundling deploy
-            // for an undeployed `from` account).
+            // Undeployed accounts: claim_and_end_setup runs in the
+            // FeeJuicePaymentMethodWithClaim setup phase, and check_balance(0n)
+            // is the outer no-op that gives the wallet something to
+            // entrypoint-wrap (which is what bundles the account deploy).
+            // Initialized accounts: plain claim() with fee from existing FJ.
+            { contract: feeJuice, function: "claim" },
             { contract: feeJuice, function: "claim_and_end_setup" },
             { contract: feeJuice, function: "check_balance" },
           ],
@@ -40,6 +42,7 @@ export function faucetCapabilities(): AppCapabilities {
       {
         type: "transaction",
         scope: [
+          { contract: feeJuice, function: "claim" },
           { contract: feeJuice, function: "claim_and_end_setup" },
           { contract: feeJuice, function: "check_balance" },
         ],

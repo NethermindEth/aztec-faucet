@@ -149,10 +149,17 @@ try {
   const address = accountManager.address;
   s1.ok(address.toString().slice(0, 20) + '…');
 
-  // Step 2: Check deployment status
+  // Step 2: Check deployment status.
+  // 4.3.x renamed isContractInitialized to initializationStatus
+  // (INITIALIZED | UNINITIALIZED | UNKNOWN). Support both so the script
+  // works across SDK versions; a wrong answer here routes an initialized
+  // account into the deploy path, which fails with "Existing nullifier"
+  // (the init nullifier can only be emitted once).
   const s2 = spin('Checking account status');
   const metadata = await wallet.getContractMetadata(address);
-  const isDeployed = metadata.isContractInitialized;
+  const isDeployed = metadata.initializationStatus
+    ? metadata.initializationStatus === 'INITIALIZED'
+    : !!metadata.isContractInitialized;
   s2.ok(isDeployed ? 'deployed' : 'not yet deployed');
 
   // Prepare claim. Per Aztec team: don't pass gasSettings — let the SDK
@@ -200,20 +207,18 @@ try {
 `);
     if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   } else {
-    // Claim on already-deployed account.
-    // FeeJuicePaymentMethodWithClaim internally calls claim_and_end_setup() in the
-    // non-revertible setup phase, so we must NOT also call FeeJuice.claim() (that would
-    // double-consume the L1→L2 message = duplicate nullifier error).
-    // Instead, send check_balance(0n) as a noop — same pattern used in Aztec's own
-    // e2e tests (fee_juice_payments.test.ts). The payment method handles the actual claim.
+    // Claim on already-initialized account: plain claim(), fee paid from the
+    // existing FJ balance. Do NOT use FeeJuicePaymentMethodWithClaim here —
+    // its setup phase runs claim_and_end_setup, and "end setup" can only
+    // happen once per account (emits the setup nullifier). On an initialized
+    // account that fails with "Invalid tx: Existing nullifier".
     const s3 = spin('Claiming Fee Juice');
-    const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
     const { FeeJuiceContract } = await import(`${SDK}/aztec.js/protocol`);
 
     const feeJuice = FeeJuiceContract.at(wallet);
     const raw = await feeJuice.methods
-      .check_balance(0n)
-      .send({ from: address, fee: { paymentMethod } });
+      .claim(address, claim.claimAmount, claim.claimSecret, new Fr(claim.messageLeafIndex))
+      .send({ from: address });
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";

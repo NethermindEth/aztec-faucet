@@ -2,6 +2,7 @@ import {
   createPublicClient,
   createWalletClient,
   http,
+  nonceManager,
   parseEther,
   type Hex,
   type Chain,
@@ -46,7 +47,13 @@ export class L1Faucet {
       rpcUrls: { default: { http: [config.rpcUrl] } },
     };
 
-    this.account = privateKeyToAccount(config.privateKey);
+    // Shared nonce manager: ETH drips and Fee Juice deposits send from the
+    // same wallet, possibly concurrently. Without it each send fetches the
+    // pending count independently, and simultaneous sends grab the same
+    // nonce; the loser is rejected at broadcast. The viem `nonceManager`
+    // export is a process-wide singleton keyed by address + chain, so both
+    // faucet classes allocate from one sequence.
+    this.account = privateKeyToAccount(config.privateKey, { nonceManager });
 
     this.publicClient = createPublicClient({
       chain: this.chain,

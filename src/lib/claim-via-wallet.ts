@@ -90,26 +90,36 @@ export async function claimFeeJuiceViaWallet(
     throw new ClaimRecipientMismatchError(recipientHex, fromAddressHex);
   }
 
-  // FeeJuicePaymentMethodWithClaim's non-revertible setup phase runs
-  // claim_and_end_setup, which atomically consumes the bridge message and
-  // mints FJ. Sending an empty BatchCall alongside it minted FJ but the
-  // wallet couldn't wrap "no calls" in an entrypoint, so a brand-new
-  // account never got deployed (and on a fresh wallet the tx timed out
-  // entirely). Sending a real no-op call instead (check_balance(0n))
-  // gives the wallet something to entrypoint-wrap; if the from-account
-  // isn't deployed yet the wallet bundles the deploy into the same tx.
-  // Pattern matches Aztec's own e2e tests (fee_juice_payments.test.ts).
+  // Single path for fresh AND initialized accounts: check_balance(0n) no-op
+  // + FeeJuicePaymentMethodWithClaim. The payment method's non-revertible
+  // setup phase runs claim_and_end_setup (consumes the bridge message, mints
+  // FJ, ends the setup phase) and the no-op call gives the wallet something
+  // to entrypoint-wrap; for an undeployed `from` the wallet bundles the
+  // account deploy into the same tx. An empty BatchCall doesn't work:
+  // nothing to wrap means no deploy, and on a brand-new wallet the tx times
+  // out entirely.
+  //
+  // Why not plain claim() with fee from the existing balance for initialized
+  // accounts: Azguard 0.13.x can't execute it. Its wallet-sdk bridge crashes
+  // when executionPayload.feePayer is unset ("Cannot read properties of
+  // undefined (reading 'paymentMethod')"), and when feePayer equals the
+  // sender it force-wraps the tx as fee-juice-with-claim, expecting the fee
+  // payload to carry the call that ends the setup phase; an empty fee
+  // payload then fails the kernel circuit with
+  // "min_revertible_side_effect_counter must not be 0 for tail_to_public".
+  // Repeat claims through claim_and_end_setup are safe on 4.3.x (verified
+  // on testnet); the "Existing nullifier" failure that forced the split was
+  // 4.2.0-rc.1 behavior.
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   const feeJuice = FeeJuiceContract.at(wallet);
 
-  const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, {
-    claimAmount,
-    claimSecret,
-    messageLeafIndex,
-  });
-
   let receipt: unknown;
   try {
+    const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, {
+      claimAmount,
+      claimSecret,
+      messageLeafIndex,
+    });
     receipt = await feeJuice.methods
       .check_balance(0n)
       .send({ from: address, fee: { paymentMethod } });

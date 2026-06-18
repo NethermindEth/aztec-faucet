@@ -11,7 +11,6 @@ const WalletClaimButton = dynamic(
   { ssr: false },
 );
 
-const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
 export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
@@ -41,7 +40,11 @@ const NODE_URL = "${NODE_URL}";
 const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true, pxeConfig: { proverEnabled: true } });
 const mgr = await wallet.createSchnorrAccount(Fr.fromHexString(SECRET), Fr.ZERO);
 const addr = mgr.address;
-const isDeployed = (await wallet.getContractMetadata(addr)).isContractInitialized;
+// 4.3.x renamed isContractInitialized to initializationStatus; support both.
+const meta = await wallet.getContractMetadata(addr);
+const isDeployed = meta.initializationStatus
+  ? meta.initializationStatus === "INITIALIZED"
+  : !!meta.isContractInitialized;
 const claim = { claimAmount: AMOUNT, claimSecret: CLAIM_SECRET, messageLeafIndex: LEAF };
 if (!isDeployed) {
   console.log("Deploying account + claiming Fee Juice (proving ~10s)...");

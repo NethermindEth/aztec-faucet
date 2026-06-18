@@ -7,7 +7,7 @@ export const NODE_URL = "https://rpc.testnet.aztec-labs.com";
 export const EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
 export const NETWORK_LABEL = "Testnet";
 export const NPM_TAG = "rc";
-export const SCHNORR_CLASS_ID = "0x1e86cb5f3581f982b9c2c2b8a45fc4d0dfdb93cdab87e6deee55ec69d7f19703";
+export const SCHNORR_CLASS_ID = "0x07075a1272394d6813efa5e40be8f56ad5ee9cf6d151ed6bdbd10f4f5143e71e";
 
 // ── L1 (Sepolia) ─────────────────────────────────────────────────────────────
 export const L1_CHAIN_ID = 11155111;

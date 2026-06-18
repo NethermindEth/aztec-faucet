@@ -5,6 +5,7 @@ import type { Wallet } from "@aztec/aztec.js/wallet";
 import { useWalletConnect } from "@/lib/use-wallet-connect";
 import { WalletConnectModal } from "./wallet-connect-modal";
 import { claimFeeJuiceViaWallet, type ClaimDataInput } from "@/lib/claim-via-wallet";
+import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { EXPLORER_TX_URL } from "@/lib/network-config";
 
 type ClaimState =
@@ -50,7 +51,8 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [infoOpen]);
 
-  useEffect(() => {
+  // The wallet just connected: kick off the claim on its own.
+  useDeferredEffect(() => {
     if (canSkipConnect) return;
     if (phase.kind !== "connected" || claim.kind !== "none") return;
     const wallet: Wallet = phase.wallet;

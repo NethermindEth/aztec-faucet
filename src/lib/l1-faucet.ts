@@ -8,8 +8,9 @@ import {
   type HttpTransport,
   type Account,
 } from "viem";
-import { type PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
+import type { PrivateKeyAccount } from "viem/accounts";
 import { sepolia, foundry } from "viem/chains";
+import { getFaucetL1Account } from "./faucet-l1-account";
 type L1FaucetConfig = {
   rpcUrl: string;
   chainId: number;
@@ -46,7 +47,7 @@ export class L1Faucet {
       rpcUrls: { default: { http: [config.rpcUrl] } },
     };
 
-    this.account = privateKeyToAccount(config.privateKey);
+    this.account = getFaucetL1Account(config.privateKey);
 
     this.publicClient = createPublicClient({
       chain: this.chain,

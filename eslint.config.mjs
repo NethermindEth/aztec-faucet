@@ -5,6 +5,12 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      // useDeferredEffect wraps useEffect; keep its dep arrays checked.
+      "react-hooks/exhaustive-deps": ["warn", { additionalHooks: "(useDeferredEffect)" }],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -12,6 +18,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local agent worktrees; not part of the repo, but ESLint scans them.
+    ".claude/**",
   ]),
 ]);
 

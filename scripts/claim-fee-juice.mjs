@@ -149,10 +149,13 @@ try {
   const address = accountManager.address;
   s1.ok(address.toString().slice(0, 20) + '…');
 
-  // Step 2: Check deployment status
+  // Step 2: Check deployment status. 4.3.x renamed isContractInitialized
+  // to initializationStatus; support both so the script works across versions.
   const s2 = spin('Checking account status');
   const metadata = await wallet.getContractMetadata(address);
-  const isDeployed = metadata.isContractInitialized;
+  const isDeployed = metadata.initializationStatus
+    ? metadata.initializationStatus === 'INITIALIZED'
+    : !!metadata.isContractInitialized;
   s2.ok(isDeployed ? 'deployed' : 'not yet deployed');
 
   // Prepare claim. Per Aztec team: don't pass gasSettings — let the SDK
@@ -200,20 +203,15 @@ try {
 `);
     if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   } else {
-    // Claim on already-deployed account.
-    // FeeJuicePaymentMethodWithClaim internally calls claim_and_end_setup() in the
-    // non-revertible setup phase, so we must NOT also call FeeJuice.claim() (that would
-    // double-consume the L1→L2 message = duplicate nullifier error).
-    // Instead, send check_balance(0n) as a noop — same pattern used in Aztec's own
-    // e2e tests (fee_juice_payments.test.ts). The payment method handles the actual claim.
+    // Already-initialized account: plain claim(), fee paid from the
+    // existing balance.
     const s3 = spin('Claiming Fee Juice');
-    const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
     const { FeeJuiceContract } = await import(`${SDK}/aztec.js/protocol`);
 
     const feeJuice = FeeJuiceContract.at(wallet);
     const raw = await feeJuice.methods
-      .check_balance(0n)
-      .send({ from: address, fee: { paymentMethod } });
+      .claim(address, claim.claimAmount, claim.claimSecret, new Fr(claim.messageLeafIndex))
+      .send({ from: address });
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";
@@ -231,7 +229,8 @@ try {
     if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   }
 
-  console.log(`  ${_C.di}check balance${_C.rs}\n  curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/main/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
+  const _branch = process.env.REPO_BRANCH || "main";
+  console.log(`  ${_C.di}check balance${_C.rs}\n  curl -fsSL https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${_branch}/sh/${network}/check-balance.sh | sh -s -- --address ${address.toString()}\n`);
 
   await wallet.stop();
   process.exit(0);

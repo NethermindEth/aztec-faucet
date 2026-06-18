@@ -1,11 +1,12 @@
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { L1FeeJuicePortalManager } from "@aztec/aztec.js/ethereum";
+import { generateClaimSecret } from "@aztec/aztec.js/ethereum";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { createEthereumChain } from "@aztec/ethereum/chain";
 import { createLogger } from "@aztec/foundation/log";
-import { privateKeyToAccount } from "viem/accounts";
-import { createPublicClient, http, type Hex, parseAbiItem } from "viem";
+import { FeeJuicePortalAbi } from "@aztec/l1-artifacts/FeeJuicePortalAbi";
+import { createPublicClient, erc20Abi, http, maxUint256, parseEventLogs, type Hex } from "viem";
+import { getFaucetL1Account } from "./faucet-l1-account";
 import { sepolia, foundry } from "viem/chains";
 import type { Chain } from "viem";
 
@@ -32,7 +33,6 @@ export class L2Faucet {
   private aztecNode;
   // Cached per-instance — contract addresses and L1 client never change at runtime
   private _l1Client: ReturnType<typeof createExtendedL1Client> | null = null;
-  private _portalManagerPromise: Promise<L1FeeJuicePortalManager> | null = null;
   private _nodeInfoPromise: Promise<Awaited<ReturnType<ReturnType<typeof createAztecNodeClient>["getNodeInfo"]>>> | null = null;
 
   constructor(private config: L2FaucetConfig) {
@@ -41,7 +41,7 @@ export class L2Faucet {
 
   private getL1Client(): ReturnType<typeof createExtendedL1Client> {
     if (!this._l1Client) {
-      const account = privateKeyToAccount(this.config.l1PrivateKey);
+      const account = getFaucetL1Account(this.config.l1PrivateKey);
       const chain = createEthereumChain([this.config.l1RpcUrl], this.config.l1ChainId);
       // viem is duplicated in the dep tree (root viem vs @aztec/ethereum's nested viem).
       // The two PrivateKeyAccount types are structurally identical but TypeScript can't
@@ -53,19 +53,35 @@ export class L2Faucet {
     return this._l1Client;
   }
 
-  private getPortalManager(): Promise<L1FeeJuicePortalManager> {
-    if (!this._portalManagerPromise) {
-      this._portalManagerPromise = L1FeeJuicePortalManager.new(
-        this.aztecNode,
-        this.getL1Client(),
-        log,
-      ).catch((err) => {
-        // Don't cache failures — allow retry on next drip
-        this._portalManagerPromise = null;
-        throw err;
-      });
+  /**
+   * One-time maxUint256 approve for the portal. OZ v5 never decrements an
+   * infinite allowance and the portal only pulls from msg.sender, so this
+   * removes the per-deposit approve whose allowance a concurrent drip can
+   * steal (ERC20InsufficientAllowance).
+   */
+  private async ensureStandingAllowance(tokenAddress: Hex, portalAddress: Hex): Promise<void> {
+    const l1Client = this.getL1Client();
+    const owner = l1Client.account.address;
+    const allowance = await l1Client.readContract({
+      address: tokenAddress,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [owner, portalAddress],
+    });
+    // Anything below maxUint256 / 2 is either a leftover exact approve from
+    // the old per-drip flow or another instance resetting it. Re-approve max.
+    if (allowance >= maxUint256 / 2n) return;
+    log.info(`Setting standing max Fee Juice allowance for portal ${portalAddress} (one-time)`);
+    const hash = await l1Client.writeContract({
+      address: tokenAddress,
+      abi: erc20Abi,
+      functionName: "approve",
+      args: [portalAddress, maxUint256],
+    });
+    const receipt = await l1Client.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") {
+      throw new Error(`L1 approve transaction reverted on-chain (tx ${hash})`);
     }
-    return this._portalManagerPromise;
   }
 
   private getNodeInfo() {
@@ -97,11 +113,11 @@ export class L2Faucet {
       const publicClient = createPublicClient({ chain, transport: http(this.config.l1RpcUrl) });
       const balance = await publicClient.readContract({
         address: tokenAddress,
-        abi: [parseAbiItem("function balanceOf(address) view returns (uint256)")],
+        abi: erc20Abi,
         functionName: "balanceOf",
         args: [walletAddress],
       });
-      return balance as bigint;
+      return balance;
     } catch {
       return null;
     }
@@ -110,45 +126,99 @@ export class L2Faucet {
   /**
    * Bridge Fee Juice from L1 to L2 for a recipient.
    * Returns claim data that the recipient uses to claim on L2.
+   *
+   * Deposits directly rather than via the SDK's bridgeTokensPublic, which
+   * approves per deposit (see ensureStandingAllowance) and reports success
+   * without checking receipt.status.
    */
   async bridgeFeeJuice(
     recipientAztecAddress: string,
   ): Promise<FeeJuiceClaimData> {
     const recipient = AztecAddress.fromString(recipientAztecAddress);
     const l1Client = this.getL1Client();
+    const amount = this.config.feeJuiceDripAmount;
+    if (amount === undefined) {
+      throw new Error("feeJuiceDripAmount is not configured");
+    }
 
-    let portalManager;
+    let portalAddress: Hex;
+    let tokenAddress: Hex;
     try {
-      portalManager = await this.getPortalManager();
+      const nodeInfo = await this.getNodeInfo();
+      portalAddress = nodeInfo.l1ContractAddresses.feeJuicePortalAddress.toString() as Hex;
+      tokenAddress = nodeInfo.l1ContractAddresses.feeJuiceAddress.toString() as Hex;
     } catch (err) {
-      console.error("[faucet] Portal manager init failed:", err);
+      console.error("[faucet] Failed to resolve L1 bridge contracts:", err);
       throw new Error(
         "Could not connect to the Fee Juice bridge contract on L1. " +
         "The network contracts may be temporarily unavailable. Please try again in a few minutes.",
       );
     }
 
-    // Capture block number before the bridge call — the tx must land in a block >= preBlock.
-    let preBlock: bigint | undefined;
     try {
-      preBlock = await l1Client.getBlockNumber();
-    } catch {
-      // Non-critical — log lookup will fall back to a wider range
-    }
+      await this.ensureStandingAllowance(tokenAddress, portalAddress);
 
-    let claim;
-    try {
-      claim = await portalManager.bridgeTokensPublic(
-        recipient,
-        this.config.feeJuiceDripAmount,
-        false, // testnet: use pre-funded wallet balance (no open mint)
+      const [claimSecret, claimSecretHash] = await generateClaimSecret();
+      const depositArgs = [
+        recipient.toString() as Hex,
+        amount,
+        claimSecretHash.toString() as Hex,
+      ] as const;
+
+      // Simulate first so reverts surface as readable errors before broadcast.
+      await l1Client.simulateContract({
+        address: portalAddress,
+        abi: FeeJuicePortalAbi,
+        functionName: "depositToAztecPublic",
+        args: depositArgs,
+        account: l1Client.account,
+      });
+      log.info("Sending L1 Fee Juice to L2 to be claimed publicly");
+      const txHash = await l1Client.writeContract({
+        address: portalAddress,
+        abi: FeeJuicePortalAbi,
+        functionName: "depositToAztecPublic",
+        args: depositArgs,
+        account: l1Client.account,
+        chain: l1Client.chain,
+      });
+      const receipt = await l1Client.waitForTransactionReceipt({ hash: txHash });
+      if (receipt.status !== "success") {
+        throw new Error(`L1 deposit transaction reverted on-chain (tx ${txHash})`);
+      }
+
+      // secretHash match is a guard against ABI/event-shape drift.
+      const deposits = parseEventLogs({
+        abi: FeeJuicePortalAbi,
+        logs: receipt.logs,
+        eventName: "DepositToAztecPublic",
+      });
+      const secretHashHex = claimSecretHash.toString().toLowerCase();
+      const deposit = deposits.find(
+        (e) => (e.args.secretHash as string).toLowerCase() === secretHashHex,
       );
+      if (!deposit) {
+        throw new Error(
+          `Deposit tx ${txHash} succeeded but no matching DepositToAztecPublic event was found`,
+        );
+      }
+      log.info(`Deposited to Aztec public successfully (tx ${txHash}, leaf ${deposit.args.index})`);
+
+      return {
+        claimAmount: amount.toString(),
+        claimSecretHex: claimSecret.toString(),
+        claimSecretHashHex: claimSecretHash.toString(),
+        messageHashHex: deposit.args.key as string,
+        messageLeafIndex: (deposit.args.index as bigint).toString(),
+        l1TxHash: txHash,
+      };
     } catch (err) {
       console.error("[faucet] Bridge tx failed:", err);
       const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
       if (
         msg.includes("insufficient funds") ||
         msg.includes("insufficient balance") ||
+        msg.includes("erc20insufficientbalance") ||
         msg.includes("not enough balance") ||
         msg.includes("erc20: transfer amount exceeds balance") ||
         msg.includes("transfer amount exceeds balance")
@@ -161,38 +231,6 @@ export class L2Faucet {
         "This may be a temporary network issue. Please wait a moment and try again.",
       );
     }
-
-    // Look up the L1 tx hash by querying the DepositToAztecPublic event log,
-    // matched by messageHash (the `key` field). Non-critical — we proceed without it on failure.
-    let l1TxHash: string | undefined;
-    try {
-      const nodeInfo = await this.getNodeInfo();
-      const portalAddr = nodeInfo.l1ContractAddresses.feeJuicePortalAddress.toString() as Hex;
-      const postBlock = await l1Client.getBlockNumber();
-      // fromBlock = block before bridge (guaranteed to contain the tx); fallback to postBlock - 10
-      const fromBlock = preBlock ?? (postBlock > 10n ? postBlock - 10n : 0n);
-      const logs = await l1Client.getLogs({
-        address: portalAddr,
-        event: parseAbiItem("event DepositToAztecPublic(bytes32 indexed to, uint256 amount, bytes32 secretHash, bytes32 key, uint256 index)"),
-        fromBlock,
-        toBlock: postBlock + 1n,
-      });
-      const match = logs.find(
-        (log) => log.args.key?.toLowerCase() === claim.messageHash.toLowerCase(),
-      );
-      l1TxHash = match?.transactionHash;
-    } catch (err) {
-      console.error("[faucet] Failed to look up L1 tx hash:", err);
-    }
-
-    return {
-      claimAmount: claim.claimAmount.toString(),
-      claimSecretHex: claim.claimSecret.toString(),
-      claimSecretHashHex: claim.claimSecretHash.toString(),
-      messageHashHex: claim.messageHash,
-      messageLeafIndex: claim.messageLeafIndex.toString(),
-      l1TxHash,
-    };
   }
 
 }

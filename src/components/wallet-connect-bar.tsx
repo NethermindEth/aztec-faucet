@@ -13,8 +13,10 @@ import {
   type AnnouncedProvider,
   type EthereumProvider,
 } from "@/lib/ethereum-providers";
-import { discoverWallets, getChainInfo } from "@/lib/wallet-client";
+import { discoverWallets, getChainInfo, unwrapAddress } from "@/lib/wallet-client";
 import { L1_CHAIN_ID } from "@/lib/network-config";
+import { useDeferredEffect } from "@/lib/use-deferred-effect";
+import { useOnValueChange } from "@/lib/use-on-value-change";
 
 type Props = {
   asset: string;
@@ -73,12 +75,10 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // overwrite each other's global, this keeps calls on the picked wallet.
   const ethProviderRef = useRef<EthereumProvider | null>(null);
 
-  // Aztec connections don't survive reloads (Wallet object isn't serialisable);
-  // clear any stale aztec key written by older code.
-  const hydrated = useRef(false);
-  useEffect(() => {
-    if (hydrated.current) return;
-    hydrated.current = true;
+  // Restore the persisted eth address after hydration. Aztec connections
+  // don't survive reloads (Wallet object isn't serialisable); clear any
+  // stale aztec key written by older code.
+  useDeferredEffect(() => {
     const p = readPersisted();
     if (p.eth) setEthAddr(p.eth);
     if (p.aztec) writePersisted({ ...p, aztec: null });
@@ -86,18 +86,20 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
 
   const azguard = useWalletConnect();
 
-  useEffect(() => {
-    if (azguard.phase.kind !== "connected") return;
-    const addr = azguard.phase.address;
-    const wallet = azguard.phase.wallet;
-    aztecWalletRef.current = wallet;
-    setAztecAddr(addr);
+  // Destructured so the effect keys on the phase value, not the hook's
+  // per-render wrapper object; reset is a stable useCallback.
+  const { phase: azPhase, reset: azReset } = azguard;
+  // Hands the connected wallet off to local state.
+  useDeferredEffect(() => {
+    if (azPhase.kind !== "connected") return;
+    aztecWalletRef.current = azPhase.wallet;
+    setAztecAddr(azPhase.address);
     if (!isEth) {
-      onAddress(addr);
-      onWalletConnect?.(wallet);
+      onAddress(azPhase.address);
+      onWalletConnect?.(azPhase.wallet);
     }
-    azguard.reset();
-  }, [azguard, onAddress, isEth, onWalletConnect]);
+    azReset();
+  }, [azPhase, azReset, onAddress, isEth, onWalletConnect]);
 
   // Picker click handler — applies the pick synchronously to bar state and the
   // parent form, then transitions phase. Avoids relying solely on the
@@ -312,11 +314,12 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     return () => window.removeEventListener("storage", handler);
   }, [isEth, onAddress]);
 
+  // Hide the hint the moment the wallet is no longer busy.
+  useOnValueChange(ethBusy, () => {
+    if (!ethBusy) setShowBusyHint(false);
+  });
   useEffect(() => {
-    if (!ethBusy) {
-      setShowBusyHint(false);
-      return;
-    }
+    if (!ethBusy) return;
     const t = setTimeout(() => setShowBusyHint(true), 1500);
     return () => clearTimeout(t);
   }, [ethBusy]);
@@ -324,7 +327,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // Silent reconciliation via eth_accounts (no popup). The bar unmounts during
   // a drip; accountsChanged doesn't fire while detached, so we verify on
   // remount. Handles: matching cache, switched account, revoked permission.
-  useEffect(() => {
+  useDeferredEffect(() => {
     const persisted = readPersisted();
     if (!persisted.ethRdns) return;
     const list = getEthereumProviders();
@@ -413,9 +416,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     const t = setTimeout(() => setConfirmReplace(false), 2500);
     return () => clearTimeout(t);
   }, [confirmReplace]);
-  useEffect(() => {
-    setConfirmReplace(false);
-  }, [connectedAddr, formMatchesWallet]);
+  // Pending confirm no longer applies once the wallet or match state moves.
+  const replaceKey = `${connectedAddr ?? ""}|${formMatchesWallet}`;
+  useOnValueChange(replaceKey, () => setConfirmReplace(false));
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement | null>(null);
@@ -471,10 +474,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       if (wallet) {
         try {
           const accounts = await wallet.getAccounts();
-          const { unwrapAddress } = await import("@/lib/wallet-client");
           const addrs = Array.from(accounts as unknown[])
             .map((a) => unwrapAddress(a))
-            .filter((a) => a && a !== "[object Object]");
+            .filter((a): a is string => a !== null);
           if (addrs.length > 1) {
             azguard.enterAccountPicker(wallet, addrs);
             return;
@@ -487,7 +489,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       onWalletConnect?.(null);
       azguard.start();
     }
-  }, [isEth, startEthConnect, azguard, onAddress]);
+  }, [isEth, startEthConnect, azguard, onAddress, onWalletConnect]);
 
   const handleConnectedClick = () => setMenuOpen((v) => !v);
   const handleNonMatchingClick = () => {
@@ -566,8 +568,9 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   }, [expectedChainHex]);
 
   // Auto-prompt Sepolia switch on wrong-chain detection (Uniswap pattern).
-  useEffect(() => {
-    if (wrongChain) void switchToSepolia();
+  useDeferredEffect(() => {
+    if (!wrongChain) return;
+    void switchToSepolia();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wrongChain]);
 

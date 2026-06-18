@@ -4,7 +4,6 @@ import "@/lib/buffer-polyfill";
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
-import { BatchCall } from "@aztec/aztec.js/contracts";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 
 export type ClaimDataInput = {
@@ -17,15 +16,6 @@ export type ClaimResult = {
   txHash: string;
   blockNumber?: number;
 };
-
-export class ClaimStuckAccountError extends Error {
-  constructor(addr: string) {
-    super(
-      `This wallet account (${addr.slice(0, 10)}…${addr.slice(-6)}) has no Fee Juice and can't pay for the claim transaction. Request a fresh drip, or fund this account from the CLI.`,
-    );
-    this.name = "ClaimStuckAccountError";
-  }
-}
 
 export class ClaimAlreadyRedeemedError extends Error {
   constructor() {
@@ -100,58 +90,30 @@ export async function claimFeeJuiceViaWallet(
     throw new ClaimRecipientMismatchError(recipientHex, fromAddressHex);
   }
 
-  // Undeployed: empty BatchCall + FeeJuicePaymentMethodWithClaim. Setup phase
-  // runs claim_and_end_setup which atomically consumes the bridge message,
-  // mints FJ, and ends setup. Adding feeJuice.claim() here would double-spend
-  // the message ("Duplicate siloed nullifier").
-  // Deployed: plain feeJuice.claim() — wallet uses PREEXISTING_FEE_JUICE.
-  const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
-  const { NODE_URL } = await import("@/lib/network-config");
-  const node = createAztecNodeClient(NODE_URL);
-  const instance = await node.getContract(address).catch(() => null);
-  const isDeployed = !!instance;
+  // Single path for fresh AND initialized accounts: check_balance(0n) no-op
+  // + FeeJuicePaymentMethodWithClaim. The fee payload claims and ends setup;
+  // the no-op gives the wallet something to wrap, which bundles the deploy
+  // for fresh accounts. Azguard 0.13.x can only execute this shape for
+  // self-paid dapp txs, and repeat claims are safe on 4.3.x (see #41).
+  const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
+  const feeJuice = FeeJuiceContract.at(wallet);
 
   let receipt: unknown;
-  if (!isDeployed) {
+  try {
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, {
       claimAmount,
       claimSecret,
       messageLeafIndex,
     });
-    const batch = new BatchCall(wallet, []);
-    try {
-      receipt = await batch.send({
-        from: address,
-        fee: { paymentMethod },
-      });
-    } catch (err) {
-      throw humaniseClaimError(err, addressesMatch);
-    }
-  } else {
-    const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
-    const feeJuice = FeeJuiceContract.at(wallet);
-    const interaction = feeJuice.methods.claim(
-      address,
-      claimAmount,
-      claimSecret,
-      new Fr(messageLeafIndex),
-    );
-    try {
-      receipt = await interaction.send({ from: address });
-    } catch (err) {
-      const translated = humaniseClaimError(err, addressesMatch);
-      if (translated instanceof ClaimAlreadyRedeemedError) throw translated;
-      const blob = (err instanceof Error ? err.message : String(err)).toLowerCase();
-      if (
-        blob.includes("insufficient") ||
-        blob.includes("balance") ||
-        blob.includes("paymentmethod") ||
-        blob.includes("fee")
-      ) {
-        throw new ClaimStuckAccountError(fromAddressHex);
-      }
-      throw translated;
-    }
+    receipt = await feeJuice.methods
+      .check_balance(0n)
+      .send({ from: address, fee: { paymentMethod } });
+  } catch (err) {
+    // Surface the raw wallet/SDK error to the browser console so devs can
+    // see what actually broke. The humanised error below only catches
+    // double-spend; everything else propagates as-is.
+    console.error("[claim-via-wallet] send threw:", err);
+    throw humaniseClaimError(err, addressesMatch);
   }
 
   const wrapper = receipt as {

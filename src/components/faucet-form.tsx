@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type React from "react";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
+import { useOnValueChange } from "@/lib/use-on-value-change";
 
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
@@ -104,14 +105,12 @@ export function FaucetForm({
   const [asset, setAsset] = useState<Asset>("fee-juice");
 
   // null/undefined = no opinion; empty string = explicit clear (e.g. disconnect).
-  useEffect(() => {
-    if (prefilledAddress === undefined || prefilledAddress === null) return;
-    const cleaned = prefilledAddress.replace(/\s+/g, "");
-    if (cleaned !== address) {
-      setAddress(cleaned);
+  useOnValueChange(prefilledAddress, () => {
+    if (prefilledAddress !== undefined && prefilledAddress !== null) {
+      const cleaned = prefilledAddress.replace(/\s+/g, "");
+      if (cleaned !== address) setAddress(cleaned);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefilledAddress]);
+  });
 
   useEffect(() => {
     onAddressChange?.(address);

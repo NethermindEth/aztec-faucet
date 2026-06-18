@@ -28,9 +28,11 @@ export function faucetCapabilities(): AppCapabilities {
         utilities: { scope: [] },
         transactions: {
           scope: [
+            // The claim flow sends check_balance(0n) with
+            // claim_and_end_setup riding in the fee payload.
             { contract: feeJuice, function: "claim" },
             { contract: feeJuice, function: "claim_and_end_setup" },
-            { contract: feeJuice, function: "balance_of_public" },
+            { contract: feeJuice, function: "check_balance" },
           ],
         },
       },
@@ -39,6 +41,7 @@ export function faucetCapabilities(): AppCapabilities {
         scope: [
           { contract: feeJuice, function: "claim" },
           { contract: feeJuice, function: "claim_and_end_setup" },
+          { contract: feeJuice, function: "check_balance" },
         ],
       },
     ],

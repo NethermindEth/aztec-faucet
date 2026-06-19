@@ -117,9 +117,18 @@ export function useWalletConnect() {
       const rawAccounts = await resolveGrantedAccounts(wallet);
 
       if (rawAccounts.length === 0) {
+        // Empty accounts is ambiguous: the wallet may have no account at all,
+        // or (likely on the v5-rc testnet) its accounts live on a different
+        // rollup version than the one we advertise, so none match this chain.
+        // Accounts are CAIP-10 scoped (aztec:<rollupVersion>:<address>), so a
+        // version mismatch returns [] rather than an error. Cover both cases.
+        let version = "";
+        try {
+          version = BigInt((await getChainInfo()).version.toString()).toString();
+        } catch {}
         setPhase({
           kind: "error",
-          message: "Your wallet has no accounts. Create or import an Aztec account in the wallet, then connect again.",
+          message: `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. It may be on a different network version, or have no account yet.`,
         });
         return;
       }

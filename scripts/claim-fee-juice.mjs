@@ -203,15 +203,18 @@ try {
 `);
     if (txHash !== "n/a") console.log(`  ${_C.di}explorer${_C.rs}  ${link(explorerUrl)}\n`);
   } else {
-    // Already-initialized account: plain claim(), fee paid from the
-    // existing balance.
+    // Already-initialized account. Pay the claim tx's fee from the claimed
+    // juice itself so an account that spent its balance to zero can still
+    // claim. check_balance(0) is a no-op body; the claim rides in the fee
+    // payload, same as the web flow. See #52.
     const s3 = spin('Claiming Fee Juice');
     const { FeeJuiceContract } = await import(`${SDK}/aztec.js/protocol`);
 
+    const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, claim);
     const feeJuice = FeeJuiceContract.at(wallet);
     const raw = await feeJuice.methods
-      .claim(address, claim.claimAmount, claim.claimSecret, new Fr(claim.messageLeafIndex))
-      .send({ from: address });
+      .check_balance(0n)
+      .send({ from: address, fee: { paymentMethod } });
     const receipt = raw?.receipt ?? raw;
 
     const txHash = receipt?.txHash?.toString?.() ?? "n/a";

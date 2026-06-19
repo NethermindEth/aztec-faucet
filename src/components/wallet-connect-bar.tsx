@@ -14,7 +14,7 @@ import {
   type EthereumProvider,
 } from "@/lib/ethereum-providers";
 import { discoverWallets, getChainInfo, unwrapAddress } from "@/lib/wallet-client";
-import { L1_CHAIN_ID } from "@/lib/network-config";
+import { L1_CHAIN_ID, IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { useOnValueChange } from "@/lib/use-on-value-change";
 
@@ -587,6 +587,10 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     : connectedAddr
     ? `Use saved address ${connectedAddr}`
     : idleLabel;
+
+  // Azguard can't claim against the v5 testnet yet, so the Aztec connect is
+  // hidden until it ships v5 support. ETH connect (for L1 ETH drips) stays.
+  if (!isEth && !IN_WALLET_CLAIM_ENABLED) return null;
 
   return (
     <div className="flex flex-col items-end gap-1" ref={menuWrapRef}>

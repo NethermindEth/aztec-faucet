@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 import { ConfettiBurst } from "./confetti-burst";
-import { NODE_URL, NPM_TAG, EXPLORER_TX_URL, L1_CHAIN_ID } from "@/lib/network-config";
+import { NODE_URL, NPM_TAG, EXPLORER_TX_URL, L1_CHAIN_ID, IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
 
 const WalletClaimButton = dynamic(
   () => import("./wallet-claim-button").then((m) => m.WalletClaimButton),
@@ -460,25 +460,29 @@ export function DripResult({ result, error, retryAfter, recipient, onReset, conn
               <span className="font-label text-[9px] text-secondary/50 uppercase tracking-wider">Bridge complete</span>
             </div>
 
-            <WalletClaimButton
-              claimData={{
-                claimAmount: result.claimData.claimAmount,
-                claimSecretHex: result.claimData.claimSecretHex,
-                messageLeafIndex: result.claimData.messageLeafIndex,
-              }}
-              recipient={recipient ?? ""}
-              onClaimComplete={setWalletClaimedTx}
-              preConnectedWallet={connectedWallet}
-              preConnectedAddress={connectedAddress}
-            />
+            {IN_WALLET_CLAIM_ENABLED && (
+              <>
+                <WalletClaimButton
+                  claimData={{
+                    claimAmount: result.claimData.claimAmount,
+                    claimSecretHex: result.claimData.claimSecretHex,
+                    messageLeafIndex: result.claimData.messageLeafIndex,
+                  }}
+                  recipient={recipient ?? ""}
+                  onClaimComplete={setWalletClaimedTx}
+                  preConnectedWallet={connectedWallet}
+                  preConnectedAddress={connectedAddress}
+                />
 
-            <div className="relative flex items-center py-1">
-              <div className="grow border-t border-outline-variant/30" />
-              <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
-                Or use the CLI
-              </span>
-              <div className="grow border-t border-outline-variant/30" />
-            </div>
+                <div className="relative flex items-center py-1">
+                  <div className="grow border-t border-outline-variant/30" />
+                  <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+                    Or use the CLI
+                  </span>
+                  <div className="grow border-t border-outline-variant/30" />
+                </div>
+              </>
+            )}
 
             <ClaimCommands
               claimAmount={result.claimData.claimAmount}

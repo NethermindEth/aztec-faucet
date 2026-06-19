@@ -57,7 +57,13 @@ const L1_CONTRACT_LABELS: Record<string, string> = {
   outboxAddress: "Outbox",
   feeJuiceAddress: "Fee Juice (L1)",
   feeJuicePortalAddress: "Fee Juice Portal",
+  coinIssuerAddress: "Coin Issuer",
+  rewardDistributorAddress: "Reward Distributor",
+  governanceProposerAddress: "Governance Proposer",
+  governanceAddress: "Governance",
   stakingAssetAddress: "Staking Asset",
+  feeAssetHandlerAddress: "Fee Asset Handler",
+  gseAddress: "GSE",
 };
 
 const L2_CONTRACT_LABELS: Record<string, string> = {

@@ -24,7 +24,7 @@ import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
 const node = createAztecNodeClient("${NODE_URL}");
 const owner = AztecAddress.fromString("${address}");
 const slot = await deriveStorageSlotInMap(new Fr(1), owner);
-const raw = (await node.getPublicStorageAt("latest", AztecAddress.fromBigInt(5n), slot)).toBigInt();
+const raw = (await node.getPublicStorageAt("latest", AztecAddress.fromBigInt(3n), slot)).toBigInt();
 const s = raw.toString().padStart(19, "0");
 console.log("Fee Juice:", (s.slice(0, s.length - 18) || "0") + "." + s.slice(s.length - 18, s.length - 14));
 AZTEC_EOF`;

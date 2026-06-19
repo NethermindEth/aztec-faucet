@@ -47,7 +47,7 @@ function formatFeeJuice(raw) {
   return `${intPart}.${decPart}`;
 }
 
-const TESTNET_NODE_URL = "https://rpc.testnet.aztec-labs.com";
+const TESTNET_NODE_URL = "https://v5.testnet.rpc.aztec-labs.com";
 
 const address = getArg("address");
 const networkArg = getArg("network");
@@ -88,8 +88,8 @@ try {
   const node = createAztecNodeClient(nodeUrl);
   const owner = AztecAddress.fromString(address);
 
-  // Fee Juice contract at protocol address 0x05, balances in map at slot 1
-  const feeJuiceAddress = AztecAddress.fromBigInt(5n);
+  // Fee Juice contract at protocol address 0x03 (v5; was 0x05 on v4), balances in map at slot 1
+  const feeJuiceAddress = AztecAddress.fromBigInt(3n);
   const balanceSlot = await deriveStorageSlotInMap(new Fr(1), owner);
   const balanceField = await node.getPublicStorageAt("latest", feeJuiceAddress, balanceSlot);
   const balance = balanceField.toBigInt();

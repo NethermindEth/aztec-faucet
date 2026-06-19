@@ -45,8 +45,8 @@ cd ~/.aztec-devtools
 # Load shared version config (always fetch fresh so version bumps propagate)
 curl -fsSL "$REPO_RAW/sh/versions.sh" -o .versions.sh 2>/dev/null || true
 [ -f .versions.sh ] && . ./.versions.sh
-AZTEC_SDK_NPM_TAG="${AZTEC_SDK_NPM_TAG:-rc}"
-AZTEC_NODE_URL="${AZTEC_NODE_URL:-https://rpc.testnet.aztec-labs.com}"
+AZTEC_SDK_NPM_TAG="${AZTEC_SDK_NPM_TAG:-5.0.0-rc.1}"
+AZTEC_NODE_URL="${AZTEC_NODE_URL:-https://v5.testnet.rpc.aztec-labs.com}"
 
 # Print installed version of a package, empty string if missing or unreadable
 _pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }

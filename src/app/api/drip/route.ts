@@ -6,6 +6,7 @@ import {
   type Asset,
 } from "@/lib/faucet-manager";
 import { FaucetInsufficientFundsError } from "@/lib/l1-faucet";
+import { BridgeSubmittedError } from "@/lib/l2-faucet";
 import { extractClientIp } from "@/lib/client-ip";
 
 const VALID_ASSETS: Asset[] = ["eth", "fee-juice"];
@@ -83,6 +84,20 @@ export async function POST(request: Request) {
     ) {
       console.error("Drip error (insufficient funds):", err);
       return NextResponse.json({ error: err.message }, { status: 503 });
+    }
+
+    if (
+      err instanceof BridgeSubmittedError ||
+      (err instanceof Error && err.name === "BridgeSubmittedError")
+    ) {
+      // 202: broadcast but unconfirmed. Report it as in-flight with the tx hash
+      // instead of a failure, and let the dev retry. (#53)
+      console.error("Drip error (bridge submitted, unconfirmed):", err);
+      const txHash = (err as BridgeSubmittedError).txHash;
+      return NextResponse.json(
+        { submitted: true, message: err.message, txHash },
+        { status: 202 },
+      );
     }
 
     console.error("Drip error:", err);

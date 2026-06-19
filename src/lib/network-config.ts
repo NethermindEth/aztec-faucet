@@ -3,11 +3,19 @@
 // Everything else lives here in code.
 
 // ── Aztec Network ────────────────────────────────────────────────────────────
-export const NODE_URL = "https://rpc.testnet.aztec-labs.com";
+export const NODE_URL = "https://v5.testnet.rpc.aztec-labs.com";
 export const EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
 export const NETWORK_LABEL = "Testnet";
-export const NPM_TAG = "rc";
-export const SCHNORR_CLASS_ID = "0x07075a1272394d6813efa5e40be8f56ad5ee9cf6d151ed6bdbd10f4f5143e71e";
+// @rc npm tag still points at 4.3.0-rc.1; testnet moved to v5, so pin explicitly.
+export const NPM_TAG = "5.0.0-rc.1";
+export const SCHNORR_CLASS_ID = "0x096eb58b105950df6e32346ff3bc610fa648c3dc39002382a4d7e8019cda6df2";
+
+// ── Feature Flags ────────────────────────────────────────────────────────────
+// Gates the in-wallet claim path (connect + "Claim in wallet") via @aztec/wallet-sdk.
+// Off: Azguard runs a pre-v5 SDK, so even on the v5 RPC it derives the wrong rollup id
+// (4229590296 vs node's 4239416255) and its PXE calls the removed node_getBlockHeader
+// during proving. Re-enable once Azguard ships v5. See #56.
+export const IN_WALLET_CLAIM_ENABLED = false;
 
 // ── L1 (Sepolia) ─────────────────────────────────────────────────────────────
 export const L1_CHAIN_ID = 11155111;

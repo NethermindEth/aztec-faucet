@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 import { DataField, ClaimCommands, ClaimCompletePanel } from "./drip-result";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
+import { IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
 
 const WalletClaimButton = dynamic(
   () => import("./wallet-claim-button").then((m) => m.WalletClaimButton),
@@ -265,24 +266,28 @@ export function ClaimTracker({
                 <ClaimCompletePanel txHash={walletClaimedTx} />
               ) : (
                 <>
-                  <WalletClaimButton
-                    claimData={{
-                      claimAmount: claimData.claimAmount,
-                      claimSecretHex: claimData.claimSecretHex,
-                      messageLeafIndex: claimData.messageLeafIndex,
-                    }}
-                    recipient={recipient}
-                    onClaimComplete={setWalletClaimedTx}
-                    preConnectedWallet={connectedWallet}
-                    preConnectedAddress={connectedAddress}
-                  />
-                  <div className="relative flex items-center py-1">
-                    <div className="grow border-t border-outline-variant/30" />
-                    <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
-                      Or use the CLI
-                    </span>
-                    <div className="grow border-t border-outline-variant/30" />
-                  </div>
+                  {IN_WALLET_CLAIM_ENABLED && (
+                    <>
+                      <WalletClaimButton
+                        claimData={{
+                          claimAmount: claimData.claimAmount,
+                          claimSecretHex: claimData.claimSecretHex,
+                          messageLeafIndex: claimData.messageLeafIndex,
+                        }}
+                        recipient={recipient}
+                        onClaimComplete={setWalletClaimedTx}
+                        preConnectedWallet={connectedWallet}
+                        preConnectedAddress={connectedAddress}
+                      />
+                      <div className="relative flex items-center py-1">
+                        <div className="grow border-t border-outline-variant/30" />
+                        <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+                          Or use the CLI
+                        </span>
+                        <div className="grow border-t border-outline-variant/30" />
+                      </div>
+                    </>
+                  )}
                   <ClaimCommands
                     claimAmount={claimData.claimAmount}
                     claimSecretHex={claimData.claimSecretHex}
@@ -442,25 +447,29 @@ export function ClaimTracker({
           <ClaimCompletePanel txHash={walletClaimedTx} />
         ) : claimData ? (
           <>
-            <WalletClaimButton
-              claimData={{
-                claimAmount: claimData.claimAmount,
-                claimSecretHex: claimData.claimSecretHex,
-                messageLeafIndex: claimData.messageLeafIndex,
-              }}
-              recipient={recipient}
-              onClaimComplete={setWalletClaimedTx}
-              preConnectedWallet={connectedWallet}
-              preConnectedAddress={connectedAddress}
-            />
+            {IN_WALLET_CLAIM_ENABLED && (
+              <>
+                <WalletClaimButton
+                  claimData={{
+                    claimAmount: claimData.claimAmount,
+                    claimSecretHex: claimData.claimSecretHex,
+                    messageLeafIndex: claimData.messageLeafIndex,
+                  }}
+                  recipient={recipient}
+                  onClaimComplete={setWalletClaimedTx}
+                  preConnectedWallet={connectedWallet}
+                  preConnectedAddress={connectedAddress}
+                />
 
-            <div className="relative flex items-center py-1">
-              <div className="grow border-t border-outline-variant/30" />
-              <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
-                Or use the CLI
-              </span>
-              <div className="grow border-t border-outline-variant/30" />
-            </div>
+                <div className="relative flex items-center py-1">
+                  <div className="grow border-t border-outline-variant/30" />
+                  <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+                    Or use the CLI
+                  </span>
+                  <div className="grow border-t border-outline-variant/30" />
+                </div>
+              </>
+            )}
 
             <ClaimCommands
               claimAmount={claimData.claimAmount}

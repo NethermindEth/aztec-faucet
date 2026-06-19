@@ -48,7 +48,7 @@ if (networkArg !== undefined && networkArg !== "testnet") {
   process.exit(1);
 }
 
-const TESTNET_NODE_URL = "https://rpc.testnet.aztec-labs.com";
+const TESTNET_NODE_URL = "https://v5.testnet.rpc.aztec-labs.com";
 const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || TESTNET_NODE_URL;
 const existingSecret = getArg("secret") ?? null;
 

@@ -220,6 +220,7 @@ function ErrorBody({ message }: { message: string }) {
   const lower = message.toLowerCase();
 
   if (
+    lower.includes("no account on the current testnet") ||
     lower.includes("did not grant any accounts") ||
     lower.includes("no accounts") ||
     lower.includes("empty accounts")
@@ -227,11 +228,11 @@ function ErrorBody({ message }: { message: string }) {
     return (
       <div className="space-y-2">
         <p className="font-label text-xs leading-relaxed text-red-400">
-          Your wallet has no Aztec account yet.
+          {message}
         </p>
         <p className="font-label text-[11px] leading-relaxed text-on-surface-variant opacity-80">
-          Open your wallet extension, create or import an Aztec account on the
-          testnet network, then click Connect again.
+          Switch your wallet to the current testnet and reconnect, or create an
+          account on it. You can also claim with the CLI snippet instead.
         </p>
       </div>
     );

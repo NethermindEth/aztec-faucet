@@ -93,7 +93,7 @@ if (networkArg !== undefined && networkArg !== "testnet") {
   die(`Unknown --network value "${networkArg}". Only "testnet" is supported.`);
 }
 
-const TESTNET_NODE_URL = "https://rpc.testnet.aztec-labs.com";
+const TESTNET_NODE_URL = "https://v5.testnet.rpc.aztec-labs.com";
 const TESTNET_EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
 
 const network = "testnet";

@@ -60,9 +60,10 @@ if (!isDeployed) {
 } else {
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   console.log("Claiming into existing account (proving ~10s)...");
+  // Pay the fee from the claimed juice so a zero-balance account can claim (#52).
   const raw = await FeeJuiceContract.at(wallet).methods
-    .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
-    .send({ from: addr });
+    .check_balance(0n)
+    .send({ from: addr, fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) } });
   const receipt = raw?.receipt ?? raw;
   const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);

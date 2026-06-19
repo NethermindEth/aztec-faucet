@@ -29,6 +29,21 @@ export type FeeJuiceClaimData = {
   l1TxHash?: string;
 };
 
+// Deposit broadcast but no claim data yet (slow confirm, or the event couldn't
+// be read). Surfaced as a distinct in-flight state, not a hard failure. (#53)
+export class BridgeSubmittedError extends Error {
+  readonly txHash: string;
+  constructor(txHash: string) {
+    super(
+      `Your Fee Juice deposit was submitted (transaction ${txHash}) but is taking ` +
+      `longer than usual to confirm. It may still arrive shortly; if it doesn't, ` +
+      `you can request another drip.`,
+    );
+    this.name = "BridgeSubmittedError";
+    this.txHash = txHash;
+  }
+}
+
 export class L2Faucet {
   private aztecNode;
   // Cached per-instance — contract addresses and L1 client never change at runtime
@@ -155,17 +170,18 @@ export class L2Faucet {
       );
     }
 
+    const [claimSecret, claimSecretHash] = await generateClaimSecret();
+    const depositArgs = [
+      recipient.toString() as Hex,
+      amount,
+      claimSecretHash.toString() as Hex,
+    ] as const;
+
+    // Until writeContract nothing has moved, so failures here stay retryable
+    // (a shortfall reverts at simulate, before any deposit is sent).
+    let txHash: Hex;
     try {
       await this.ensureStandingAllowance(tokenAddress, portalAddress);
-
-      const [claimSecret, claimSecretHash] = await generateClaimSecret();
-      const depositArgs = [
-        recipient.toString() as Hex,
-        amount,
-        claimSecretHash.toString() as Hex,
-      ] as const;
-
-      // Simulate first so reverts surface as readable errors before broadcast.
       await l1Client.simulateContract({
         address: portalAddress,
         abi: FeeJuicePortalAbi,
@@ -174,7 +190,7 @@ export class L2Faucet {
         account: l1Client.account,
       });
       log.info("Sending L1 Fee Juice to L2 to be claimed publicly");
-      const txHash = await l1Client.writeContract({
+      txHash = await l1Client.writeContract({
         address: portalAddress,
         abi: FeeJuicePortalAbi,
         functionName: "depositToAztecPublic",
@@ -182,38 +198,8 @@ export class L2Faucet {
         account: l1Client.account,
         chain: l1Client.chain,
       });
-      const receipt = await l1Client.waitForTransactionReceipt({ hash: txHash });
-      if (receipt.status !== "success") {
-        throw new Error(`L1 deposit transaction reverted on-chain (tx ${txHash})`);
-      }
-
-      // secretHash match is a guard against ABI/event-shape drift.
-      const deposits = parseEventLogs({
-        abi: FeeJuicePortalAbi,
-        logs: receipt.logs,
-        eventName: "DepositToAztecPublic",
-      });
-      const secretHashHex = claimSecretHash.toString().toLowerCase();
-      const deposit = deposits.find(
-        (e) => (e.args.secretHash as string).toLowerCase() === secretHashHex,
-      );
-      if (!deposit) {
-        throw new Error(
-          `Deposit tx ${txHash} succeeded but no matching DepositToAztecPublic event was found`,
-        );
-      }
-      log.info(`Deposited to Aztec public successfully (tx ${txHash}, leaf ${deposit.args.index})`);
-
-      return {
-        claimAmount: amount.toString(),
-        claimSecretHex: claimSecret.toString(),
-        claimSecretHashHex: claimSecretHash.toString(),
-        messageHashHex: deposit.args.key as string,
-        messageLeafIndex: (deposit.args.index as bigint).toString(),
-        l1TxHash: txHash,
-      };
     } catch (err) {
-      console.error("[faucet] Bridge tx failed:", err);
+      console.error("[faucet] Bridge deposit failed before broadcast:", err);
       const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
       if (
         msg.includes("insufficient funds") ||
@@ -231,6 +217,84 @@ export class L2Faucet {
         "This may be a temporary network issue. Please wait a moment and try again.",
       );
     }
+
+    // Deposit is on the wire now: recover the receipt and event, or surface a
+    // distinct in-flight state so the dev isn't told it failed. (#53)
+    const receipt = await this.awaitDepositReceipt(l1Client, txHash);
+    if (!receipt) {
+      this.logUnrecoverableDeposit(txHash, claimSecret, amount, recipient);
+      throw new BridgeSubmittedError(txHash);
+    }
+    if (receipt.status !== "success") {
+      // reverted: no funds moved, safe to retry
+      throw new Error(
+        "The Fee Juice bridge transaction reverted on L1 and no funds moved. " +
+        "Please try again.",
+      );
+    }
+
+    // secretHash match is a guard against ABI/event-shape drift.
+    const deposits = parseEventLogs({
+      abi: FeeJuicePortalAbi,
+      logs: receipt.logs,
+      eventName: "DepositToAztecPublic",
+    });
+    const secretHashHex = claimSecretHash.toString().toLowerCase();
+    const deposit = deposits.find(
+      (e) => (e.args.secretHash as string).toLowerCase() === secretHashHex,
+    );
+    if (!deposit) {
+      // mined, but no leaf index to build a claim from
+      this.logUnrecoverableDeposit(txHash, claimSecret, amount, recipient);
+      throw new BridgeSubmittedError(txHash);
+    }
+    log.info(`Deposited to Aztec public successfully (tx ${txHash}, leaf ${deposit.args.index})`);
+
+    return {
+      claimAmount: amount.toString(),
+      claimSecretHex: claimSecret.toString(),
+      claimSecretHashHex: claimSecretHash.toString(),
+      messageHashHex: deposit.args.key as string,
+      messageLeafIndex: (deposit.args.index as bigint).toString(),
+      l1TxHash: txHash,
+    };
+  }
+
+  // waitForTransactionReceipt can time out while a tx is still pending; re-query
+  // a few times before giving up. Null means still unconfirmed after all tries.
+  private async awaitDepositReceipt(
+    l1Client: ReturnType<typeof createExtendedL1Client>,
+    txHash: Hex,
+  ) {
+    try {
+      return await l1Client.waitForTransactionReceipt({ hash: txHash, timeout: 60_000 });
+    } catch {
+      // timed out or RPC dropped the request; fall through to re-query
+    }
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 6_000));
+      try {
+        return await l1Client.getTransactionReceipt({ hash: txHash });
+      } catch {
+        // not mined yet, keep polling
+      }
+    }
+    return null;
+  }
+
+  // The secret is the only key to these funds; log it for manual recovery
+  // instead of dropping it into a stack trace. (#53)
+  private logUnrecoverableDeposit(
+    txHash: Hex,
+    claimSecret: { toString(): string },
+    amount: bigint,
+    recipient: AztecAddress,
+  ) {
+    log.error(
+      `[faucet][RECOVERY] Fee Juice deposit broadcast but not turned into a claim. ` +
+      `Recover manually from this data: tx=${txHash} recipient=${recipient.toString()} ` +
+      `amount=${amount.toString()} claimSecret=${claimSecret.toString()}`,
+    );
   }
 
 }

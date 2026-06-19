@@ -119,6 +119,8 @@ export function FaucetForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryAfter, setRetryAfter] = useState<number | null>(null);
+  // Submitted-but-unconfirmed bridge: an in-flight state, not a failure. (#53)
+  const [notice, setNotice] = useState(false);
   const [clipboardBlocked, setClipboardBlocked] = useState(false);
 
   const currentAsset = ASSETS.find((a) => a.value === asset)!;
@@ -155,6 +157,7 @@ export function FaucetForm({
     e.preventDefault();
     setError(null);
     setRetryAfter(null);
+    setNotice(false);
 
     const validationError = validateLocally();
     if (validationError) {
@@ -180,6 +183,14 @@ export function FaucetForm({
       });
 
       const data = await res.json();
+
+      // 202 submitted: broadcast but unconfirmed. Show it as in-flight and let
+      // the dev retry. Checked before res.ok since 202 is a success status. (#53)
+      if (data.submitted) {
+        setNotice(true);
+        onError();
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error ?? "Request failed");
@@ -392,6 +403,22 @@ export function FaucetForm({
               Try again in {formatRetryAfter(retryAfter)}
             </p>
           )}
+        </div>
+      )}
+
+      {/* In-flight notice: submitted but not yet confirmed, not a failure. (#53) */}
+      {notice && (
+        <div className="border-l-4 border-amber-500 bg-amber-500/10 p-4">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 bg-amber-400" />
+            <span className="font-label text-[10px] font-bold uppercase tracking-widest text-amber-400">
+              Submitted, still confirming
+            </span>
+          </div>
+          <p className="mt-2 font-body text-sm leading-relaxed text-amber-200">
+            Your Fee Juice deposit is taking longer than usual to confirm. It should still
+            arrive. If it doesn&apos;t, just request again.
+          </p>
         </div>
       )}
     </form>

@@ -3,14 +3,15 @@ import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
+import { ProtocolContractAddress } from "@aztec/protocol-contracts";
 import { NODE_URL } from "@/lib/network-config";
 import { CORS_HEADERS_GET } from "@/lib/cors";
 
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
 
-// Aztec protocol contract addresses are stable, well-known small ints.
-// Reference: @aztec/protocol-contracts/protocol_contract_data.ts.
-const FEE_JUICE_CONTRACT_ADDRESS = AztecAddress.fromBigInt(5n);
+// Read from the SDK, not a hardcoded slot: the FeeJuice protocol address is
+// version-dependent (it moved from 5 to 3 in v5).
+const FEE_JUICE_CONTRACT_ADDRESS = ProtocolContractAddress.FeeJuice;
 // FeeJuice contract stores per-account balances in a Noir Map at storage slot 1.
 const FEE_JUICE_BALANCES_SLOT = new Fr(1);
 

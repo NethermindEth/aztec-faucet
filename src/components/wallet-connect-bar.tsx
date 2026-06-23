@@ -262,15 +262,15 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // Discovery runs only after a wallet type is picked in the connect modal.
 
   // Multi-tab sync — without this, disconnecting in tab 1 leaves tab 2 stale.
+  // Only ETH is persisted; the Aztec wallet lives in memory and can't be
+  // serialized, so a cross-tab write must never clear a live Aztec session.
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !isEth) return;
     const handler = (e: StorageEvent) => {
       if (e.key !== STORAGE_KEY) return;
       const next = readPersisted();
       setEthAddr(next.eth ?? null);
-      setAztecAddr(next.aztec ?? null);
-      if (isEth) onAddress(next.eth ?? "");
-      else onAddress(next.aztec ?? "");
+      onAddress(next.eth ?? "");
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
@@ -449,6 +449,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       }
       setAztecAddr(null);
       onWalletConnect?.(null);
+      onAddress(""); // clear the recipient form, mirroring disconnect
       azguard.start();
     }
   }, [isEth, startEthConnect, azguard, onAddress, onWalletConnect]);
@@ -550,8 +551,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     ? `Use saved address ${connectedAddr}`
     : idleLabel;
 
-  // Azguard can't claim against the v5 testnet yet, so the Aztec connect is
-  // hidden until it ships v5 support. ETH connect (for L1 ETH drips) stays.
+  // In-wallet claim gate. When off, the Aztec connect is hidden and only ETH
+  // (for L1 ETH drips) shows. The picker disables Azguard until it ships v5.
   if (!isEth && !IN_WALLET_CLAIM_ENABLED) return null;
 
   return (

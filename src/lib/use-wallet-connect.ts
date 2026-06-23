@@ -54,6 +54,8 @@ export type ConnectPhase =
 export function useWalletConnect() {
   const [phase, setPhase] = useState<ConnectPhase>({ kind: "idle" });
   const sessionRef = useRef<DiscoverySession | null>(null);
+  // Bumped on cleanup; lets an in-flight beginDiscovery detect supersession and cancel its orphaned session.
+  const discoveryGenRef = useRef(0);
   // phaseRef so callbacks read latest phase without side effects in setState updaters (StrictMode double-invokes those).
   const phaseRef = useRef(phase);
   useEffect(() => {
@@ -61,6 +63,7 @@ export function useWalletConnect() {
   }, [phase]);
 
   const cleanup = useCallback(() => {
+    discoveryGenRef.current++;
     sessionRef.current?.cancel();
     sessionRef.current = null;
   }, []);
@@ -68,23 +71,33 @@ export function useWalletConnect() {
   useEffect(() => () => cleanup(), [cleanup]);
 
   // Chooser first; discovery (and its extension prompt) is deferred to beginDiscovery.
+  // Warm the chain-info cache so discovery starts promptly once a type is picked.
   const start = useCallback(() => {
+    void getChainInfo().catch(() => {});
     setPhase({ kind: "choosing" });
   }, []);
 
   const beginDiscovery = useCallback(async (choice: WalletChoice) => {
     cleanup(); // cancel any prior session (re-pick / Retry)
+    const gen = discoveryGenRef.current;
     setPhase({ kind: "discovering", providers: [], choice });
     try {
       const chainInfo = await getChainInfo();
-      sessionRef.current = discoverWallets(chainInfo, (p) => {
+      if (discoveryGenRef.current !== gen) return; // superseded or reset during the await
+      const session = discoverWallets(chainInfo, (p) => {
         setPhase((prev) =>
           prev.kind === "discovering"
             ? { kind: "discovering", providers: [...prev.providers, p], choice: prev.choice }
             : prev,
         );
       }, choice, 10000);
+      if (discoveryGenRef.current !== gen) {
+        session.cancel(); // reset fired between the await and the assignment
+        return;
+      }
+      sessionRef.current = session;
     } catch (err) {
+      if (discoveryGenRef.current !== gen) return;
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : "Failed to start discovery",

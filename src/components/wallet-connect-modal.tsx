@@ -54,7 +54,7 @@ export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset
   if (phase.kind === "discovering") {
     return (
       <Modal title="Choose a wallet" onClose={reset}>
-        <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} retry={() => beginDiscovery(phase.choice)} />
+        <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} retry={() => beginDiscovery(phase.choice)} choice={phase.choice} />
       </Modal>
     );
   }
@@ -182,7 +182,7 @@ function ChooseSourceBody({
                 key={o.choice}
                 type="button"
                 aria-disabled={o.disabled ? true : undefined}
-                aria-pressed={active}
+                aria-pressed={o.disabled ? undefined : active}
                 title={o.disabled}
                 onClick={() => {
                   if (!o.disabled) setSelected(o.choice);
@@ -219,11 +219,13 @@ function DiscoveringBody({
   pickProvider,
   reset,
   retry,
+  choice,
 }: {
   providers: import("@/lib/wallet-client").WalletProvider[];
   pickProvider: (p: import("@/lib/wallet-client").WalletProvider) => void;
   reset: () => void;
   retry: () => void;
+  choice: import("@/lib/wallet-client").WalletChoice;
 }) {
   // After 10s with zero providers we'd sit forever on "looking…". Show a
   // Retry path so users who were unlocking can re-probe without dismissing.
@@ -241,11 +243,13 @@ function DiscoveringBody({
   };
 
   if (providers.length === 0 && timedOut) {
+    const isWeb = choice === "web";
     return (
       <div className="space-y-3">
         <p className="font-label text-xs leading-relaxed text-on-surface-variant">
-          No Aztec wallets found yet. If your wallet is locked, unlock it and
-          click Retry. Otherwise, install Azguard to continue.
+          {isWeb
+            ? "Couldn't reach the Aztec demo wallet. Make sure demo-wallet.aztec-labs.com is reachable, then Retry."
+            : "No Aztec wallets found yet. If your wallet is locked, unlock it and click Retry. Otherwise, install Azguard to continue."}
         </p>
         <button
           type="button"
@@ -254,14 +258,16 @@ function DiscoveringBody({
         >
           Retry
         </button>
-        <a
-          href="https://chromewebstore.google.com/detail/azguard-wallet/pliilpgjnbkndmcgkfpdmmpkagblcmgi"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block border border-outline-variant bg-surface-low px-3 py-2 font-label text-xs uppercase tracking-wider text-accent transition-colors hover:bg-accent/5"
-        >
-          Install Azguard →
-        </a>
+        {!isWeb && (
+          <a
+            href="https://chromewebstore.google.com/detail/azguard-wallet/pliilpgjnbkndmcgkfpdmmpkagblcmgi"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block border border-outline-variant bg-surface-low px-3 py-2 font-label text-xs uppercase tracking-wider text-accent transition-colors hover:bg-accent/5"
+          >
+            Install Azguard →
+          </a>
+        )}
         <button
           type="button"
           onClick={reset}
@@ -295,7 +301,7 @@ function DiscoveringBody({
         ))
       )}
       <p className="pt-2 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-50">
-        Approve the request in your wallet extension
+        {choice === "web" ? "Approve the request in your wallet" : "Approve the request in your wallet extension"}
       </p>
     </div>
   );

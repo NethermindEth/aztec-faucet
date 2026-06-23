@@ -23,6 +23,7 @@ type Props = {
   currentFormAddress?: string;
   onAddress: (address: string) => void;
   onWalletConnect?: (wallet: Wallet | null) => void;
+  registerDisconnect?: (fn: (() => void) | null) => void;
 };
 
 const STORAGE_KEY = "faucet:wallet-connections";
@@ -58,7 +59,7 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, onWalletConnect }: Props) {
+export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, onWalletConnect, registerDisconnect }: Props) {
   const isEth = asset === "eth";
 
   const [aztecAddr, setAztecAddr] = useState<string | null>(null);
@@ -360,6 +361,13 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     }
     onAddress("");
   }, [isEth, onAddress, onWalletConnect, azDisconnect]);
+
+  // Expose disconnect so the layout can tear the wallet (and its floating panel)
+  // down once an in-wallet claim completes.
+  useEffect(() => {
+    registerDisconnect?.(disconnect);
+    return () => registerDisconnect?.(null);
+  }, [registerDisconnect, disconnect]);
 
   const connectedAddr = isEth ? ethAddr : aztecAddr;
   const idleLabel = isEth ? "Connect Ethereum Wallet" : "Connect Aztec Wallet";

@@ -62,6 +62,7 @@ export function ClaimTracker({
   onProgressChange,
   connectedWallet,
   connectedAddress,
+  onWalletClaimComplete,
 }: {
   claimId: string;
   initialClaimData?: ClaimData;
@@ -71,6 +72,7 @@ export function ClaimTracker({
   onProgressChange?: (progress: number, isReady: boolean) => void;
   connectedWallet?: Wallet;
   connectedAddress?: string;
+  onWalletClaimComplete?: () => void;
 }) {
   const [status, setStatus] = useState<ClaimStatus>("bridging");
   const [elapsed, setElapsed] = useState(0);
@@ -275,7 +277,7 @@ export function ClaimTracker({
                           messageLeafIndex: claimData.messageLeafIndex,
                         }}
                         recipient={recipient}
-                        onClaimComplete={setWalletClaimedTx}
+                        onClaimComplete={(tx) => { setWalletClaimedTx(tx); onWalletClaimComplete?.(); }}
                         preConnectedWallet={connectedWallet}
                         preConnectedAddress={connectedAddress}
                       />
@@ -456,7 +458,7 @@ export function ClaimTracker({
                     messageLeafIndex: claimData.messageLeafIndex,
                   }}
                   recipient={recipient}
-                  onClaimComplete={setWalletClaimedTx}
+                  onClaimComplete={(tx) => { setWalletClaimedTx(tx); onWalletClaimComplete?.(); }}
                   preConnectedWallet={connectedWallet}
                   preConnectedAddress={connectedAddress}
                 />

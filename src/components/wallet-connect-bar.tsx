@@ -88,7 +88,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
 
   // Destructured so the effect keys on the phase value, not the hook's
   // per-render wrapper object; reset is a stable useCallback.
-  const { phase: azPhase, reset: azReset } = azguard;
+  const { phase: azPhase, reset: azReset, disconnectWallet: azDisconnect } = azguard;
   // Hands the connected wallet off to local state.
   useDeferredEffect(() => {
     if (azPhase.kind !== "connected") return;
@@ -100,6 +100,15 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     }
     azReset();
   }, [azPhase, azReset, onAddress, isEth, onWalletConnect]);
+
+  // Switching the faucet asset to ETH unmounts the Aztec modal but not this hook,
+  // so cancel any in-progress connect flow; otherwise its session leaks and a
+  // stale phase reappears on switching back.
+  useEffect(() => {
+    if (isEth && azPhase.kind !== "idle" && azPhase.kind !== "connected") {
+      azReset();
+    }
+  }, [isEth, azPhase.kind, azReset]);
 
   // Picker click handler — applies the pick synchronously to bar state and the
   // parent form, then transitions phase. Avoids relying solely on the
@@ -262,15 +271,15 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // Discovery runs only after a wallet type is picked in the connect modal.
 
   // Multi-tab sync — without this, disconnecting in tab 1 leaves tab 2 stale.
-  // Only ETH is persisted; the Aztec wallet lives in memory and can't be
-  // serialized, so a cross-tab write must never clear a live Aztec session.
+  // Only ETH is persisted (the Aztec wallet lives in memory), so always sync
+  // ethAddr but touch the recipient form only while ETH is the active asset.
   useEffect(() => {
-    if (typeof window === "undefined" || !isEth) return;
+    if (typeof window === "undefined") return;
     const handler = (e: StorageEvent) => {
       if (e.key !== STORAGE_KEY) return;
       const next = readPersisted();
       setEthAddr(next.eth ?? null);
-      onAddress(next.eth ?? "");
+      if (isEth) onAddress(next.eth ?? "");
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
@@ -356,9 +365,10 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       setAztecAddr(null);
       aztecWalletRef.current = null;
       onWalletConnect?.(null);
+      azDisconnect(); // tear down the connected web wallet's floating panel
     }
     onAddress("");
-  }, [isEth, onAddress, onWalletConnect]);
+  }, [isEth, onAddress, onWalletConnect, azDisconnect]);
 
   const connectedAddr = isEth ? ethAddr : aztecAddr;
   const idleLabel = isEth ? "Connect Ethereum Wallet" : "Connect Aztec Wallet";

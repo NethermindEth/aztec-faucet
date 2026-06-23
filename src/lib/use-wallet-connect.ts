@@ -56,6 +56,9 @@ export function useWalletConnect() {
   const sessionRef = useRef<DiscoverySession | null>(null);
   // Bumped on cleanup; lets an in-flight beginDiscovery detect supersession and cancel its orphaned session.
   const discoveryGenRef = useRef(0);
+  // A connected web wallet owns a floating iframe panel that only its disconnect()
+  // removes. Held here so we can tear it down on explicit disconnect / reconnect.
+  const connectedProviderRef = useRef<WalletProvider | null>(null);
   // phaseRef so callbacks read latest phase without side effects in setState updaters (StrictMode double-invokes those).
   const phaseRef = useRef(phase);
   useEffect(() => {
@@ -68,14 +71,23 @@ export function useWalletConnect() {
     sessionRef.current = null;
   }, []);
 
+  // Removes a connected web wallet's floating iframe panel. Kept out of cleanup()
+  // so the panel survives the post-connect reset() and stays up through the claim.
+  const teardownConnection = useCallback(() => {
+    const provider = connectedProviderRef.current;
+    connectedProviderRef.current = null;
+    void provider?.disconnect().catch(() => {});
+  }, []);
+
   useEffect(() => () => cleanup(), [cleanup]);
 
   // Chooser first; discovery (and its extension prompt) is deferred to beginDiscovery.
-  // Warm the chain-info cache so discovery starts promptly once a type is picked.
+  // Tear down any prior connection panel and warm the chain-info cache.
   const start = useCallback(() => {
+    teardownConnection();
     void getChainInfo().catch(() => {});
     setPhase({ kind: "choosing" });
-  }, []);
+  }, [teardownConnection]);
 
   const beginDiscovery = useCallback(async (choice: WalletChoice) => {
     cleanup(); // cancel any prior session (re-pick / Retry)
@@ -84,18 +96,13 @@ export function useWalletConnect() {
     try {
       const chainInfo = await getChainInfo();
       if (discoveryGenRef.current !== gen) return; // superseded or reset during the await
-      const session = discoverWallets(chainInfo, (p) => {
+      sessionRef.current = discoverWallets(chainInfo, (p) => {
         setPhase((prev) =>
           prev.kind === "discovering"
             ? { kind: "discovering", providers: [...prev.providers, p], choice: prev.choice }
             : prev,
         );
       }, choice, 10000);
-      if (discoveryGenRef.current !== gen) {
-        session.cancel(); // reset fired between the await and the assignment
-        return;
-      }
-      sessionRef.current = session;
     } catch (err) {
       if (discoveryGenRef.current !== gen) return;
       setPhase({
@@ -133,6 +140,7 @@ export function useWalletConnect() {
   const confirm = useCallback(async () => {
     const current = phaseRef.current;
     if (current.kind !== "verifying") return;
+    const provider = current.provider;
     try {
       const wallet = await confirmConnection(current.pending);
       const rawAccounts = await resolveGrantedAccounts(wallet);
@@ -147,6 +155,7 @@ export function useWalletConnect() {
         try {
           version = BigInt((await getChainInfo()).version.toString()).toString();
         } catch {}
+        void provider.disconnect().catch(() => {}); // unusable connection: drop its panel
         setPhase({
           kind: "error",
           message: `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. It may be on a different network version, or have no account yet.`,
@@ -159,16 +168,20 @@ export function useWalletConnect() {
         .filter((a): a is string => a !== null);
 
       if (addresses.length === 0) {
+        void provider.disconnect().catch(() => {});
         setPhase({ kind: "error", message: "Could not parse account address from wallet" });
         return;
       }
 
+      // Retain the provider so disconnect can later remove its floating panel.
+      connectedProviderRef.current = provider;
       if (addresses.length === 1) {
         setPhase({ kind: "connected", wallet, address: addresses[0] });
       } else {
         setPhase({ kind: "picking-account", wallet, accounts: addresses });
       }
     } catch (err) {
+      void provider.disconnect().catch(() => {});
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : "Failed to confirm",
@@ -195,9 +208,18 @@ export function useWalletConnect() {
   }, []);
 
   const reset = useCallback(() => {
+    const current = phaseRef.current;
+    if (current.kind === "verifying") cancelConnection(current.pending);
     cleanup();
     setPhase({ kind: "idle" });
   }, [cleanup]);
 
-  return { phase, start, beginDiscovery, pickProvider, confirm, reject, reset, pickAccount, enterAccountPicker };
+  // Explicit disconnect: also remove the connected wallet's floating panel.
+  const disconnectWallet = useCallback(() => {
+    teardownConnection();
+    cleanup();
+    setPhase({ kind: "idle" });
+  }, [cleanup, teardownConnection]);
+
+  return { phase, start, beginDiscovery, pickProvider, confirm, reject, reset, disconnectWallet, pickAccount, enterAccountPicker };
 }

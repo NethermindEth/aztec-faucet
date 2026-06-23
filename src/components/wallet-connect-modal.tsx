@@ -183,6 +183,7 @@ function ChooseSourceBody({
                 type="button"
                 aria-disabled={o.disabled ? true : undefined}
                 aria-pressed={o.disabled ? undefined : active}
+                tabIndex={o.disabled ? -1 : undefined}
                 title={o.disabled}
                 onClick={() => {
                   if (!o.disabled) setSelected(o.choice);

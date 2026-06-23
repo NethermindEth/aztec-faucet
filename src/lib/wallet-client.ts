@@ -40,14 +40,20 @@ export async function getChainInfo(): Promise<ChainInfo> {
   return cachedChainInfo;
 }
 
+export type WalletChoice = "extension" | "web";
+
+// Discover only the chosen source: extension discovery doubles as the wallet's
+// approval prompt, so probing both up front prompts before the user picks.
 export function discoverWallets(
   chainInfo: ChainInfo,
   onWalletDiscovered: (provider: WalletProvider) => void,
+  choice: WalletChoice,
   timeoutMs = 5000,
 ): DiscoverySession {
   return WalletManager.configure({
-    extensions: { enabled: true },
-    webWallets: { urls: [] },
+    extensions: { enabled: choice === "extension" },
+    // Aztec v5 demo wallet (web-wallet iframe).
+    webWallets: { urls: choice === "web" ? ["https://demo-wallet.aztec-labs.com"] : [] },
   }).getAvailableWallets({
     chainInfo,
     appId: APP_ID,

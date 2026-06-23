@@ -162,6 +162,7 @@ type DripResultProps = {
   onReset?: () => void;
   connectedWallet?: Wallet;
   connectedAddress?: string;
+  onWalletClaimComplete?: () => void;
 };
 
 function formatMs(ms: number): string {
@@ -412,7 +413,7 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
 }
 
 
-export function DripResult({ result, error, retryAfter, recipient, onReset, connectedWallet, connectedAddress }: DripResultProps) {
+export function DripResult({ result, error, retryAfter, recipient, onReset, connectedWallet, connectedAddress, onWalletClaimComplete }: DripResultProps) {
   // Once the wallet claim lands, bridge message is nullified → hide CLI fallback.
   const [walletClaimedTx, setWalletClaimedTx] = useState<string | null>(null);
 
@@ -470,7 +471,7 @@ export function DripResult({ result, error, retryAfter, recipient, onReset, conn
                     messageLeafIndex: result.claimData.messageLeafIndex,
                   }}
                   recipient={recipient ?? ""}
-                  onClaimComplete={setWalletClaimedTx}
+                  onClaimComplete={(tx) => { setWalletClaimedTx(tx); onWalletClaimComplete?.(); }}
                   preConnectedWallet={connectedWallet}
                   preConnectedAddress={connectedAddress}
                 />

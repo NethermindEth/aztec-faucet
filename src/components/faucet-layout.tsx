@@ -109,6 +109,18 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
   const [connectedWallet, setConnectedWallet] = useState<Wallet | null>(null);
   const [formAddress, setFormAddress] = useState<string>("");
 
+  // The bar owns the wallet connection (and its floating panel); register its
+  // disconnect so a completed in-wallet claim can tear it down.
+  const disconnectWalletRef = useRef<(() => void) | null>(null);
+  const registerBarDisconnect = useCallback((fn: (() => void) | null) => {
+    disconnectWalletRef.current = fn;
+  }, []);
+  const handleWalletClaimComplete = useCallback(() => {
+    // Defer past the claim's render/commit so tearing down the cross-origin
+    // wallet iframe can't re-enter React mid-update.
+    setTimeout(() => disconnectWalletRef.current?.(), 0);
+  }, []);
+
   const pushClaimUrl = useCallback((claimId: string, recipient: string, asset: string) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
@@ -220,6 +232,7 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
                   currentFormAddress={formAddress}
                   onAddress={setWalletAddress}
                   onWalletConnect={setConnectedWallet}
+                  registerDisconnect={registerBarDisconnect}
                 />
               }
             />
@@ -246,6 +259,7 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
                     onReset={handleReset}
                     connectedWallet={connectedWallet ?? undefined}
                     connectedAddress={walletAddress ?? undefined}
+                    onWalletClaimComplete={handleWalletClaimComplete}
                   />
                 ) : (
                   <>
@@ -259,6 +273,7 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
                       onProgressChange={onBridgingProgress}
                       connectedWallet={connectedWallet ?? undefined}
                       connectedAddress={walletAddress ?? undefined}
+                      onWalletClaimComplete={handleWalletClaimComplete}
                     />
                   </>
                 )}

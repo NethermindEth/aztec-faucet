@@ -5,7 +5,7 @@ import { createExtendedL1Client } from "@aztec/ethereum/client";
 import { createEthereumChain } from "@aztec/ethereum/chain";
 import { createLogger } from "@aztec/foundation/log";
 import { FeeJuicePortalAbi } from "@aztec/l1-artifacts/FeeJuicePortalAbi";
-import { createPublicClient, erc20Abi, http, maxUint256, parseEventLogs, type Hex } from "viem";
+import { createPublicClient, erc20Abi, http, maxUint256, parseEventLogs, parseGwei, type Hex } from "viem";
 import { getFaucetL1Account } from "./faucet-l1-account";
 import { sepolia, foundry } from "viem/chains";
 import type { Chain } from "viem";
@@ -190,6 +190,14 @@ export class L2Faucet {
         account: l1Client.account,
       });
       log.info("Sending L1 Fee Juice to L2 to be claimed publicly");
+      // Sepolia's suggested priority fee is near-zero, so the deposit can sit
+      // unconfirmed; floor the tip so the shared faucet wallet's tx mines promptly.
+      const estimated = await l1Client.estimateFeesPerGas();
+      const minTip = parseGwei("1.5");
+      const maxPriorityFeePerGas =
+        estimated.maxPriorityFeePerGas > minTip ? estimated.maxPriorityFeePerGas : minTip;
+      const maxFeePerGas =
+        estimated.maxFeePerGas + (maxPriorityFeePerGas - estimated.maxPriorityFeePerGas);
       txHash = await l1Client.writeContract({
         address: portalAddress,
         abi: FeeJuicePortalAbi,
@@ -197,6 +205,8 @@ export class L2Faucet {
         args: depositArgs,
         account: l1Client.account,
         chain: l1Client.chain,
+        maxPriorityFeePerGas,
+        maxFeePerGas,
       });
     } catch (err) {
       console.error("[faucet] Bridge deposit failed before broadcast:", err);

@@ -13,7 +13,7 @@ import {
   type AnnouncedProvider,
   type EthereumProvider,
 } from "@/lib/ethereum-providers";
-import { discoverWallets, getChainInfo, unwrapAddress } from "@/lib/wallet-client";
+import { unwrapAddress } from "@/lib/wallet-client";
 import { L1_CHAIN_ID, IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { useOnValueChange } from "@/lib/use-on-value-change";
@@ -23,6 +23,7 @@ type Props = {
   currentFormAddress?: string;
   onAddress: (address: string) => void;
   onWalletConnect?: (wallet: Wallet | null) => void;
+  registerDisconnect?: (fn: (() => void) | null) => void;
 };
 
 const STORAGE_KEY = "faucet:wallet-connections";
@@ -58,7 +59,7 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
-export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, onWalletConnect }: Props) {
+export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, onWalletConnect, registerDisconnect }: Props) {
   const isEth = asset === "eth";
 
   const [aztecAddr, setAztecAddr] = useState<string | null>(null);
@@ -88,7 +89,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
 
   // Destructured so the effect keys on the phase value, not the hook's
   // per-render wrapper object; reset is a stable useCallback.
-  const { phase: azPhase, reset: azReset } = azguard;
+  const { phase: azPhase, acknowledge: azAck, disconnectWallet: azDisconnect } = azguard;
   // Hands the connected wallet off to local state.
   useDeferredEffect(() => {
     if (azPhase.kind !== "connected") return;
@@ -98,8 +99,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       onAddress(azPhase.address);
       onWalletConnect?.(azPhase.wallet);
     }
-    azReset();
-  }, [azPhase, azReset, onAddress, isEth, onWalletConnect]);
+    azAck();
+  }, [azPhase, azAck, onAddress, isEth, onWalletConnect]);
 
   // Picker click handler — applies the pick synchronously to bar state and the
   // parent form, then transitions phase. Avoids relying solely on the
@@ -258,57 +259,19 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     return attachProviderListeners(p);
   }, [attachProviderListeners, ethAddr]);
 
-  // Azguard has no accountsChanged equivalent. Probe on mount; if it doesn't
-  // announce in 5s, cached aztec address is stale (uninstall / disabled /
-  // wrong network) — clear it.
-  useEffect(() => {
-    const persisted = readPersisted();
-    if (!persisted.aztec) return;
-    let cancelled = false;
-    let seen = false;
-    let session: { cancel: () => void } | null = null;
-    const fallback = setTimeout(() => {
-      if (cancelled || seen) return;
-      setAztecAddr(null);
-      writePersisted({ ...readPersisted(), aztec: null });
-      if (!isEth) onAddress("");
-    }, 5000);
-    void (async () => {
-      try {
-        const chainInfo = await getChainInfo();
-        if (cancelled) return;
-        session = discoverWallets(
-          chainInfo,
-          () => {
-            seen = true;
-            clearTimeout(fallback);
-            session?.cancel();
-          },
-          5000,
-        );
-      } catch {
-        // node unreachable — can't tell, leave cache alone
-        clearTimeout(fallback);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      clearTimeout(fallback);
-      session?.cancel();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // No on-mount discovery: it would pop the extension's prompt on page load.
+  // Discovery runs only after a wallet type is picked in the connect modal.
 
   // Multi-tab sync — without this, disconnecting in tab 1 leaves tab 2 stale.
+  // Only ETH is persisted (the Aztec wallet lives in memory), so always sync
+  // ethAddr but touch the recipient form only while ETH is the active asset.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handler = (e: StorageEvent) => {
       if (e.key !== STORAGE_KEY) return;
       const next = readPersisted();
       setEthAddr(next.eth ?? null);
-      setAztecAddr(next.aztec ?? null);
       if (isEth) onAddress(next.eth ?? "");
-      else onAddress(next.aztec ?? "");
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
@@ -394,9 +357,17 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       setAztecAddr(null);
       aztecWalletRef.current = null;
       onWalletConnect?.(null);
+      azDisconnect(); // tear down the connected web wallet's floating panel
     }
     onAddress("");
-  }, [isEth, onAddress, onWalletConnect]);
+  }, [isEth, onAddress, onWalletConnect, azDisconnect]);
+
+  // Expose disconnect so the layout can tear the wallet (and its floating panel)
+  // down once an in-wallet claim completes.
+  useEffect(() => {
+    registerDisconnect?.(disconnect);
+    return () => registerDisconnect?.(null);
+  }, [registerDisconnect, disconnect]);
 
   const connectedAddr = isEth ? ethAddr : aztecAddr;
   const idleLabel = isEth ? "Connect Ethereum Wallet" : "Connect Aztec Wallet";
@@ -487,6 +458,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       }
       setAztecAddr(null);
       onWalletConnect?.(null);
+      onAddress(""); // clear the recipient form, mirroring disconnect
       azguard.start();
     }
   }, [isEth, startEthConnect, azguard, onAddress, onWalletConnect]);
@@ -588,8 +560,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     ? `Use saved address ${connectedAddr}`
     : idleLabel;
 
-  // Azguard can't claim against the v5 testnet yet, so the Aztec connect is
-  // hidden until it ships v5 support. ETH connect (for L1 ETH drips) stays.
+  // In-wallet claim gate. When off, the Aztec connect is hidden and only ETH
+  // (for L1 ETH drips) shows. The picker disables Azguard until it ships v5.
   if (!isEth && !IN_WALLET_CLAIM_ENABLED) return null;
 
   return (
@@ -749,7 +721,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           confirm={azguard.confirm}
           reject={azguard.reject}
           reset={azguard.reset}
-          start={azguard.start}
+          beginDiscovery={azguard.beginDiscovery}
           pickAccount={handlePickAccount}
         />
       )}

@@ -56,9 +56,8 @@ export function useWalletConnect() {
   const sessionRef = useRef<DiscoverySession | null>(null);
   // Bumped on cleanup; lets an in-flight beginDiscovery detect supersession and cancel its orphaned session.
   const discoveryGenRef = useRef(0);
-  // A connected web wallet owns a floating iframe panel that only its disconnect()
-  // removes. Held here so we can tear it down on explicit disconnect / reconnect.
-  const connectedProviderRef = useRef<WalletProvider | null>(null);
+  // Connection provider; only its disconnect() removes the web wallet's floating panel.
+  const panelProviderRef = useRef<WalletProvider | null>(null);
   // phaseRef so callbacks read latest phase without side effects in setState updaters (StrictMode double-invokes those).
   const phaseRef = useRef(phase);
   useEffect(() => {
@@ -71,12 +70,12 @@ export function useWalletConnect() {
     sessionRef.current = null;
   }, []);
 
-  // Removes a connected web wallet's floating iframe panel. Kept out of cleanup()
-  // so the panel survives the post-connect reset() and stays up through the claim.
+  // Removes the floating panel; separate from cleanup() so acknowledge() keeps it up.
   const teardownConnection = useCallback(() => {
-    const provider = connectedProviderRef.current;
-    connectedProviderRef.current = null;
-    void provider?.disconnect().catch(() => {});
+    const provider = panelProviderRef.current;
+    panelProviderRef.current = null;
+    // Promise-wrapped so a sync throw mid-handshake is swallowed too.
+    void Promise.resolve().then(() => provider?.disconnect()).catch(() => {});
   }, []);
 
   useEffect(() => () => cleanup(), [cleanup]);
@@ -113,12 +112,15 @@ export function useWalletConnect() {
   }, [cleanup]);
 
   const pickProvider = useCallback(async (provider: WalletProvider) => {
+    // Panel mounts in initiateConnection; hold the provider so abandon paths can remove it.
+    panelProviderRef.current = provider;
     setPhase({ kind: "connecting", provider });
     try {
       const pending = await initiateConnection(provider);
       const emojis = verificationEmojis(pending);
       setPhase({ kind: "verifying", provider, pending, emojis });
     } catch (err) {
+      teardownConnection();
       const raw = err instanceof Error ? err.message : "Failed to connect";
       const lower = raw.toLowerCase();
       const looksLikePopupBlocked =
@@ -134,13 +136,12 @@ export function useWalletConnect() {
           : raw,
       });
     }
-  }, []);
+  }, [teardownConnection]);
 
   // Hard-refresh mid-verify orphans the PendingConnection wallet-side; SDK has no cross-page cancel. Wallets time it out; user can also dismiss in the wallet.
   const confirm = useCallback(async () => {
     const current = phaseRef.current;
     if (current.kind !== "verifying") return;
-    const provider = current.provider;
     try {
       const wallet = await confirmConnection(current.pending);
       const rawAccounts = await resolveGrantedAccounts(wallet);
@@ -155,7 +156,7 @@ export function useWalletConnect() {
         try {
           version = BigInt((await getChainInfo()).version.toString()).toString();
         } catch {}
-        void provider.disconnect().catch(() => {}); // unusable connection: drop its panel
+        teardownConnection(); // unusable connection: remove its panel
         setPhase({
           kind: "error",
           message: `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. It may be on a different network version, or have no account yet.`,
@@ -168,26 +169,24 @@ export function useWalletConnect() {
         .filter((a): a is string => a !== null);
 
       if (addresses.length === 0) {
-        void provider.disconnect().catch(() => {});
+        teardownConnection();
         setPhase({ kind: "error", message: "Could not parse account address from wallet" });
         return;
       }
 
-      // Retain the provider so disconnect can later remove its floating panel.
-      connectedProviderRef.current = provider;
       if (addresses.length === 1) {
         setPhase({ kind: "connected", wallet, address: addresses[0] });
       } else {
         setPhase({ kind: "picking-account", wallet, accounts: addresses });
       }
     } catch (err) {
-      void provider.disconnect().catch(() => {});
+      teardownConnection();
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : "Failed to confirm",
       });
     }
-  }, []);
+  }, [teardownConnection]);
 
   const pickAccount = useCallback((address: string) => {
     setPhase((prev) => {
@@ -203,13 +202,28 @@ export function useWalletConnect() {
 
   const reject = useCallback(() => {
     const current = phaseRef.current;
-    if (current.kind === "verifying") cancelConnection(current.pending);
+    if (current.kind === "verifying") {
+      cancelConnection(current.pending); // removes the panel
+      panelProviderRef.current = null;
+    }
     setPhase({ kind: "idle" });
   }, []);
 
+  // Abandon: also remove the floating panel. The bar uses acknowledge() to keep it.
   const reset = useCallback(() => {
     const current = phaseRef.current;
-    if (current.kind === "verifying") cancelConnection(current.pending);
+    if (current.kind === "verifying") {
+      cancelConnection(current.pending); // cancelling the handshake removes the panel
+      panelProviderRef.current = null;
+    } else {
+      teardownConnection();
+    }
+    cleanup();
+    setPhase({ kind: "idle" });
+  }, [cleanup, teardownConnection]);
+
+  // Clear the phase but keep the panel alive for the claim (unlike reset()).
+  const acknowledge = useCallback(() => {
     cleanup();
     setPhase({ kind: "idle" });
   }, [cleanup]);
@@ -221,5 +235,5 @@ export function useWalletConnect() {
     setPhase({ kind: "idle" });
   }, [cleanup, teardownConnection]);
 
-  return { phase, start, beginDiscovery, pickProvider, confirm, reject, reset, disconnectWallet, pickAccount, enterAccountPicker };
+  return { phase, start, beginDiscovery, pickProvider, confirm, reject, reset, acknowledge, disconnectWallet, pickAccount, enterAccountPicker };
 }

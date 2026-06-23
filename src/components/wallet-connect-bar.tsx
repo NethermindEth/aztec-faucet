@@ -88,7 +88,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
 
   // Destructured so the effect keys on the phase value, not the hook's
   // per-render wrapper object; reset is a stable useCallback.
-  const { phase: azPhase, reset: azReset, disconnectWallet: azDisconnect } = azguard;
+  const { phase: azPhase, acknowledge: azAck, disconnectWallet: azDisconnect } = azguard;
   // Hands the connected wallet off to local state.
   useDeferredEffect(() => {
     if (azPhase.kind !== "connected") return;
@@ -98,17 +98,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       onAddress(azPhase.address);
       onWalletConnect?.(azPhase.wallet);
     }
-    azReset();
-  }, [azPhase, azReset, onAddress, isEth, onWalletConnect]);
-
-  // Switching the faucet asset to ETH unmounts the Aztec modal but not this hook,
-  // so cancel any in-progress connect flow; otherwise its session leaks and a
-  // stale phase reappears on switching back.
-  useEffect(() => {
-    if (isEth && azPhase.kind !== "idle" && azPhase.kind !== "connected") {
-      azReset();
-    }
-  }, [isEth, azPhase.kind, azReset]);
+    azAck();
+  }, [azPhase, azAck, onAddress, isEth, onWalletConnect]);
 
   // Picker click handler — applies the pick synchronously to bar state and the
   // parent form, then transitions phase. Avoids relying solely on the

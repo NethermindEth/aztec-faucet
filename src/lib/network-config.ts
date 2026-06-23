@@ -11,11 +11,9 @@ export const NPM_TAG = "5.0.0-rc.1";
 export const SCHNORR_CLASS_ID = "0x096eb58b105950df6e32346ff3bc610fa648c3dc39002382a4d7e8019cda6df2";
 
 // ── Feature Flags ────────────────────────────────────────────────────────────
-// Gates the in-wallet claim path (connect + "Claim in wallet") via @aztec/wallet-sdk.
-// Off: Azguard runs a pre-v5 SDK, so even on the v5 RPC it derives the wrong rollup id
-// (4229590296 vs node's 4239416255) and its PXE calls the removed node_getBlockHeader
-// during proving. Re-enable once Azguard ships v5. See #56.
-export const IN_WALLET_CLAIM_ENABLED = false;
+// Gates the in-wallet claim path (connect + "Claim in wallet").
+// Azguard stays disabled in the picker until it ships v5 (#56).
+export const IN_WALLET_CLAIM_ENABLED = true;
 
 // ── L1 (Sepolia) ─────────────────────────────────────────────────────────────
 export const L1_CHAIN_ID = 11155111;

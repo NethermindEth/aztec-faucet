@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useMounted } from "@/lib/use-mounted";
 import type { ConnectPhase } from "@/lib/use-wallet-connect";
@@ -36,17 +36,25 @@ type Props = {
   confirm: () => void;
   reject: () => void;
   reset: () => void;
-  start: () => void;
   pickAccount: (address: string) => void;
+  beginDiscovery: (choice: import("@/lib/wallet-client").WalletChoice) => void;
 };
 
-export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, start, pickAccount }: Props) {
+export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, pickAccount, beginDiscovery }: Props) {
   if (phase.kind === "idle" || phase.kind === "connected") return null;
+
+  if (phase.kind === "choosing") {
+    return (
+      <Modal title="Connect your wallet" onClose={reset}>
+        <ChooseSourceBody beginDiscovery={beginDiscovery} />
+      </Modal>
+    );
+  }
 
   if (phase.kind === "discovering") {
     return (
       <Modal title="Choose a wallet" onClose={reset}>
-        <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} start={start} />
+        <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} retry={() => beginDiscovery(phase.choice)} />
       </Modal>
     );
   }
@@ -107,16 +115,115 @@ export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset
   );
 }
 
+// Wallet-type chooser: discovery starts on Connect, not on modal open, so an
+// extension's connection prompt fires only on the user's explicit pick.
+function ChooseSourceBody({
+  beginDiscovery,
+}: {
+  beginDiscovery: (choice: import("@/lib/wallet-client").WalletChoice) => void;
+}) {
+  // Extension (Azguard) is disabled until Azguard ships v5 testnet support (#56);
+  // the web demo wallet is the working v5 path, so it is the default selection.
+  const [selected, setSelected] = useState<import("@/lib/wallet-client").WalletChoice>("web");
+  const options: {
+    choice: import("@/lib/wallet-client").WalletChoice;
+    name: string;
+    hint: string;
+    icon: ReactNode;
+    disabled?: string;
+  }[] = [
+    {
+      choice: "extension",
+      name: "Browser Extension",
+      hint: "Azguard",
+      disabled: "Waiting for Azguard to support the v5 testnet",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7" aria-hidden="true">
+          <path
+            d="M9 3.5a2 2 0 014 0V5h3a1 1 0 011 1v3h1.5a2 2 0 010 4H17v3a1 1 0 01-1 1h-3v1.5a2 2 0 01-4 0V17H6a1 1 0 01-1-1v-3H3.5a2 2 0 010-4H5V6a1 1 0 011-1h3V3.5z"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+    },
+    {
+      choice: "web",
+      name: "Web Wallet",
+      hint: "Aztec Demo Wallet",
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.4" />
+          <path
+            d="M3 12h18M12 3c2.4 2.5 3.7 5.7 3.7 9S14.4 18.5 12 21c-2.4-2.5-3.7-5.7-3.7-9S9.6 5.5 12 3z"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ),
+    },
+  ];
+  return (
+    <div className="space-y-4">
+      <p className="font-label text-[11px] leading-relaxed text-on-surface-variant opacity-70">
+        Choose how to connect to the faucet. Only the wallet you pick will open.
+      </p>
+      <div className="space-y-2">
+        <p className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">
+          Choose Wallet
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {options.map((o) => {
+            const active = selected === o.choice && !o.disabled;
+            return (
+              <button
+                key={o.choice}
+                type="button"
+                aria-disabled={o.disabled ? true : undefined}
+                aria-pressed={active}
+                title={o.disabled}
+                onClick={() => {
+                  if (!o.disabled) setSelected(o.choice);
+                }}
+                className={`flex flex-col items-center gap-2 border px-3 py-4 text-center transition-colors ${
+                  o.disabled
+                    ? "cursor-not-allowed border-outline-variant/40 bg-surface-low/40 opacity-40"
+                    : active
+                    ? "border-accent bg-accent/10 text-accent"
+                    : "border-outline-variant bg-surface-low text-on-surface-variant hover:border-accent/60 hover:text-on-surface"
+                }`}
+              >
+                {o.icon}
+                <span className="font-label text-[11px] font-bold uppercase tracking-wider">{o.name}</span>
+                <span className="font-label text-[9px] uppercase tracking-widest opacity-50">{o.disabled ? "Pending v5" : o.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => beginDiscovery(selected)}
+        className="btn-primary w-full py-2.5 text-sm uppercase tracking-wider"
+      >
+        Connect
+      </button>
+    </div>
+  );
+}
+
 function DiscoveringBody({
   providers,
   pickProvider,
   reset,
-  start,
+  retry,
 }: {
   providers: import("@/lib/wallet-client").WalletProvider[];
   pickProvider: (p: import("@/lib/wallet-client").WalletProvider) => void;
   reset: () => void;
-  start: () => void;
+  retry: () => void;
 }) {
   // After 10s with zero providers we'd sit forever on "looking…". Show a
   // Retry path so users who were unlocking can re-probe without dismissing.
@@ -130,7 +237,7 @@ function DiscoveringBody({
   const handleRetry = () => {
     setTimedOut(false);
     setAttempt((a) => a + 1);
-    start();
+    retry();
   };
 
   if (providers.length === 0 && timedOut) {

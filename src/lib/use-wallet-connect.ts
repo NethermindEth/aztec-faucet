@@ -13,6 +13,7 @@ import {
   verificationEmojis,
   type DiscoverySession,
   type PendingConnection,
+  type WalletChoice,
   type WalletProvider,
 } from "@/lib/wallet-client";
 import { faucetCapabilities } from "@/lib/wallet-capabilities";
@@ -42,7 +43,8 @@ async function resolveGrantedAccounts(wallet: Wallet): Promise<RawWalletAccounts
 
 export type ConnectPhase =
   | { kind: "idle" }
-  | { kind: "discovering"; providers: WalletProvider[] }
+  | { kind: "choosing" }
+  | { kind: "discovering"; providers: WalletProvider[]; choice: WalletChoice }
   | { kind: "connecting"; provider: WalletProvider }
   | { kind: "verifying"; provider: WalletProvider; pending: PendingConnection; emojis: string }
   | { kind: "picking-account"; wallet: Wallet; accounts: string[] }
@@ -65,24 +67,30 @@ export function useWalletConnect() {
 
   useEffect(() => () => cleanup(), [cleanup]);
 
-  const start = useCallback(async () => {
-    setPhase({ kind: "discovering", providers: [] });
+  // Chooser first; discovery (and its extension prompt) is deferred to beginDiscovery.
+  const start = useCallback(() => {
+    setPhase({ kind: "choosing" });
+  }, []);
+
+  const beginDiscovery = useCallback(async (choice: WalletChoice) => {
+    cleanup(); // cancel any prior session (re-pick / Retry)
+    setPhase({ kind: "discovering", providers: [], choice });
     try {
       const chainInfo = await getChainInfo();
       sessionRef.current = discoverWallets(chainInfo, (p) => {
         setPhase((prev) =>
           prev.kind === "discovering"
-            ? { kind: "discovering", providers: [...prev.providers, p] }
+            ? { kind: "discovering", providers: [...prev.providers, p], choice: prev.choice }
             : prev,
         );
-      }, 10000);
+      }, choice, 10000);
     } catch (err) {
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : "Failed to start discovery",
       });
     }
-  }, []);
+  }, [cleanup]);
 
   const pickProvider = useCallback(async (provider: WalletProvider) => {
     setPhase({ kind: "connecting", provider });
@@ -178,5 +186,5 @@ export function useWalletConnect() {
     setPhase({ kind: "idle" });
   }, [cleanup]);
 
-  return { phase, start, pickProvider, confirm, reject, reset, pickAccount, enterAccountPicker };
+  return { phase, start, beginDiscovery, pickProvider, confirm, reject, reset, pickAccount, enterAccountPicker };
 }

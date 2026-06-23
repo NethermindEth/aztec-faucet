@@ -30,7 +30,7 @@ function shortAddr(addr: string): string {
 }
 
 export function WalletClaimButton({ claimData, recipient, onClaimComplete, preConnectedWallet, preConnectedAddress }: Props) {
-  const { phase, start, pickProvider, confirm, reject, reset, pickAccount } = useWalletConnect();
+  const { phase, start, beginDiscovery, pickProvider, confirm, reject, reset, pickAccount } = useWalletConnect();
   const [claim, setClaim] = useState<ClaimState>({ kind: "none" });
   const [infoOpen, setInfoOpen] = useState(false);
   const infoRef = useRef<HTMLDivElement>(null);
@@ -176,7 +176,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
         confirm={confirm}
         reject={reject}
         reset={reset}
-        start={start}
+        beginDiscovery={beginDiscovery}
         pickAccount={pickAccount}
       />
       {claim.kind === "success" && (

@@ -13,7 +13,7 @@ import {
   type AnnouncedProvider,
   type EthereumProvider,
 } from "@/lib/ethereum-providers";
-import { discoverWallets, getChainInfo, unwrapAddress } from "@/lib/wallet-client";
+import { unwrapAddress } from "@/lib/wallet-client";
 import { L1_CHAIN_ID, IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { useOnValueChange } from "@/lib/use-on-value-change";
@@ -258,46 +258,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     return attachProviderListeners(p);
   }, [attachProviderListeners, ethAddr]);
 
-  // Azguard has no accountsChanged equivalent. Probe on mount; if it doesn't
-  // announce in 5s, cached aztec address is stale (uninstall / disabled /
-  // wrong network) — clear it.
-  useEffect(() => {
-    const persisted = readPersisted();
-    if (!persisted.aztec) return;
-    let cancelled = false;
-    let seen = false;
-    let session: { cancel: () => void } | null = null;
-    const fallback = setTimeout(() => {
-      if (cancelled || seen) return;
-      setAztecAddr(null);
-      writePersisted({ ...readPersisted(), aztec: null });
-      if (!isEth) onAddress("");
-    }, 5000);
-    void (async () => {
-      try {
-        const chainInfo = await getChainInfo();
-        if (cancelled) return;
-        session = discoverWallets(
-          chainInfo,
-          () => {
-            seen = true;
-            clearTimeout(fallback);
-            session?.cancel();
-          },
-          5000,
-        );
-      } catch {
-        // node unreachable — can't tell, leave cache alone
-        clearTimeout(fallback);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      clearTimeout(fallback);
-      session?.cancel();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // No on-mount discovery: it would pop the extension's prompt on page load.
+  // Discovery runs only after a wallet type is picked in the connect modal.
 
   // Multi-tab sync — without this, disconnecting in tab 1 leaves tab 2 stale.
   useEffect(() => {
@@ -749,7 +711,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           confirm={azguard.confirm}
           reject={azguard.reject}
           reset={azguard.reset}
-          start={azguard.start}
+          beginDiscovery={azguard.beginDiscovery}
           pickAccount={handlePickAccount}
         />
       )}

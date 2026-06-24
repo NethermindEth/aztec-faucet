@@ -63,13 +63,13 @@ All network configuration is centralized in `src/lib/network-config.ts`.
 
 Fee Juice is Aztec's native gas token. It cannot be minted on L2 directly and must be bridged from L1 through the FeeJuicePortal contract. The faucet handles the full bridge on your behalf: it draws from a pre-funded wallet on Sepolia, locks the tokens in the portal, and queues a message for your address. Once the Aztec sequencer includes that message in a block (roughly 1-2 minutes), the faucet UI shows a live claim tracker with all values pre-filled.
 
-Rate limit: one request per 24 hours per address (production).
+Rate limit: up to 3 requests per address, and 6 per IP, in any 8 hour window (production).
 
 ### ETH (Sepolia)
 
 Sent directly to your Ethereum address on Sepolia. Useful for paying L1 transaction fees and funding your own bridging operations.
 
-Rate limit: 0.001 ETH, one request per 24 hours per address (production).
+Rate limit: 0.001 ETH, up to 3 requests per address, and 6 per IP, in any 8 hour window (production).
 
 ---
 

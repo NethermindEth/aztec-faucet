@@ -28,9 +28,8 @@ export function faucetCapabilities(): AppCapabilities {
         utilities: { scope: [] },
         transactions: {
           scope: [
-            // The claim flow sends check_balance(0n) with
-            // claim_and_end_setup riding in the fee payload.
-            { contract: feeJuice, function: "claim" },
+            // The claim flow sends check_balance(0n) with claim_and_end_setup
+            // riding in the fee payload; plain claim is never invoked.
             { contract: feeJuice, function: "claim_and_end_setup" },
             { contract: feeJuice, function: "check_balance" },
           ],
@@ -39,7 +38,6 @@ export function faucetCapabilities(): AppCapabilities {
       {
         type: "transaction",
         scope: [
-          { contract: feeJuice, function: "claim" },
           { contract: feeJuice, function: "claim_and_end_setup" },
           { contract: feeJuice, function: "check_balance" },
         ],

@@ -86,6 +86,14 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
     })();
   }, [phase, claim.kind, claimData, recipient, disconnectWallet, onClaimComplete, canSkipConnect]);
 
+  // Wallet dropped its own side during connect/claim: surface it and clear the
+  // parked phase. An in-flight claim sets its own error, so don't clobber it.
+  useDeferredEffect(() => {
+    if (phase.kind !== "disconnected") return;
+    setClaim((c) => (c.kind === "claiming" ? c : { kind: "error", message: "Wallet disconnected. Reconnect and try again." }));
+    reset();
+  }, [phase, reset]);
+
   // Direct-claim path: used when the header bar wallet is already connected
   // to the right account. No requestCapabilities popup — just the tx popup.
   const handlePreConnectedClaim = useCallback(async () => {

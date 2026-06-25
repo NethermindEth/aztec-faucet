@@ -63,13 +63,13 @@ All network configuration is centralized in `src/lib/network-config.ts`.
 
 Fee Juice is Aztec's native gas token. It cannot be minted on L2 directly and must be bridged from L1 through the FeeJuicePortal contract. The faucet handles the full bridge on your behalf: it draws from a pre-funded wallet on Sepolia, locks the tokens in the portal, and queues a message for your address. Once the Aztec sequencer includes that message in a block (roughly 1-2 minutes), the faucet UI shows a live claim tracker with all values pre-filled.
 
-Rate limit: one request per 24 hours per address (production).
+Rate limit: up to 3 requests per address, and 6 per IP, in any 8 hour window (production).
 
 ### ETH (Sepolia)
 
 Sent directly to your Ethereum address on Sepolia. Useful for paying L1 transaction fees and funding your own bridging operations.
 
-Rate limit: 0.001 ETH, one request per 24 hours per address (production).
+Rate limit: 0.001 ETH, up to 3 requests per address, and 6 per IP, in any 8 hour window (production).
 
 ---
 
@@ -81,7 +81,10 @@ Every new Aztec developer faces the same bootstrap problem: you need Fee Juice t
 
 **Step 2: Request Fee Juice.** Open the **Faucet** tab, paste your address, and click Request Fee Juice. The UI immediately shows a Sepolia Etherscan link for the L1 bridge transaction so you can confirm it landed on-chain. The bridge takes roughly 1-2 minutes.
 
-**Step 3: Claim on L2.** Once the bridge is ready, a Claim section appears in the UI with all values pre-filled. Copy the command and run it in your terminal, substituting only your secret key. The script handles everything else automatically.
+**Step 3: Claim on L2.** Once the bridge is ready, a Claim section appears in the UI with all values pre-filled. You can claim in two ways:
+
+- **In your wallet (no terminal).** Connect an Aztec wallet from the button in the Faucet header, then click **Claim in wallet**. The wallet signs a single transaction that deploys your account if needed and claims the Fee Juice in place. This is the fastest path. It currently works with the Aztec Demo Wallet (web wallet); the Azguard browser extension is pending v5 testnet support.
+- **From the terminal.** Copy the pre-filled command and run it, substituting only your secret key. The script handles everything else automatically.
 
 ### New account: atomic deploy and claim
 
@@ -105,13 +108,15 @@ Claim data is kept for 30 minutes. After that the tracker shows "Expired" and yo
 
 ## Shell scripts
 
-The faucet ships shell scripts under `sh/testnet/` that you can pipe directly from GitHub. They handle SDK installation automatically, so you do not need to clone the repository or have any Aztec tooling installed beforehand.
+The faucet ships shell scripts under `sh/` that you can pipe directly from GitHub. They handle SDK installation automatically, so you do not need to clone the repository or have any Aztec tooling installed beforehand.
 
 **`create-account.sh`** derives a new Aztec address from a random secret key. Nothing is deployed. The address is computed locally from your key using the Schnorr account contract class, which is the same contract used by `aztec-wallet`.
 
 **`claim.sh`** claims Fee Juice on L2. It accepts the claim values shown in the faucet UI and automatically detects whether your account is deployed. If not deployed, it performs an atomic deploy-and-claim in a single transaction. If already deployed, it calls `FeeJuice.claim()` directly.
 
 **`check-balance.sh`** reads the Fee Juice balance of any Aztec address. Fee Juice is stored in public state, so no wallet or private key is needed.
+
+**`check-eth-balance.sh`** reads the Sepolia ETH balance of any Ethereum address. It lives in `sh/` (the others are in `sh/testnet/`) and needs a Sepolia RPC URL.
 
 The faucet UI generates the exact commands with all values pre-filled. You copy them and run them directly in your terminal.
 
@@ -121,7 +126,7 @@ The faucet UI generates the exact commands with all values pre-filled. You copy 
 
 | Tab | What it does |
 |-----|-------------|
-| **Faucet** | Request Fee Juice or Sepolia ETH. After a drip, shows a Sepolia Etherscan link for the L1 bridge transaction and a live claim tracker. Once the bridge is ready, displays a pre-filled claim command. |
+| **Faucet** | Request Fee Juice or Sepolia ETH. After a drip, shows a Sepolia Etherscan link for the L1 bridge transaction and a live claim tracker. Once the bridge is ready, claim directly in a connected Aztec wallet with **Claim in wallet**, or copy a pre-filled claim command for the terminal. Connect a wallet from the button in the form header. |
 | **Account** | Generate a throwaway Aztec keypair (secret key and address) without any CLI, wallet extension, or account deployment. Keys are generated server-side using cryptographically secure randomness and are never stored or logged. |
 | **Balance** | Check the Fee Juice balance of any Aztec address directly from the node. Generates a pre-filled terminal command. |
 | **Network** | Live fee rates, node health (block height, node version, rollup version), and all L1/L2 protocol contract addresses. Auto-refreshes every 15 seconds. |

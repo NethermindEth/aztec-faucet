@@ -14,6 +14,7 @@ import {
   type EthereumProvider,
 } from "@/lib/ethereum-providers";
 import { unwrapAddress } from "@/lib/wallet-client";
+import { addressesMatch } from "@/lib/address";
 import { L1_CHAIN_ID, IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { useOnValueChange } from "@/lib/use-on-value-change";
@@ -21,6 +22,7 @@ import { useOnValueChange } from "@/lib/use-on-value-change";
 type Props = {
   asset: string;
   currentFormAddress?: string;
+  // Must be referentially stable (a useState setter or a useCallback).
   onAddress: (address: string) => void;
   onWalletConnect?: (wallet: Wallet | null) => void;
   registerDisconnect?: (fn: (() => void) | null) => void;
@@ -64,6 +66,8 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
 
   const [aztecAddr, setAztecAddr] = useState<string | null>(null);
   const aztecWalletRef = useRef<import("@aztec/aztec.js/wallet").Wallet | null>(null);
+  // Set when the wallet drops the link on its own side; drives a reconnect hint.
+  const [aztecDropped, setAztecDropped] = useState(false);
   const [ethAddr, setEthAddr] = useState<string | null>(null);
   const [chainId, setChainId] = useState<string | null>(null);
   const [ethBusy, setEthBusy] = useState(false);
@@ -88,19 +92,74 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   const azguard = useWalletConnect();
 
   // Destructured so the effect keys on the phase value, not the hook's
-  // per-render wrapper object; reset is a stable useCallback.
-  const { phase: azPhase, acknowledge: azAck, disconnectWallet: azDisconnect } = azguard;
+  // per-render wrapper object; these are stable useCallbacks.
+  const { phase: azPhase, acknowledge: azAck, disconnectWallet: azDisconnect, start: azStart } = azguard;
+
+  // Latest refs so the connect/disconnect effects can key on azPhase alone.
+  const onAddressRef = useRef(onAddress);
+  const onWalletConnectRef = useRef(onWalletConnect);
+  const currentFormAddressRef = useRef(currentFormAddress);
+  const aztecAddrRef = useRef(aztecAddr);
+  const isEthRef = useRef(isEth);
+  useEffect(() => {
+    onAddressRef.current = onAddress;
+    onWalletConnectRef.current = onWalletConnect;
+    currentFormAddressRef.current = currentFormAddress;
+    aztecAddrRef.current = aztecAddr;
+    isEthRef.current = isEth;
+  }, [onAddress, onWalletConnect, currentFormAddress, aztecAddr, isEth]);
+
+  // Clears local Aztec connection state; the recipient form is asset-specific and handled by callers.
+  const clearAztecConnection = useCallback(() => {
+    setAztecAddr(null);
+    aztecWalletRef.current = null;
+    onWalletConnectRef.current?.(null);
+  }, []);
+
   // Hands the connected wallet off to local state.
   useDeferredEffect(() => {
     if (azPhase.kind !== "connected") return;
     aztecWalletRef.current = azPhase.wallet;
     setAztecAddr(azPhase.address);
-    if (!isEth) {
-      onAddress(azPhase.address);
-      onWalletConnect?.(azPhase.wallet);
+    setAztecDropped(false);
+    if (!isEthRef.current) {
+      onAddressRef.current(azPhase.address);
+      onWalletConnectRef.current?.(azPhase.wallet);
     }
     azAck();
-  }, [azPhase, azAck, onAddress, isEth, onWalletConnect]);
+  }, [azPhase, azAck]);
+
+  // Wallet dropped the link on its own side (extension closed / session lost).
+  // A drop is asset-independent, so clear the dead Aztec session regardless of the
+  // active tab; only the recipient form is asset-specific. disconnect() is our own path.
+  useDeferredEffect(() => {
+    if (azPhase.kind !== "disconnected") return;
+    const dead = aztecAddrRef.current;
+    clearAztecConnection();
+    // Only hint if a live session dropped; a drop mid-account-pick leaves dead null.
+    if (dead) setAztecDropped(true);
+    // Clear the form only if the dead wallet was driving it; preserve manual input.
+    if (!isEthRef.current && dead && addressesMatch(currentFormAddressRef.current, dead)) {
+      onAddressRef.current("");
+    }
+    azAck(); // return the hook to idle
+  }, [azPhase, azAck, clearAztecConnection]);
+
+  // Clear the hint 6s after it first becomes visible. Armed once so tab toggles
+  // don't restart it, and a drop on the ETH tab waits until the user is back.
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (aztecDropped && !isEth && hintTimerRef.current === null) {
+      hintTimerRef.current = setTimeout(() => {
+        hintTimerRef.current = null;
+        setAztecDropped(false);
+      }, 6000);
+    } else if (!aztecDropped && hintTimerRef.current !== null) {
+      clearTimeout(hintTimerRef.current);
+      hintTimerRef.current = null;
+    }
+  }, [aztecDropped, isEth]);
+  useEffect(() => () => { if (hintTimerRef.current) clearTimeout(hintTimerRef.current); }, []);
 
   // Picker click handler — applies the pick synchronously to bar state and the
   // parent form, then transitions phase. Avoids relying solely on the
@@ -336,11 +395,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       onAddress(next);
     } else {
       const oldWalletAddr = prevAsset === "eth" ? ethAddr : aztecAddr;
-      const formWasDrivenByWallet =
-        !!oldWalletAddr &&
-        !!currentFormAddress &&
-        currentFormAddress.toLowerCase() === oldWalletAddr.toLowerCase();
-      if (formWasDrivenByWallet) {
+      if (addressesMatch(currentFormAddress, oldWalletAddr)) {
         onAddress("");
       }
     }
@@ -354,13 +409,11 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       ethProviderRef.current = null;
       writePersisted({ ...readPersisted(), eth: null, ethRdns: null });
     } else {
-      setAztecAddr(null);
-      aztecWalletRef.current = null;
-      onWalletConnect?.(null);
+      clearAztecConnection();
       azDisconnect(); // tear down the connected web wallet's floating panel
     }
     onAddress("");
-  }, [isEth, onAddress, onWalletConnect, azDisconnect]);
+  }, [isEth, onAddress, clearAztecConnection, azDisconnect]);
 
   // Expose disconnect so the layout can tear the wallet (and its floating panel)
   // down once an in-wallet claim completes.
@@ -372,12 +425,14 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   const connectedAddr = isEth ? ethAddr : aztecAddr;
   const idleLabel = isEth ? "Connect Ethereum Wallet" : "Connect Aztec Wallet";
 
-  const formMatchesWallet =
-    !!connectedAddr &&
-    !!currentFormAddress &&
-    currentFormAddress.trim().toLowerCase() === connectedAddr.toLowerCase();
+  const formMatchesWallet = addressesMatch(currentFormAddress, connectedAddr);
 
-  const startWalletFlow = isEth ? startEthConnect : azguard.start;
+  // Reconnecting clears the stale "Wallet disconnected" hint up front.
+  const startWalletFlow = useCallback(() => {
+    if (!isEth) setAztecDropped(false);
+    if (isEth) void startEthConnect();
+    else azStart();
+  }, [isEth, startEthConnect, azStart]);
 
   // Two-click confirm before overwriting a manually-typed address;
   // auto-resets after 2.5s.
@@ -456,12 +511,11 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
           // wallet may be stale — fall through to fresh discovery
         }
       }
-      setAztecAddr(null);
-      onWalletConnect?.(null);
+      clearAztecConnection();
       onAddress(""); // clear the recipient form, mirroring disconnect
       azguard.start();
     }
-  }, [isEth, startEthConnect, azguard, onAddress, onWalletConnect]);
+  }, [isEth, startEthConnect, azguard, onAddress, clearAztecConnection]);
 
   const handleConnectedClick = () => setMenuOpen((v) => !v);
   const handleNonMatchingClick = () => {
@@ -678,8 +732,16 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
       </div>
 
       {!connectedAddr && !statusLine && (
-        <p className="max-w-full text-right font-label text-[10px] leading-relaxed text-on-surface-variant opacity-50 sm:max-w-xs">
-          Reads your address only. No signature, no transaction.
+        <p
+          className={`max-w-full text-right font-label text-[10px] leading-relaxed sm:max-w-xs ${
+            !isEth && aztecDropped
+              ? "text-on-surface-variant opacity-80"
+              : "text-on-surface-variant opacity-50"
+          }`}
+        >
+          {!isEth && aztecDropped
+            ? "Wallet disconnected. Connect again to continue."
+            : "Reads your address only. No signature, no transaction."}
         </p>
       )}
 

@@ -17,28 +17,37 @@ import {
   type WalletProvider,
 } from "@/lib/wallet-client";
 import { faucetCapabilities } from "@/lib/wallet-capabilities";
+import { isUserRejection, WalletUserRejectedError } from "@/lib/wallet-errors";
 
 // Opaque wallet-account wrappers; SDK doesn't export a stable shape.
 type RawWalletAccount = unknown;
 type RawWalletAccounts = readonly RawWalletAccount[];
 
-// requestCapabilities first per wallet-sdk spec; getAccounts as fallback.
+// requestCapabilities (spec) first, getAccounts (legacy) as fallback. A denial
+// surfaces reliably only as a THROW (both SDK transports reject with the
+// wallet-side "User denied ..." text). An empty/partial grant is ambiguous
+// (denial vs accounts on a different rollup version), so it falls through to
+// the fallback and confirm()'s "no account / wrong version" message explains it.
 async function resolveGrantedAccounts(wallet: Wallet): Promise<RawWalletAccounts> {
   try {
     const granted = await wallet.requestCapabilities(faucetCapabilities());
     const accountsCap = granted.granted.find((c) => c.type === "accounts");
-    const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
-    if (cap) return Array.from(cap);
+    if (accountsCap && "accounts" in accountsCap && accountsCap.accounts.length > 0) {
+      return Array.from(accountsCap.accounts);
+    }
   } catch (capErr) {
+    if (isUserRejection(capErr)) throw new WalletUserRejectedError(capErr);
     console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
   }
   try {
-    const accounts = await wallet.getAccounts();
-    return Array.from(accounts as unknown[]);
+    const accounts = Array.from((await wallet.getAccounts()) as unknown[]);
+    if (accounts.length > 0) return accounts;
   } catch (getErr) {
+    // Same denial signal can land here if the prompt rode on getAccounts.
+    if (isUserRejection(getErr)) throw new WalletUserRejectedError(getErr);
     console.warn("getAccounts fallback also failed:", getErr);
-    return [];
   }
+  return [];
 }
 
 export type ConnectPhase =
@@ -49,6 +58,7 @@ export type ConnectPhase =
   | { kind: "verifying"; provider: WalletProvider; pending: PendingConnection; emojis: string }
   | { kind: "picking-account"; wallet: Wallet; accounts: string[] }
   | { kind: "connected"; wallet: Wallet; address: string }
+  | { kind: "disconnected" }
   | { kind: "error"; message: string };
 
 export function useWalletConnect() {
@@ -58,6 +68,8 @@ export function useWalletConnect() {
   const discoveryGenRef = useRef(0);
   // Connection provider; only its disconnect() removes the web wallet's floating panel.
   const panelProviderRef = useRef<WalletProvider | null>(null);
+  // Unsubscribe for the provider-level onDisconnect watch; armed after connect, dropped on teardown.
+  const disconnectUnsubRef = useRef<(() => void) | null>(null);
   // phaseRef so callbacks read latest phase without side effects in setState updaters (StrictMode double-invokes those).
   const phaseRef = useRef(phase);
   useEffect(() => {
@@ -72,13 +84,34 @@ export function useWalletConnect() {
 
   // Removes the floating panel; separate from cleanup() so acknowledge() keeps it up.
   const teardownConnection = useCallback(() => {
+    // Drop the disconnect watch first so our own teardown doesn't trip it.
+    disconnectUnsubRef.current?.();
+    disconnectUnsubRef.current = null;
     const provider = panelProviderRef.current;
     panelProviderRef.current = null;
     // Promise-wrapped so a sync throw mid-handshake is swallowed too.
     void Promise.resolve().then(() => provider?.disconnect()).catch(() => {});
   }, []);
 
-  useEffect(() => () => cleanup(), [cleanup]);
+  // After connect, watch for a wallet-side drop: clear the dead session, drop the
+  // panel, and set the "disconnected" phase.
+  const armDisconnectWatch = useCallback(() => {
+    const provider = panelProviderRef.current;
+    if (!provider) return;
+    disconnectUnsubRef.current?.();
+    disconnectUnsubRef.current = provider.onDisconnect(() => {
+      const dropped = panelProviderRef.current;
+      panelProviderRef.current = null;
+      // Null the ref, don't call the unsubscribe: the SDK is mid-iterating its
+      // disconnect callbacks here, so unsubscribing now would splice during iteration.
+      disconnectUnsubRef.current = null;
+      void Promise.resolve().then(() => dropped?.disconnect()).catch(() => {});
+      setPhase({ kind: "disconnected" });
+    });
+  }, []);
+
+  // Unmount is a real teardown: also drop the watch and panel (cleanup() alone leaks them).
+  useEffect(() => () => { cleanup(); teardownConnection(); }, [cleanup, teardownConnection]);
 
   // Chooser first; discovery (and its extension prompt) is deferred to beginDiscovery.
   // Tear down any prior connection panel and warm the chain-info cache.
@@ -174,6 +207,8 @@ export function useWalletConnect() {
         return;
       }
 
+      // Connection is live; watch for a wallet-side drop from here on.
+      armDisconnectWatch();
       if (addresses.length === 1) {
         setPhase({ kind: "connected", wallet, address: addresses[0] });
       } else {
@@ -181,12 +216,22 @@ export function useWalletConnect() {
       }
     } catch (err) {
       teardownConnection();
+      // Covers the typed denial from requestCapabilities and a rejection thrown
+      // by the earlier confirmConnection step. The session is gone, so send the
+      // user back to reconnecting rather than at a dead popup.
+      if (isUserRejection(err)) {
+        setPhase({
+          kind: "error",
+          message: "Connection cancelled. Connect again to retry.",
+        });
+        return;
+      }
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : "Failed to confirm",
       });
     }
-  }, [teardownConnection]);
+  }, [teardownConnection, armDisconnectWatch]);
 
   const pickAccount = useCallback((address: string) => {
     setPhase((prev) => {

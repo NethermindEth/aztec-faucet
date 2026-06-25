@@ -41,7 +41,8 @@ type Props = {
 };
 
 export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, pickAccount, beginDiscovery }: Props) {
-  if (phase.kind === "idle" || phase.kind === "connected") return null;
+  // "disconnected" is surfaced in the bar (clear + reconnect prompt), not here.
+  if (phase.kind === "idle" || phase.kind === "connected" || phase.kind === "disconnected") return null;
 
   if (phase.kind === "choosing") {
     return (

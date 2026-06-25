@@ -5,6 +5,8 @@ import type { Wallet } from "@aztec/aztec.js/wallet";
 import { useWalletConnect } from "@/lib/use-wallet-connect";
 import { WalletConnectModal } from "./wallet-connect-modal";
 import { claimFeeJuiceViaWallet, type ClaimDataInput } from "@/lib/claim-via-wallet";
+import { WalletUserRejectedError } from "@/lib/wallet-errors";
+import { addressesMatch } from "@/lib/address";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { EXPLORER_TX_URL } from "@/lib/network-config";
 
@@ -29,6 +31,13 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
 }
 
+function claimErrorMessage(err: unknown): string {
+  if (err instanceof WalletUserRejectedError) {
+    return "You declined the transaction in your wallet.";
+  }
+  return err instanceof Error ? err.message : "Claim failed";
+}
+
 export function WalletClaimButton({ claimData, recipient, onClaimComplete, preConnectedWallet, preConnectedAddress }: Props) {
   const { phase, start, beginDiscovery, pickProvider, confirm, reject, reset, disconnectWallet, pickAccount } = useWalletConnect();
   const [claim, setClaim] = useState<ClaimState>({ kind: "none" });
@@ -38,7 +47,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
   const canSkipConnect =
     preConnectedWallet !== undefined &&
     preConnectedAddress !== undefined &&
-    preConnectedAddress.toLowerCase() === recipient.toLowerCase();
+    addressesMatch(preConnectedAddress, recipient);
 
   useEffect(() => {
     if (!infoOpen) return;
@@ -58,7 +67,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
     const wallet: Wallet = phase.wallet;
     const address = phase.address;
 
-    if (recipient && address.toLowerCase() !== recipient.toLowerCase()) {
+    if (recipient && !addressesMatch(address, recipient)) {
       setClaim({
         kind: "error",
         message:
@@ -76,15 +85,20 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
         setClaim({ kind: "success", txHash: result.txHash });
         onClaimComplete?.(result.txHash);
       } catch (err) {
-        setClaim({
-          kind: "error",
-          message: err instanceof Error ? err.message : "Claim failed",
-        });
+        setClaim({ kind: "error", message: claimErrorMessage(err) });
       } finally {
         disconnectWallet();
       }
     })();
   }, [phase, claim.kind, claimData, recipient, disconnectWallet, onClaimComplete, canSkipConnect]);
+
+  // Wallet dropped its own side during connect/claim: surface it and clear the
+  // parked phase. An in-flight claim sets its own error, so don't clobber it.
+  useDeferredEffect(() => {
+    if (phase.kind !== "disconnected") return;
+    setClaim((c) => (c.kind === "claiming" ? c : { kind: "error", message: "Wallet disconnected. Reconnect and try again." }));
+    reset();
+  }, [phase, reset]);
 
   // Direct-claim path: used when the header bar wallet is already connected
   // to the right account. No requestCapabilities popup — just the tx popup.
@@ -96,10 +110,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
       setClaim({ kind: "success", txHash: result.txHash });
       onClaimComplete?.(result.txHash);
     } catch (err) {
-      setClaim({
-        kind: "error",
-        message: err instanceof Error ? err.message : "Claim failed",
-      });
+      setClaim({ kind: "error", message: claimErrorMessage(err) });
     }
   }, [canSkipConnect, claim.kind, preConnectedWallet, preConnectedAddress, claimData, recipient, onClaimComplete]);
 

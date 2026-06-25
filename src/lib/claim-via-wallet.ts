@@ -5,6 +5,7 @@ import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 import type { Wallet } from "@aztec/aztec.js/wallet";
+import { flattenError, isUserRejection, WalletUserRejectedError } from "@/lib/wallet-errors";
 
 export type ClaimDataInput = {
   claimAmount: string;
@@ -36,28 +37,6 @@ export class ClaimRecipientMismatchError extends Error {
     );
     this.name = "ClaimRecipientMismatchError";
   }
-}
-
-// Walk err + err.cause into one lowercase blob; wallet SDKs wrap the real
-// chain error inside generic outer messages and we need to substring-match.
-function flattenError(err: unknown, depth = 0, seen = new Set<unknown>()): string {
-  if (err == null || depth > 6 || seen.has(err)) return "";
-  seen.add(err);
-  const parts: string[] = [];
-  if (typeof err === "string") parts.push(err);
-  else if (err instanceof Error) {
-    parts.push(err.message, err.name);
-    if ("cause" in err) parts.push(flattenError((err as Error & { cause?: unknown }).cause, depth + 1, seen));
-  } else if (typeof err === "object") {
-    const e = err as Record<string, unknown>;
-    for (const k of ["message", "error", "details", "data"]) {
-      if (typeof e[k] === "string") parts.push(e[k] as string);
-    }
-    if (e.cause) parts.push(flattenError(e.cause, depth + 1, seen));
-  } else {
-    parts.push(String(err));
-  }
-  return parts.join(" ").toLowerCase();
 }
 
 // addressesMatch disambiguates "no non-nullified L1 to L2 message": same chain
@@ -109,9 +88,11 @@ export async function claimFeeJuiceViaWallet(
       .check_balance(0n)
       .send({ from: address, fee: { paymentMethod } });
   } catch (err) {
-    // Surface the raw wallet/SDK error to the browser console so devs can
-    // see what actually broke. The humanised error below only catches
-    // double-spend; everything else propagates as-is.
+    // A user declining the wallet popup is expected, not a breakage: classify it
+    // and don't console.error (that logging trips the Next.js dev error overlay).
+    if (isUserRejection(err)) throw new WalletUserRejectedError(err);
+    // Surface genuine failures to the console so devs can see what actually broke.
+    // The humanised error below only catches double-spend; everything else propagates.
     console.error("[claim-via-wallet] send threw:", err);
     throw humaniseClaimError(err, addressesMatch);
   }

@@ -5,6 +5,7 @@ import type { Wallet } from "@aztec/aztec.js/wallet";
 import { useWalletConnect } from "@/lib/use-wallet-connect";
 import { WalletConnectModal } from "./wallet-connect-modal";
 import { claimFeeJuiceViaWallet, type ClaimDataInput } from "@/lib/claim-via-wallet";
+import { WalletUserRejectedError } from "@/lib/wallet-errors";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { EXPLORER_TX_URL } from "@/lib/network-config";
 
@@ -27,6 +28,13 @@ type Props = {
 function shortAddr(addr: string): string {
   if (!addr.startsWith("0x") || addr.length < 12) return addr;
   return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
+}
+
+function claimErrorMessage(err: unknown): string {
+  if (err instanceof WalletUserRejectedError) {
+    return "You declined the transaction in your wallet.";
+  }
+  return err instanceof Error ? err.message : "Claim failed";
 }
 
 export function WalletClaimButton({ claimData, recipient, onClaimComplete, preConnectedWallet, preConnectedAddress }: Props) {
@@ -76,10 +84,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
         setClaim({ kind: "success", txHash: result.txHash });
         onClaimComplete?.(result.txHash);
       } catch (err) {
-        setClaim({
-          kind: "error",
-          message: err instanceof Error ? err.message : "Claim failed",
-        });
+        setClaim({ kind: "error", message: claimErrorMessage(err) });
       } finally {
         disconnectWallet();
       }
@@ -96,10 +101,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
       setClaim({ kind: "success", txHash: result.txHash });
       onClaimComplete?.(result.txHash);
     } catch (err) {
-      setClaim({
-        kind: "error",
-        message: err instanceof Error ? err.message : "Claim failed",
-      });
+      setClaim({ kind: "error", message: claimErrorMessage(err) });
     }
   }, [canSkipConnect, claim.kind, preConnectedWallet, preConnectedAddress, claimData, recipient, onClaimComplete]);
 

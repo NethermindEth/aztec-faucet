@@ -17,28 +17,37 @@ import {
   type WalletProvider,
 } from "@/lib/wallet-client";
 import { faucetCapabilities } from "@/lib/wallet-capabilities";
+import { isUserRejection, WalletUserRejectedError } from "@/lib/wallet-errors";
 
 // Opaque wallet-account wrappers; SDK doesn't export a stable shape.
 type RawWalletAccount = unknown;
 type RawWalletAccounts = readonly RawWalletAccount[];
 
-// requestCapabilities first per wallet-sdk spec; getAccounts as fallback.
+// requestCapabilities (spec) first, getAccounts (legacy) as fallback. A denial
+// surfaces reliably only as a THROW (both SDK transports reject with the
+// wallet-side "User denied ..." text). An empty/partial grant is ambiguous
+// (denial vs accounts on a different rollup version), so it falls through to
+// the fallback and confirm()'s "no account / wrong version" message explains it.
 async function resolveGrantedAccounts(wallet: Wallet): Promise<RawWalletAccounts> {
   try {
     const granted = await wallet.requestCapabilities(faucetCapabilities());
     const accountsCap = granted.granted.find((c) => c.type === "accounts");
-    const cap = accountsCap && "accounts" in accountsCap ? accountsCap.accounts : undefined;
-    if (cap) return Array.from(cap);
+    if (accountsCap && "accounts" in accountsCap && accountsCap.accounts.length > 0) {
+      return Array.from(accountsCap.accounts);
+    }
   } catch (capErr) {
+    if (isUserRejection(capErr)) throw new WalletUserRejectedError(capErr);
     console.warn("requestCapabilities failed, falling back to getAccounts:", capErr);
   }
   try {
-    const accounts = await wallet.getAccounts();
-    return Array.from(accounts as unknown[]);
+    const accounts = Array.from((await wallet.getAccounts()) as unknown[]);
+    if (accounts.length > 0) return accounts;
   } catch (getErr) {
+    // Same denial signal can land here if the prompt rode on getAccounts.
+    if (isUserRejection(getErr)) throw new WalletUserRejectedError(getErr);
     console.warn("getAccounts fallback also failed:", getErr);
-    return [];
   }
+  return [];
 }
 
 export type ConnectPhase =
@@ -181,6 +190,16 @@ export function useWalletConnect() {
       }
     } catch (err) {
       teardownConnection();
+      // Covers the typed denial from requestCapabilities and a rejection thrown
+      // by the earlier confirmConnection step. The session is gone, so send the
+      // user back to reconnecting rather than at a dead popup.
+      if (isUserRejection(err)) {
+        setPhase({
+          kind: "error",
+          message: "Connection cancelled. Connect again to retry.",
+        });
+        return;
+      }
       setPhase({
         kind: "error",
         message: err instanceof Error ? err.message : "Failed to confirm",

@@ -107,7 +107,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     currentFormAddressRef.current = currentFormAddress;
     aztecAddrRef.current = aztecAddr;
     isEthRef.current = isEth;
-  });
+  }, [onAddress, onWalletConnect, currentFormAddress, aztecAddr, isEth]);
 
   // Clears local Aztec connection state; the recipient form is asset-specific and handled by callers.
   const clearAztecConnection = useCallback(() => {
@@ -145,12 +145,21 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     azAck(); // return the hook to idle
   }, [azPhase, azAck, clearAztecConnection]);
 
-  // Auto-clear the hint 6s after a drop; keyed on aztecDropped so tab toggles don't restart it.
+  // Clear the hint 6s after it first becomes visible. Armed once so tab toggles
+  // don't restart it, and a drop on the ETH tab waits until the user is back.
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (!aztecDropped) return;
-    const t = setTimeout(() => setAztecDropped(false), 6000);
-    return () => clearTimeout(t);
-  }, [aztecDropped]);
+    if (aztecDropped && !isEth && hintTimerRef.current === null) {
+      hintTimerRef.current = setTimeout(() => {
+        hintTimerRef.current = null;
+        setAztecDropped(false);
+      }, 6000);
+    } else if (!aztecDropped && hintTimerRef.current !== null) {
+      clearTimeout(hintTimerRef.current);
+      hintTimerRef.current = null;
+    }
+  }, [aztecDropped, isEth]);
+  useEffect(() => () => { if (hintTimerRef.current) clearTimeout(hintTimerRef.current); }, []);
 
   // Picker click handler — applies the pick synchronously to bar state and the
   // parent form, then transitions phase. Avoids relying solely on the
@@ -421,7 +430,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
   // Reconnecting clears the stale "Wallet disconnected" hint up front.
   const startWalletFlow = useCallback(() => {
     if (!isEth) setAztecDropped(false);
-    if (isEth) startEthConnect();
+    if (isEth) void startEthConnect();
     else azStart();
   }, [isEth, startEthConnect, azStart]);
 

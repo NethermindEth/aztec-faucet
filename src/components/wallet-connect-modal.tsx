@@ -40,80 +40,81 @@ type Props = {
   beginDiscovery: (choice: import("@/lib/wallet-client").WalletChoice) => void;
 };
 
+function assertNever(phase: never): never {
+  throw new Error(`Unhandled connect phase: ${JSON.stringify(phase)}`);
+}
+
 export function WalletConnectModal({ phase, pickProvider, confirm, reject, reset, pickAccount, beginDiscovery }: Props) {
-  // "disconnected" is surfaced in the bar (clear + reconnect prompt), not here.
-  if (phase.kind === "idle" || phase.kind === "connected" || phase.kind === "disconnected") return null;
-
-  if (phase.kind === "choosing") {
-    return (
-      <Modal title="Connect your wallet" onClose={reset}>
-        <ChooseSourceBody beginDiscovery={beginDiscovery} />
-      </Modal>
-    );
-  }
-
-  if (phase.kind === "discovering") {
-    return (
-      <Modal title="Choose a wallet" onClose={reset}>
-        <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} retry={() => beginDiscovery(phase.choice)} choice={phase.choice} />
-      </Modal>
-    );
-  }
-
-  if (phase.kind === "picking-account") {
-    return (
-      <Modal title="Choose an account" onClose={reset}>
-        <AccountPickerBody accounts={phase.accounts} pickAccount={pickAccount} reset={reset} />
-      </Modal>
-    );
-  }
-
-  if (phase.kind === "connecting") {
-    return (
-      <Modal title={`Connecting to ${phase.provider.name}`} onClose={reset}>
-        <ConnectingBody />
-      </Modal>
-    );
-  }
-
-  if (phase.kind === "verifying") {
-    return (
-      <Modal title="Verify connection" onClose={reject}>
-        <p className="font-label text-[11px] leading-relaxed text-on-surface-variant opacity-80">
-          Your wallet is showing the same set of emojis right now. Match them
-          to confirm the connection isn&apos;t being intercepted by another
-          page or extension impersonating your wallet.
-        </p>
-        <div className="my-3 grid grid-cols-3 gap-2 border border-outline-variant bg-surface-low p-3">
-          {Array.from(phase.emojis).map((emoji, i) => (
-            <div key={i} className="flex aspect-square items-center justify-center text-3xl">
-              {emoji}
-            </div>
-          ))}
-        </div>
-        <p className="mb-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-50">
-          Reject if anything looks different in your wallet
-        </p>
-        <div className="flex gap-2">
-          <button type="button" onClick={reject} className="btn-ghost flex-1 py-2 text-xs uppercase">
-            Cancel
+  switch (phase.kind) {
+    // Surfaced in the bar (clear + reconnect prompt), not here.
+    case "idle":
+    case "connected":
+    case "disconnected":
+      return null;
+    case "choosing":
+      return (
+        <Modal title="Connect your wallet" onClose={reset}>
+          <ChooseSourceBody beginDiscovery={beginDiscovery} />
+        </Modal>
+      );
+    case "discovering":
+      return (
+        <Modal title="Choose a wallet" onClose={reset}>
+          <DiscoveringBody providers={phase.providers} pickProvider={pickProvider} reset={reset} retry={() => beginDiscovery(phase.choice)} choice={phase.choice} />
+        </Modal>
+      );
+    case "picking-account":
+      return (
+        <Modal title="Choose an account" onClose={reset}>
+          <AccountPickerBody accounts={phase.accounts} pickAccount={pickAccount} reset={reset} />
+        </Modal>
+      );
+    case "connecting":
+      return (
+        <Modal title={`Connecting to ${phase.provider.name}`} onClose={reset}>
+          <ConnectingBody />
+        </Modal>
+      );
+    case "verifying":
+      return (
+        <Modal title="Verify connection" onClose={reject}>
+          <p className="font-label text-[11px] leading-relaxed text-on-surface-variant opacity-80">
+            Your wallet is showing the same set of emojis right now. Match them
+            to confirm the connection isn&apos;t being intercepted by another
+            page or extension impersonating your wallet.
+          </p>
+          <div className="my-3 grid grid-cols-3 gap-2 border border-outline-variant bg-surface-low p-3">
+            {Array.from(phase.emojis).map((emoji, i) => (
+              <div key={i} className="flex aspect-square items-center justify-center text-3xl">
+                {emoji}
+              </div>
+            ))}
+          </div>
+          <p className="mb-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-50">
+            Reject if anything looks different in your wallet
+          </p>
+          <div className="flex gap-2">
+            <button type="button" onClick={reject} className="btn-ghost flex-1 py-2 text-xs uppercase">
+              Cancel
+            </button>
+            <button type="button" onClick={confirm} className="btn-primary flex-1 py-2 text-xs uppercase">
+              Emojis match
+            </button>
+          </div>
+        </Modal>
+      );
+    case "error":
+      return (
+        <Modal title="Couldn't connect" onClose={reset}>
+          <ErrorBody message={phase.message} />
+          <button type="button" onClick={reset} className="btn-ghost mt-3 w-full py-2 text-xs uppercase">
+            Close
           </button>
-          <button type="button" onClick={confirm} className="btn-primary flex-1 py-2 text-xs uppercase">
-            Emojis match
-          </button>
-        </div>
-      </Modal>
-    );
+        </Modal>
+      );
+    default:
+      return assertNever(phase);
   }
-
-  return (
-    <Modal title="Couldn't connect" onClose={reset}>
-      <ErrorBody message={phase.message} />
-      <button type="button" onClick={reset} className="btn-ghost mt-3 w-full py-2 text-xs uppercase">
-        Close
-      </button>
-    </Modal>
-  );
 }
 
 // Wallet-type chooser: discovery starts on Connect, not on modal open, so an

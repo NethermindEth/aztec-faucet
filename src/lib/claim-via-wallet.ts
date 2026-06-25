@@ -5,7 +5,7 @@ import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 import type { Wallet } from "@aztec/aztec.js/wallet";
-import { flattenError, isUserRejection, WalletUserRejectedError } from "@/lib/wallet-errors";
+import { flattenError, isUserRejection, isWalletDisconnected, WalletUserRejectedError, WalletDisconnectedError } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
 
 export type ClaimDataInput = {
@@ -89,11 +89,9 @@ export async function claimFeeJuiceViaWallet(
       .check_balance(0n)
       .send({ from: address, fee: { paymentMethod } });
   } catch (err) {
-    // A user declining the wallet popup is expected, not a breakage: classify it
-    // and don't console.error (that logging trips the Next.js dev error overlay).
+    // Declined popup / wallet drop are expected; do not console.error.
     if (isUserRejection(err)) throw new WalletUserRejectedError(err);
-    // Surface genuine failures to the console so devs can see what actually broke.
-    // The humanised error below only catches double-spend; everything else propagates.
+    if (isWalletDisconnected(err)) throw new WalletDisconnectedError(err);
     console.error("[claim-via-wallet] send threw:", err);
     throw humaniseClaimError(err, sameAccount);
   }

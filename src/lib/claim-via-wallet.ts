@@ -6,6 +6,7 @@ import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 import { flattenError, isUserRejection, WalletUserRejectedError } from "@/lib/wallet-errors";
+import { addressesMatch } from "@/lib/address";
 
 export type ClaimDataInput = {
   claimAmount: string;
@@ -39,12 +40,12 @@ export class ClaimRecipientMismatchError extends Error {
   }
 }
 
-// addressesMatch disambiguates "no non-nullified L1 to L2 message": same chain
+// sameAccount disambiguates "no non-nullified L1 to L2 message": same chain
 // error whether already-consumed or wrong recipient. Only consumed if match.
-function humaniseClaimError(err: unknown, addressesMatch: boolean): Error {
+function humaniseClaimError(err: unknown, sameAccount: boolean): Error {
   const original = err instanceof Error ? err : new Error(String(err));
   const blob = flattenError(err);
-  if (blob.includes("no non-nullified l1 to l2 message") && addressesMatch) {
+  if (blob.includes("no non-nullified l1 to l2 message") && sameAccount) {
     return new ClaimAlreadyRedeemedError();
   }
   if (blob.includes("duplicate siloed nullifier")) {
@@ -64,8 +65,8 @@ export async function claimFeeJuiceViaWallet(
   const claimSecret = Fr.fromHexString(claim.claimSecretHex);
   const messageLeafIndex = BigInt(claim.messageLeafIndex);
 
-  const addressesMatch = fromAddressHex.toLowerCase() === recipientHex.toLowerCase();
-  if (!addressesMatch) {
+  const sameAccount = addressesMatch(fromAddressHex, recipientHex);
+  if (!sameAccount) {
     throw new ClaimRecipientMismatchError(recipientHex, fromAddressHex);
   }
 
@@ -94,7 +95,7 @@ export async function claimFeeJuiceViaWallet(
     // Surface genuine failures to the console so devs can see what actually broke.
     // The humanised error below only catches double-spend; everything else propagates.
     console.error("[claim-via-wallet] send threw:", err);
-    throw humaniseClaimError(err, addressesMatch);
+    throw humaniseClaimError(err, sameAccount);
   }
 
   const wrapper = receipt as {

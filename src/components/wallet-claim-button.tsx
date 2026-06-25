@@ -6,6 +6,7 @@ import { useWalletConnect } from "@/lib/use-wallet-connect";
 import { WalletConnectModal } from "./wallet-connect-modal";
 import { claimFeeJuiceViaWallet, type ClaimDataInput } from "@/lib/claim-via-wallet";
 import { WalletUserRejectedError } from "@/lib/wallet-errors";
+import { addressesMatch } from "@/lib/address";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { EXPLORER_TX_URL } from "@/lib/network-config";
 
@@ -46,7 +47,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
   const canSkipConnect =
     preConnectedWallet !== undefined &&
     preConnectedAddress !== undefined &&
-    preConnectedAddress.toLowerCase() === recipient.toLowerCase();
+    addressesMatch(preConnectedAddress, recipient);
 
   useEffect(() => {
     if (!infoOpen) return;
@@ -66,7 +67,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
     const wallet: Wallet = phase.wallet;
     const address = phase.address;
 
-    if (recipient && address.toLowerCase() !== recipient.toLowerCase()) {
+    if (recipient && !addressesMatch(address, recipient)) {
       setClaim({
         kind: "error",
         message:

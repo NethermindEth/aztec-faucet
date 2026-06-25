@@ -5,7 +5,7 @@ import type { Wallet } from "@aztec/aztec.js/wallet";
 import { useWalletConnect } from "@/lib/use-wallet-connect";
 import { WalletConnectModal } from "./wallet-connect-modal";
 import { claimFeeJuiceViaWallet, type ClaimDataInput } from "@/lib/claim-via-wallet";
-import { WalletUserRejectedError } from "@/lib/wallet-errors";
+import { WalletUserRejectedError, WalletDisconnectedError } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { EXPLORER_TX_URL } from "@/lib/network-config";
@@ -31,10 +31,11 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 8)}…${addr.slice(-6)}`;
 }
 
+const WALLET_DISCONNECTED_MSG = "Your wallet disconnected. Reconnect and claim again.";
+
 function claimErrorMessage(err: unknown): string {
-  if (err instanceof WalletUserRejectedError) {
-    return "You declined the transaction in your wallet.";
-  }
+  if (err instanceof WalletUserRejectedError) return "You declined the transaction in your wallet.";
+  if (err instanceof WalletDisconnectedError) return WALLET_DISCONNECTED_MSG;
   return err instanceof Error ? err.message : "Claim failed";
 }
 
@@ -92,11 +93,10 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
     })();
   }, [phase, claim.kind, claimData, recipient, disconnectWallet, onClaimComplete, canSkipConnect]);
 
-  // Wallet dropped its own side during connect/claim: surface it and clear the
-  // parked phase. An in-flight claim sets its own error, so don't clobber it.
+  // Wallet dropped during connect/claim; an in-flight claim owns its own error.
   useDeferredEffect(() => {
     if (phase.kind !== "disconnected") return;
-    setClaim((c) => (c.kind === "claiming" ? c : { kind: "error", message: "Wallet disconnected. Reconnect and try again." }));
+    setClaim((c) => (c.kind === "claiming" ? c : { kind: "error", message: WALLET_DISCONNECTED_MSG }));
     reset();
   }, [phase, reset]);
 

@@ -61,6 +61,11 @@ export type ConnectPhase =
   | { kind: "disconnected" }
   | { kind: "error"; message: string };
 
+// Fire-and-forget disconnect; swallows a sync throw mid-handshake too.
+function swallowDisconnect(provider: WalletProvider | null) {
+  void Promise.resolve().then(() => provider?.disconnect()).catch(() => {});
+}
+
 export function useWalletConnect() {
   const [phase, setPhase] = useState<ConnectPhase>({ kind: "idle" });
   const sessionRef = useRef<DiscoverySession | null>(null);
@@ -89,8 +94,7 @@ export function useWalletConnect() {
     disconnectUnsubRef.current = null;
     const provider = panelProviderRef.current;
     panelProviderRef.current = null;
-    // Promise-wrapped so a sync throw mid-handshake is swallowed too.
-    void Promise.resolve().then(() => provider?.disconnect()).catch(() => {});
+    swallowDisconnect(provider);
   }, []);
 
   // After connect, watch for a wallet-side drop: clear the dead session, drop the
@@ -105,7 +109,7 @@ export function useWalletConnect() {
       // Null the ref, don't call the unsubscribe: the SDK is mid-iterating its
       // disconnect callbacks here, so unsubscribing now would splice during iteration.
       disconnectUnsubRef.current = null;
-      void Promise.resolve().then(() => dropped?.disconnect()).catch(() => {});
+      swallowDisconnect(dropped);
       setPhase({ kind: "disconnected" });
     });
   }, []);

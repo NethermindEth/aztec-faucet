@@ -11,6 +11,14 @@ export class WalletUserRejectedError extends Error {
   }
 }
 
+// Wallet link dropped mid-flow (extension closed / session lost).
+export class WalletDisconnectedError extends Error {
+  constructor(cause?: unknown) {
+    super("Wallet disconnected", cause !== undefined ? { cause } : undefined);
+    this.name = "WalletDisconnectedError";
+  }
+}
+
 // Walk err + err.cause/nested fields into one lowercase blob; wallet SDKs wrap
 // the real error inside generic outer messages, so we substring-match the chain.
 export function flattenError(err: unknown, depth = 0, seen = new Set<unknown>()): string {
@@ -47,4 +55,11 @@ export function isUserRejection(err: unknown): boolean {
     blob.includes("denied by user") ||
     blob.includes("rejected by user")
   );
+}
+
+// SDK drop strings: "Wallet disconnected" (in-flight) / "Wallet has been disconnected".
+export function isWalletDisconnected(err: unknown): boolean {
+  if (err instanceof WalletDisconnectedError) return true;
+  const blob = flattenError(err);
+  return blob.includes("wallet disconnected") || blob.includes("wallet has been disconnected");
 }

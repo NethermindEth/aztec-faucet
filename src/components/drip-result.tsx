@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useId } from "react";
 import dynamic from "next/dynamic";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 import { ConfettiBurst } from "./confetti-burst";
@@ -76,22 +76,28 @@ AZTEC_EOF`;
 
 export function SelfContainedDropdown({ code }: { code: string }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   return (
     <div className="border border-outline-variant/40 bg-surface-lowest">
-      <div className="flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors hover:bg-surface-low" onClick={() => setOpen((v) => !v)}>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="flex items-center gap-2 transition-colors hover:opacity-80"
+        >
           <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
           <span className={`transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "rotate-45" : ""}`}>
             <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3 text-on-surface-variant opacity-50">
               <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </span>
-        </div>
-        <div onClick={(e) => e.stopPropagation()}>
-          <CopyButton text={code} />
-        </div>
+        </button>
+        <CopyButton text={code} />
       </div>
       <div
+        id={panelId}
         className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
         style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
       >

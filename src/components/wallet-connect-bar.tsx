@@ -615,7 +615,7 @@ export function WalletConnectBar({ asset, currentFormAddress = "", onAddress, on
     : idleLabel;
 
   // In-wallet claim gate. When off, the Aztec connect is hidden and only ETH
-  // (for L1 ETH drips) shows. The picker disables Azguard until it ships v5.
+  // (for L1 ETH drips) shows.
   if (!isEth && !IN_WALLET_CLAIM_ENABLED) return null;
 
   return (

@@ -60,7 +60,7 @@ const { getContractInstanceFromInstantiationParams } = await import(`${SDK}/stdl
 
 // Mirrors SCHNORR_CLASS_ID in src/lib/network-config.ts; re-verify on SDK bumps.
 // Derivation is local (no node), so guard against artifact/network drift.
-const SCHNORR_CLASS_ID = "0x096eb58b105950df6e32346ff3bc610fa648c3dc39002382a4d7e8019cda6df2";
+const SCHNORR_CLASS_ID = "0x197279a63a0522e3ca638f1deab0d084cdc1f39ba83a46defd0e1d114509d299";
 
 // Derives the Schnorr account address locally, the same way the faucet keygen
 // route does; showing the address needs no node connection.

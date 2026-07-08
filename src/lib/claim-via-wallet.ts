@@ -60,7 +60,7 @@ export async function claimFeeJuiceViaWallet(
   claim: ClaimDataInput,
   recipientHex: string,
 ): Promise<ClaimResult> {
-  const address = AztecAddress.fromString(fromAddressHex);
+  const address = AztecAddress.fromStringUnsafe(fromAddressHex);
   const claimAmount = BigInt(claim.claimAmount);
   const claimSecret = Fr.fromHexString(claim.claimSecretHex);
   const messageLeafIndex = BigInt(claim.messageLeafIndex);

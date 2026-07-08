@@ -86,10 +86,10 @@ try {
   const sp = spin('Fetching balance');
 
   const node = createAztecNodeClient(nodeUrl);
-  const owner = AztecAddress.fromString(address);
+  const owner = AztecAddress.fromStringUnsafe(address);
 
   // Fee Juice contract at protocol address 0x03 (v5; was 0x05 on v4), balances in map at slot 1
-  const feeJuiceAddress = AztecAddress.fromBigInt(3n);
+  const feeJuiceAddress = AztecAddress.fromBigIntUnsafe(3n);
   const balanceSlot = await deriveStorageSlotInMap(new Fr(1), owner);
   const balanceField = await node.getPublicStorageAt("latest", feeJuiceAddress, balanceSlot);
   const balance = balanceField.toBigInt();

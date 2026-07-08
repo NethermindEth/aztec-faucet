@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   // call so an out-of-range value is a 400, not a 500 with a raw SDK message.
   let owner: AztecAddress;
   try {
-    owner = AztecAddress.fromString(address);
+    owner = AztecAddress.fromStringUnsafe(address);
   } catch {
     return NextResponse.json(
       { error: "Invalid Aztec address: the value is out of range for the field." },

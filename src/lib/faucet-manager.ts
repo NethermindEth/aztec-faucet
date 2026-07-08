@@ -214,9 +214,10 @@ export class FaucetManager {
         );
       }
       // A 64-hex string can still exceed the field modulus, which AztecAddress
-      // rejects. Catch it here so it's a 400, not a 500 from the bridge path.
+      // rejects (fromStringUnsafe still validates the field, just not the curve
+      // point). Catch it here so it's a 400, not a 500 from the bridge path.
       try {
-        AztecAddress.fromString(address);
+        AztecAddress.fromStringUnsafe(address);
       } catch {
         throw new AddressValidationError(
           "Invalid Aztec address: the value is out of range for the field. Double-check the address and try again.",

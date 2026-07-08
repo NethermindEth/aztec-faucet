@@ -5,7 +5,7 @@ import type { Wallet } from "@aztec/aztec.js/wallet";
 import { useWalletConnect } from "@/lib/use-wallet-connect";
 import { WalletConnectModal } from "./wallet-connect-modal";
 import { claimFeeJuiceViaWallet, type ClaimDataInput } from "@/lib/claim-via-wallet";
-import { WalletUserRejectedError, WalletDisconnectedError } from "@/lib/wallet-errors";
+import { WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { EXPLORER_TX_URL } from "@/lib/network-config";
@@ -36,6 +36,8 @@ const WALLET_DISCONNECTED_MSG = "Your wallet disconnected. Reconnect and claim a
 function claimErrorMessage(err: unknown): string {
   if (err instanceof WalletUserRejectedError) return "You declined the transaction in your wallet.";
   if (err instanceof WalletDisconnectedError) return WALLET_DISCONNECTED_MSG;
+  if (err instanceof WalletVersionMismatchError) return "Your wallet is on an incompatible network version. Update it to the latest v5 build and reconnect.";
+  if (err instanceof WalletCapabilityDeniedError) return "Your wallet did not grant permission to send this transaction. Reconnect and approve the requested permissions.";
   return err instanceof Error ? err.message : "Claim failed";
 }
 

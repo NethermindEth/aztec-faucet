@@ -131,7 +131,6 @@ function ChooseSourceBody({
     name: string;
     hint: string;
     icon: ReactNode;
-    disabled?: string;
   }[] = [
     {
       choice: "extension",
@@ -176,29 +175,22 @@ function ChooseSourceBody({
         </p>
         <div className="grid grid-cols-2 gap-2">
           {options.map((o) => {
-            const active = selected === o.choice && !o.disabled;
+            const active = selected === o.choice;
             return (
               <button
                 key={o.choice}
                 type="button"
-                aria-disabled={o.disabled ? true : undefined}
-                aria-pressed={o.disabled ? undefined : active}
-                tabIndex={o.disabled ? -1 : undefined}
-                title={o.disabled}
-                onClick={() => {
-                  if (!o.disabled) setSelected(o.choice);
-                }}
+                aria-pressed={active}
+                onClick={() => setSelected(o.choice)}
                 className={`flex flex-col items-center gap-2 border px-3 py-4 text-center transition-colors ${
-                  o.disabled
-                    ? "cursor-not-allowed border-outline-variant/40 bg-surface-low/40 opacity-40"
-                    : active
+                  active
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-outline-variant bg-surface-low text-on-surface-variant hover:border-accent/60 hover:text-on-surface"
                 }`}
               >
                 {o.icon}
                 <span className="font-label text-[11px] font-bold uppercase tracking-wider">{o.name}</span>
-                <span className="font-label text-[9px] uppercase tracking-widest opacity-50">{o.disabled ? "Pending v5" : o.hint}</span>
+                <span className="font-label text-[9px] uppercase tracking-widest opacity-50">{o.hint}</span>
               </button>
             );
           })}

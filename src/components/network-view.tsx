@@ -74,7 +74,14 @@ const L2_CONTRACT_LABELS: Record<string, string> = {
 };
 
 function formatGas(raw: string): string {
-  const n = BigInt(raw);
+  // A malformed 200 body can make raw undefined/non-numeric; BigInt would throw
+  // in render and take down the whole view, so degrade to a placeholder.
+  let n: bigint;
+  try {
+    n = BigInt(raw);
+  } catch {
+    return "?";
+  }
   if (n === 0n) return "0";
   if (n >= 1_000_000n) return `${(Number(n) / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000n) return `${(Number(n) / 1_000).toFixed(1)}K`;

@@ -32,6 +32,9 @@ type ClaimResponse = {
 };
 
 const POLL_INTERVAL_MS = 3_000;
+// Mirrors the server's CLAIM_EXPIRY_MS (claim-store). Used only to seed a local
+// expiry window on a cold URL-restore, where the server hasn't sent one yet.
+const CLAIM_WINDOW_FALLBACK_MS = 30 * 60 * 1_000;
 
 function formatElapsed(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -57,6 +60,7 @@ export function ClaimTracker({
   claimId,
   initialClaimData,
   l1TxHash,
+  messageHash: messageHashProp,
   recipient,
   onReset,
   onProgressChange,
@@ -67,6 +71,9 @@ export function ClaimTracker({
   claimId: string;
   initialClaimData?: ClaimData;
   l1TxHash?: string;
+  // Fallback message hash for the cold URL-restore path (no initialClaimData);
+  // lets the poll use the server's stateless cross-pod readiness check.
+  messageHash?: string;
   recipient: string;
   onReset: () => void;
   onProgressChange?: (progress: number, isReady: boolean) => void;
@@ -117,7 +124,7 @@ export function ClaimTracker({
   // messageHash lets the server fall back to a stateless L2 node check
   // on cache-miss (multi-instance deployments). Hoisted out of the callback
   // so the dependency is a plain value the compiler can track.
-  const messageHash = initialClaimData?.messageHashHex;
+  const messageHash = initialClaimData?.messageHashHex ?? messageHashProp;
   const poll = useCallback(async () => {
     try {
       const params = new URLSearchParams();
@@ -138,7 +145,13 @@ export function ClaimTracker({
           // Local expiry clock survives 404s — only declare expired when it
           // passes.
           if (l1TxHash) return;
-          if (expiresAtRef.current !== null && Date.now() < expiresAtRef.current) {
+          // Cold URL-restore has no server-sent expiry yet; seed a local window
+          // so one transient 404 (different pod / restart) can't permanently
+          // expire a valid claim before we've had a chance to reach it.
+          if (expiresAtRef.current === null) {
+            expiresAtRef.current = Date.now() + CLAIM_WINDOW_FALLBACK_MS;
+          }
+          if (Date.now() < expiresAtRef.current) {
             return;
           }
           setError("This drip has expired. Each Fee Juice drip stays valid for 30 minutes after the bridge becomes ready.");
@@ -148,7 +161,8 @@ export function ClaimTracker({
       }
 
       const data: ClaimResponse = await res.json();
-      setStatus(data.status);
+      // Don't let a slow, out-of-order poll regress ready -> bridging.
+      setStatus((prev) => (prev === "ready" && data.status === "bridging" ? prev : data.status));
       setElapsed(data.elapsedSeconds);
 
       if (data.expiresAt !== undefined) expiresAtRef.current = data.expiresAt;
@@ -193,8 +207,11 @@ export function ClaimTracker({
     }
   }, [status, elapsed]);
 
+  // Countdown tick. Guarded by walletClaimedTx: once the wallet claim lands the
+  // bridge message is consumed and can't expire, so don't run the clock or flip
+  // to expired after that (fixes a claimed drip showing "Claim Expired").
   useEffect(() => {
-    if (status !== "ready" || expiresIn === null) return;
+    if (status !== "ready" || expiresIn === null || walletClaimedTx) return;
     const interval = setInterval(() => {
       setExpiresIn((prev) => {
         if (prev !== null && prev > 0) return prev - 1;
@@ -203,7 +220,7 @@ export function ClaimTracker({
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [status, expiresIn === null]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [status, expiresIn === null, walletClaimedTx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const expiryCritical = expiresIn !== null && expiresIn < 60;
   const statusKey = error ? "error" : status;

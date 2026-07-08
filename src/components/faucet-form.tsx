@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import type React from "react";
 import { CopyButton } from "./drip-result";
 import type { DripResultData } from "./drip-result";
@@ -103,6 +103,8 @@ export function FaucetForm({
 }) {
   const [address, setAddress] = useState("");
   const [asset, setAsset] = useState<Asset>("fee-juice");
+  const addressId = useId();
+  const assetLabelId = useId();
 
   // null/undefined = no opinion; empty string = explicit clear (e.g. disconnect).
   useOnValueChange(prefilledAddress, () => {
@@ -243,12 +245,12 @@ export function FaucetForm({
 
       {/* Wallet Address Input */}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="wallet-address" className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+        <label htmlFor={addressId} className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
           Wallet Address
         </label>
         <div className="focus-glow-line relative">
           <input
-            id="wallet-address"
+            id={addressId}
             type="text"
             value={address}
             onChange={(e) => {
@@ -310,10 +312,10 @@ export function FaucetForm({
 
       {/* Asset Selection */}
       <div className="flex flex-col gap-1.5">
-        <span id="select-asset-label" className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+        <span id={assetLabelId} className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
           Select Asset
         </span>
-        <div role="group" aria-labelledby="select-asset-label" className="grid grid-cols-2 gap-3">
+        <div role="group" aria-labelledby={assetLabelId} className="grid grid-cols-2 gap-3">
           {ASSETS.map((a) => (
             <button
               key={a.value}

@@ -28,6 +28,7 @@ export default function Home() {
   const [view, setView] = useState<View>("faucet");
   const [leaving, setLeaving] = useState<View | null>(null);
   const [faucetSplit, setFaucetSplit] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [bridging, setBridging] = useState<{ progress: number; isReady: boolean } | null>(null);
   const bridgingRef = useRef(bridging);
   const handleBridgingProgress = useCallback((p: number, r: boolean) => {
@@ -94,10 +95,10 @@ export default function Home() {
         <button
           type="button"
           className="md:hidden text-on-surface"
-          onClick={() => {
-            const menu = document.getElementById("mobile-nav");
-            menu?.classList.toggle("hidden");
-          }}
+          aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileNavOpen}
+          aria-controls="mobile-nav"
+          onClick={() => setMobileNavOpen((v) => !v)}
         >
           <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
             <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -106,7 +107,7 @@ export default function Home() {
       </nav>
 
       {/* Mobile nav dropdown */}
-      <div id="mobile-nav" className="hidden md:hidden bg-surface-container border-b border-outline-variant z-30 relative shrink-0">
+      <div id="mobile-nav" className={`${mobileNavOpen ? "" : "hidden"} md:hidden bg-surface-container border-b border-outline-variant z-30 relative shrink-0`}>
         <div className="px-4 py-3 flex flex-col gap-1">
           <div className="grid grid-cols-3 gap-1">
             {NAV_ITEMS.map((item) => (
@@ -115,7 +116,7 @@ export default function Home() {
                 type="button"
                 onClick={() => {
                   switchTab(item.view);
-                  document.getElementById("mobile-nav")?.classList.add("hidden");
+                  setMobileNavOpen(false);
                 }}
                 className={`text-center font-headline text-sm uppercase tracking-tight py-2.5 transition-colors ${
                   view === item.view

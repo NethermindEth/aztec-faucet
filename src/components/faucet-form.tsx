@@ -243,11 +243,12 @@ export function FaucetForm({
 
       {/* Wallet Address Input */}
       <div className="flex flex-col gap-1.5">
-        <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+        <label htmlFor="wallet-address" className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
           Wallet Address
         </label>
         <div className="focus-glow-line relative">
           <input
+            id="wallet-address"
             type="text"
             value={address}
             onChange={(e) => {
@@ -309,10 +310,10 @@ export function FaucetForm({
 
       {/* Asset Selection */}
       <div className="flex flex-col gap-1.5">
-        <label className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
+        <span id="select-asset-label" className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">
           Select Asset
-        </label>
-        <div className="grid grid-cols-2 gap-3">
+        </span>
+        <div role="group" aria-labelledby="select-asset-label" className="grid grid-cols-2 gap-3">
           {ASSETS.map((a) => (
             <button
               key={a.value}

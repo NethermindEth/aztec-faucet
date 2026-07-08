@@ -124,8 +124,7 @@ function ChooseSourceBody({
 }: {
   beginDiscovery: (choice: import("@/lib/wallet-client").WalletChoice) => void;
 }) {
-  // Extension (Azguard) is disabled until Azguard ships v5 testnet support (#56);
-  // the web demo wallet is the working v5 path, so it is the default selection.
+  // Both paths work on v5 (Azguard 0.14.0+); the web demo wallet is the default pick.
   const [selected, setSelected] = useState<import("@/lib/wallet-client").WalletChoice>("web");
   const options: {
     choice: import("@/lib/wallet-client").WalletChoice;
@@ -138,7 +137,6 @@ function ChooseSourceBody({
       choice: "extension",
       name: "Browser Extension",
       hint: "Azguard",
-      disabled: "Waiting for Azguard to support the v5 testnet",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7" aria-hidden="true">
           <path

@@ -12,7 +12,7 @@ export const SCHNORR_CLASS_ID = "0x096eb58b105950df6e32346ff3bc610fa648c3dc39002
 
 // ── Feature Flags ────────────────────────────────────────────────────────────
 // Gates the in-wallet claim path (connect + "Claim in wallet").
-// Azguard stays disabled in the picker until it ships v5 (#56).
+// Azguard re-enabled in the picker as of its v0.14.0 v5 build (#56).
 export const IN_WALLET_CLAIM_ENABLED = true;
 
 // ── L1 (Sepolia) ─────────────────────────────────────────────────────────────

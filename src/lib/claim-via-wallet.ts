@@ -5,7 +5,7 @@ import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 import type { Wallet } from "@aztec/aztec.js/wallet";
-import { flattenError, isUserRejection, isWalletDisconnected, WalletUserRejectedError, WalletDisconnectedError } from "@/lib/wallet-errors";
+import { flattenError, isUserRejection, isWalletDisconnected, isWalletVersionMismatch, isCapabilityDenied, WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
 
 export type ClaimDataInput = {
@@ -73,8 +73,8 @@ export async function claimFeeJuiceViaWallet(
   // Single path for fresh AND initialized accounts: check_balance(0n) no-op
   // + FeeJuicePaymentMethodWithClaim. The fee payload claims and ends setup;
   // the no-op gives the wallet something to wrap, which bundles the deploy
-  // for fresh accounts. Azguard 0.13.x can only execute this shape for
-  // self-paid dapp txs, and repeat claims are safe on 4.3.x (see #41).
+  // for fresh accounts. The wallet must execute this as a self-paid dapp tx;
+  // repeat claims are safe (see #41).
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   const feeJuice = FeeJuiceContract.at(wallet);
 
@@ -89,9 +89,19 @@ export async function claimFeeJuiceViaWallet(
       .check_balance(0n)
       .send({ from: address, fee: { paymentMethod } });
   } catch (err) {
-    // Declined popup / wallet drop are expected; do not console.error.
+    // Classify known wallet-side errors; genuine failures fall through to log + humanise.
+    // Rejection/disconnect stay silent (expected); version/capability warn to keep the
+    // raw wallet string for tightening the extension-test markers, without the dev overlay.
     if (isUserRejection(err)) throw new WalletUserRejectedError(err);
     if (isWalletDisconnected(err)) throw new WalletDisconnectedError(err);
+    if (isWalletVersionMismatch(err)) {
+      console.warn("[claim-via-wallet] wallet version mismatch:", err);
+      throw new WalletVersionMismatchError(err);
+    }
+    if (isCapabilityDenied(err)) {
+      console.warn("[claim-via-wallet] capability denied:", err);
+      throw new WalletCapabilityDeniedError(err);
+    }
     console.error("[claim-via-wallet] send threw:", err);
     throw humaniseClaimError(err, sameAccount);
   }

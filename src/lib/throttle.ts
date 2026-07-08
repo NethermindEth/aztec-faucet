@@ -45,8 +45,10 @@ export class Throttle {
     }
   }
 
-  record(key: string, asset: string): void {
-    if (this.intervalMs <= 0) return;
+  // Returns the recorded timestamp so the caller can rollback() it if the
+  // drip later fails. undefined when rate limiting is disabled.
+  record(key: string, asset: string): number | undefined {
+    if (this.intervalMs <= 0) return undefined;
 
     if (!this.history.has(key)) {
       this.history.set(key, new Map());
@@ -57,6 +59,23 @@ export class Throttle {
     const pruned = (assetHistory.get(asset) ?? []).filter((t) => now - t < this.intervalMs);
     pruned.push(now);
     assetHistory.set(asset, pruned);
+    return now;
+  }
+
+  // Undo one record()'d timestamp after a failed drip, so a failure doesn't
+  // consume the caller's rate-limit slot. No-op if disabled or already pruned.
+  rollback(key: string, asset: string, ts: number | undefined): void {
+    if (this.intervalMs <= 0 || ts === undefined) return;
+    const assetHistory = this.history.get(key);
+    const timestamps = assetHistory?.get(asset);
+    if (!assetHistory || !timestamps) return;
+    const idx = timestamps.indexOf(ts);
+    if (idx === -1) return;
+    timestamps.splice(idx, 1);
+    if (timestamps.length === 0) {
+      assetHistory.delete(asset);
+      if (assetHistory.size === 0) this.history.delete(key);
+    }
   }
 
   /**

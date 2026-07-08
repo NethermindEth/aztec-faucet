@@ -170,6 +170,17 @@ export function ClaimTracker({
       if (data.status === "ready") {
         if (data.claimData) setClaimData(data.claimData);
         if (data.expiresInSeconds !== undefined) setExpiresIn(data.expiresInSeconds);
+      } else if (data.status === "bridging") {
+        // The stateless cross-pod fallback returns bridging with no expiresAt.
+        // Seed a local ceiling (same as the 404 path) so a bridge that never
+        // becomes ready can't show "Bridging..." forever on a cold restore.
+        if (expiresAtRef.current === null) {
+          expiresAtRef.current = Date.now() + CLAIM_WINDOW_FALLBACK_MS;
+        }
+        if (Date.now() >= expiresAtRef.current) {
+          setError("This drip has expired. Each Fee Juice drip stays valid for 30 minutes after the bridge becomes ready.");
+          setStatus("expired");
+        }
       }
     } catch {}
   }, [claimId, messageHash, l1TxHash]);

@@ -48,67 +48,63 @@ if (networkArg !== undefined && networkArg !== "testnet") {
   process.exit(1);
 }
 
-const TESTNET_NODE_URL = "https://v5.testnet.rpc.aztec-labs.com";
-const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || TESTNET_NODE_URL;
 const existingSecret = getArg("secret") ?? null;
 
 // Testnet packages are installed under @aztec-rc/* aliases by sh/testnet/create-account.sh.
 const SDK = "@aztec-rc";
-const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
+const { Fr } = await import(`${SDK}/aztec.js/fields`);
+const { AztecAddress } = await import(`${SDK}/aztec.js/addresses`);
+const { SchnorrAccountContract } = await import(`${SDK}/accounts/schnorr`);
+const { deriveKeys, deriveSigningKey } = await import(`${SDK}/stdlib/keys`);
+const { getContractInstanceFromInstantiationParams } = await import(`${SDK}/stdlib/contract`);
 
-// Fr must come from the wallets-internal @aztec/foundation to pass instanceof
-// checks inside EmbeddedWallet.createSchnorrAccount (same pattern as claim-fee-juice.mjs).
-let Fr;
-{
-  const { createRequire } = await import("module");
-  const { existsSync } = await import("fs");
-  const _req = createRequire(import.meta.url);
-  const walletsEntry = _req.resolve(`${SDK}/wallets/embedded`);
-  const walletsRoot = walletsEntry.slice(
-    0,
-    walletsEntry.indexOf("/node_modules/@aztec-rc/wallets/") + "/node_modules/@aztec-rc/wallets/".length
-  );
-  const internalFieldsPath = walletsRoot + "node_modules/@aztec/aztec.js/dest/api/fields.js";
-  // If npm deduplicated, fall back to the root-level alias.
-  if (existsSync(internalFieldsPath)) {
-    ({ Fr } = await import(internalFieldsPath));
-  } else {
-    ({ Fr } = await import(`${SDK}/aztec.js/fields`));
+// Mirrors SCHNORR_CLASS_ID in src/lib/network-config.ts; re-verify on SDK bumps.
+// Derivation is local (no node), so guard against artifact/network drift.
+const SCHNORR_CLASS_ID = "0x096eb58b105950df6e32346ff3bc610fa648c3dc39002382a4d7e8019cda6df2";
+
+// Derives the Schnorr account address locally, the same way the faucet keygen
+// route does; showing the address needs no node connection.
+async function deriveSchnorrAddress(secret) {
+  const signingKey = deriveSigningKey(secret);
+  const { publicKeys } = await deriveKeys(secret);
+  const contract = new SchnorrAccountContract(signingKey);
+  const artifact = await contract.getContractArtifact();
+  const initFn = await contract.getInitializationFunctionAndArgs();
+  const instance = await getContractInstanceFromInstantiationParams(artifact, {
+    constructorArtifact: initFn?.constructorName,
+    constructorArgs: initFn?.constructorArgs ?? [],
+    salt: Fr.ZERO,
+    publicKeys,
+    deployer: AztecAddress.ZERO,
+  });
+  if (instance.originalContractClassId.toString() !== SCHNORR_CLASS_ID) {
+    throw new Error(
+      `Schnorr class id mismatch: ${instance.originalContractClassId.toString()} != pinned ${SCHNORR_CLASS_ID}. SDK and testnet are out of sync.`,
+    );
   }
+  return instance.address;
 }
 
 console.log(`\n  Aztec Account Generator  ·  testnet\n`);
 
 try {
-  const s1 = spin('Connecting to node');
-  const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true });
-  s1.ok(nodeUrl);
-
-  const s2 = spin('Deriving account');
+  const s = spin('Deriving account');
   const secretKey = existingSecret ? Fr.fromHexString(existingSecret) : Fr.random();
-  const account = await wallet.createSchnorrAccount(secretKey, Fr.ZERO);
-  s2.ok(account.address.toString().slice(0, 20) + '…');
+  const address = await deriveSchnorrAddress(secretKey);
+  s.ok(address.toString().slice(0, 20) + '…');
 
   console.log(`
   ${_C.di}secret${_C.rs}   ${secretKey.toString()}
-  ${_C.di}address${_C.rs}  ${account.address.toString()}
+  ${_C.di}address${_C.rs}  ${address.toString()}
 
   ${_C.di}Next:${_C.rs} paste your address into the faucet, wait ~3-4 min for the bridge,
   then run the claim command shown in the faucet UI.
 `);
 
-  await wallet.stop();
   process.exit(0);
 } catch (err) {
   if (_sp) _sp.fail();
-
   const msg = err.message || String(err);
-  if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
-    console.error(`\n  Error: Cannot connect to Aztec node at ${nodeUrl}.`);
-    console.error("         Check AZTEC_NODE_URL or ensure the node is running.\n");
-  } else {
-    console.error(`\n  Error: ${msg}\n`);
-  }
-
+  console.error(`\n  Error: ${msg}\n`);
   process.exit(1);
 }

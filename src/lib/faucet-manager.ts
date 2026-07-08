@@ -1,4 +1,5 @@
 import { type Hex, formatEther } from "viem";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { L1Faucet } from "./l1-faucet";
 import { L2Faucet, type FeeJuiceClaimData } from "./l2-faucet";
 import { Throttle, ThrottleError } from "./throttle";
@@ -146,6 +147,13 @@ export class FaucetManager {
     }
     this.inFlight.add(inFlightKey);
 
+    // Reserve the rate-limit slot synchronously, before the slow bridge/send
+    // await, so concurrent requests from one IP (to different addresses) can't
+    // all pass check() before any of them record(). Roll back on failure so a
+    // failed drip doesn't burn the caller's allowance.
+    const addrTs = this.throttle.record(normalizedAddress, asset);
+    const ipTs = ip ? this.ipThrottle.record(ip, asset) : undefined;
+
     let result: DripResult;
 
     try {
@@ -172,12 +180,14 @@ export class FaucetManager {
           throw new Error(`Unknown asset: ${_exhaustive}`);
         }
       }
+    } catch (err) {
+      this.throttle.rollback(normalizedAddress, asset, addrTs);
+      if (ip) this.ipThrottle.rollback(ip, asset, ipTs);
+      throw err;
     } finally {
       this.inFlight.delete(inFlightKey);
     }
 
-    this.throttle.record(normalizedAddress, asset);
-    if (ip) this.ipThrottle.record(ip, asset);
     return result;
   }
 
@@ -201,6 +211,15 @@ export class FaucetManager {
       if (!/^0x[0-9a-fA-F]{64}$/.test(address)) {
         throw new AddressValidationError(
           "Invalid Aztec address. Expected a 0x-prefixed 64-character hex string (e.g. 0x09a4...fb2)",
+        );
+      }
+      // A 64-hex string can still exceed the field modulus, which AztecAddress
+      // rejects. Catch it here so it's a 400, not a 500 from the bridge path.
+      try {
+        AztecAddress.fromString(address);
+      } catch {
+        throw new AddressValidationError(
+          "Invalid Aztec address: the value is out of range for the field. Double-check the address and try again.",
         );
       }
     }

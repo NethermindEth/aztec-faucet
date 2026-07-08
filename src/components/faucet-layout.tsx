@@ -32,7 +32,7 @@ type InitialClaimData = {
 type RightPanel =
   | { kind: "pending"; asset: string }
   | { kind: "result"; data: DripResultData; recipient: string }
-  | { kind: "claim"; claimId: string; initialClaimData?: InitialClaimData; recipient: string }
+  | { kind: "claim"; claimId: string; initialClaimData?: InitialClaimData; recipient: string; messageHash?: string }
   | null;
 
 const PENDING_LABELS: Record<string, string> = {
@@ -121,12 +121,15 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
     setTimeout(() => disconnectWalletRef.current?.(), 0);
   }, []);
 
-  const pushClaimUrl = useCallback((claimId: string, recipient: string, asset: string) => {
+  const pushClaimUrl = useCallback((claimId: string, recipient: string, asset: string, messageHash?: string) => {
     if (typeof window === "undefined") return;
     const url = new URL(window.location.href);
     url.searchParams.set("claim", claimId);
     url.searchParams.set("r", recipient);
     url.searchParams.set("asset", asset);
+    // messageHash (public, not the claim secret) lets a restored claim use the
+    // server's stateless readiness check when the poll lands on another pod.
+    if (messageHash) url.searchParams.set("mh", messageHash);
     history.replaceState(null, "", url.pathname + "?" + url.searchParams.toString());
   }, []);
 
@@ -137,6 +140,7 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
     url.searchParams.delete("claim");
     url.searchParams.delete("r");
     url.searchParams.delete("asset");
+    url.searchParams.delete("mh");
     const qs = url.searchParams.toString();
     history.replaceState(null, "", url.pathname + (qs ? "?" + qs : ""));
   }, []);
@@ -147,8 +151,9 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
     const claimId = params.get("claim");
     const recipient = params.get("r");
     const asset = params.get("asset");
+    const messageHash = params.get("mh") ?? undefined;
     if (!claimId || !recipient) return;
-    setRightPanel({ kind: "claim", claimId, recipient, initialClaimData: undefined });
+    setRightPanel({ kind: "claim", claimId, recipient, initialClaimData: undefined, messageHash });
     if (asset) setActiveAsset(asset);
   }, []);
 
@@ -164,7 +169,7 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
 
   const handleClaim = (claimId: string, initialClaimData: InitialClaimData | undefined, recipient: string) => {
     setRightPanel({ kind: "claim", claimId, initialClaimData, recipient });
-    pushClaimUrl(claimId, recipient, activeAsset);
+    pushClaimUrl(claimId, recipient, activeAsset, initialClaimData?.messageHashHex);
   };
 
   const handleError = () => {
@@ -268,6 +273,7 @@ export function FaucetLayout({ footer, onSplitChange, onBridgingProgress }: { fo
                       claimId={rightPanel.claimId}
                       initialClaimData={rightPanel.initialClaimData}
                       l1TxHash={rightPanel.initialClaimData?.l1TxHash}
+                      messageHash={rightPanel.messageHash}
                       recipient={rightPanel.recipient}
                       onReset={handleReset}
                       onProgressChange={onBridgingProgress}

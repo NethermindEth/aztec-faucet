@@ -30,16 +30,21 @@ export function faucetCapabilities(): AppCapabilities {
           scope: [
             // The claim flow sends check_balance(0n) with claim_and_end_setup
             // riding in the fee payload; plain claim is never invoked.
-            { contract: feeJuice, function: "claim_and_end_setup" },
-            { contract: feeJuice, function: "check_balance" },
+            // additionalScopes "*" lets these functions read notes from every
+            // contract the deploy+claim touches (multicall entrypoint, auth and
+            // handshake registries, etc). A strict wallet (the demo web wallet)
+            // rejects the claim without it; scoped to these two functions only,
+            // not a blanket grant.
+            { contract: feeJuice, function: "claim_and_end_setup", additionalScopes: "*" },
+            { contract: feeJuice, function: "check_balance", additionalScopes: "*" },
           ],
         },
       },
       {
         type: "transaction",
         scope: [
-          { contract: feeJuice, function: "claim_and_end_setup" },
-          { contract: feeJuice, function: "check_balance" },
+          { contract: feeJuice, function: "claim_and_end_setup", additionalScopes: "*" },
+          { contract: feeJuice, function: "check_balance", additionalScopes: "*" },
         ],
       },
     ],

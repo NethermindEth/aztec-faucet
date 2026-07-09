@@ -5,9 +5,10 @@ import dynamic from "next/dynamic";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 import { ConfettiBurst } from "./confetti-burst";
 import { NODE_URL, NPM_TAG, EXPLORER_TX_URL, L1_CHAIN_ID, IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
+import { retryImport } from "@/lib/retry-import";
 
 const WalletClaimButton = dynamic(
-  () => import("./wallet-claim-button").then((m) => m.WalletClaimButton),
+  () => retryImport(() => import("./wallet-claim-button")).then((m) => m.WalletClaimButton),
   { ssr: false },
 );
 

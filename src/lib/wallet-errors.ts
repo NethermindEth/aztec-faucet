@@ -104,3 +104,18 @@ export function isCapabilityDenied(err: unknown): boolean {
     (blob.includes("not granted") || blob.includes("denied") || blob.includes("missing") || blob.includes("required"))
   );
 }
+
+// A dynamic import() whose chunk failed to load: a flaky server, a network blip,
+// or a tab left open across a deploy that changed the chunk hashes. The claim
+// code never ran, so recovery is to reload the page (which restores the claim
+// from the ?claim= URL), not to reconnect the wallet.
+export function isChunkLoadError(err: unknown): boolean {
+  if (err instanceof Error && err.name === "ChunkLoadError") return true;
+  const blob = flattenError(err);
+  return (
+    blob.includes("failed to load chunk") ||
+    blob.includes("chunkloaderror") ||
+    blob.includes("error loading dynamically imported module") ||
+    blob.includes("importing a module script failed")
+  );
+}

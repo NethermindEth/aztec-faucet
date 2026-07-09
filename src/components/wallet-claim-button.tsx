@@ -5,7 +5,7 @@ import type { Wallet } from "@aztec/aztec.js/wallet";
 import { useWalletConnect } from "@/lib/use-wallet-connect";
 import { WalletConnectModal } from "./wallet-connect-modal";
 import { claimFeeJuiceViaWallet, type ClaimDataInput } from "@/lib/claim-via-wallet";
-import { WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError } from "@/lib/wallet-errors";
+import { WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError, isChunkLoadError } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { EXPLORER_TX_URL } from "@/lib/network-config";
@@ -14,7 +14,7 @@ type ClaimState =
   | { kind: "none" }
   | { kind: "claiming"; address: string }
   | { kind: "success"; txHash: string }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string; reload?: boolean };
 
 type Props = {
   claimData: ClaimDataInput;
@@ -38,6 +38,7 @@ function claimErrorMessage(err: unknown): string {
   if (err instanceof WalletDisconnectedError) return WALLET_DISCONNECTED_MSG;
   if (err instanceof WalletVersionMismatchError) return "Your wallet is on an incompatible network version. Update it to the latest v5 build and reconnect.";
   if (err instanceof WalletCapabilityDeniedError) return "Your wallet did not grant permission to send this transaction. Reconnect and approve the requested permissions.";
+  if (isChunkLoadError(err)) return "Couldn't load the claim tool. The page may need a refresh after an update. Reload and try again.";
   return err instanceof Error ? err.message : "Claim failed";
 }
 
@@ -88,7 +89,7 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
         setClaim({ kind: "success", txHash: result.txHash });
         onClaimComplete?.(result.txHash);
       } catch (err) {
-        setClaim({ kind: "error", message: claimErrorMessage(err) });
+        setClaim({ kind: "error", message: claimErrorMessage(err), reload: isChunkLoadError(err) });
       } finally {
         disconnectWallet();
       }
@@ -175,10 +176,10 @@ export function WalletClaimButton({ claimData, recipient, onClaimComplete, preCo
           </p>
           <button
             type="button"
-            onClick={closeClaim}
+            onClick={claim.reload ? () => window.location.reload() : closeClaim}
             className="btn-ghost mt-3 w-full py-2 text-[10px] uppercase tracking-widest"
           >
-            Try again
+            {claim.reload ? "Reload and try again" : "Try again"}
           </button>
         </div>
       )}

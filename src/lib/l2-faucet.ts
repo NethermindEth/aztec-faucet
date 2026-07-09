@@ -149,7 +149,7 @@ export class L2Faucet {
   async bridgeFeeJuice(
     recipientAztecAddress: string,
   ): Promise<FeeJuiceClaimData> {
-    const recipient = AztecAddress.fromString(recipientAztecAddress);
+    const recipient = AztecAddress.fromStringUnsafe(recipientAztecAddress);
     const l1Client = this.getL1Client();
     const amount = this.config.feeJuiceDripAmount;
     if (amount === undefined) {

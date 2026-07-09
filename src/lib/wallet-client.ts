@@ -12,6 +12,7 @@ import {
 } from "@aztec/wallet-sdk/manager";
 import { hashToEmoji } from "@aztec/wallet-sdk/crypto";
 import { NODE_URL, L1_CHAIN_ID } from "@/lib/network-config";
+import { retryImport } from "@/lib/retry-import";
 
 export const APP_ID = "aztec-faucet";
 
@@ -30,7 +31,7 @@ export async function getChainInfo(): Promise<ChainInfo> {
       return cachedChainInfo;
     }
   }
-  const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
+  const { createAztecNodeClient } = await retryImport(() => import("@aztec/aztec.js/node"));
   const node = createAztecNodeClient(NODE_URL);
   const info = await node.getNodeInfo();
   cachedChainInfo = {

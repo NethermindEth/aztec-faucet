@@ -11,9 +11,10 @@ import { ClaimTracker } from "./claim-tracker";
 import { ConfettiBurst } from "./confetti-burst";
 import { L1_CHAIN_ID } from "@/lib/network-config";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
+import { retryImport } from "@/lib/retry-import";
 
 const WalletConnectBar = dynamic(
-  () => import("./wallet-connect-bar").then((m) => m.WalletConnectBar),
+  () => retryImport(() => import("./wallet-connect-bar")).then((m) => m.WalletConnectBar),
   {
     ssr: false,
     loading: () => <div className="h-9 min-w-52 border border-outline-variant bg-surface-high" />,

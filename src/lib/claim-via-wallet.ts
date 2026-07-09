@@ -7,6 +7,7 @@ import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 import { flattenError, isUserRejection, isWalletDisconnected, isWalletVersionMismatch, isCapabilityDenied, WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
+import { retryImport } from "@/lib/retry-import";
 
 export type ClaimDataInput = {
   claimAmount: string;
@@ -75,7 +76,7 @@ export async function claimFeeJuiceViaWallet(
   // the no-op gives the wallet something to wrap, which bundles the deploy
   // for fresh accounts. The wallet must execute this as a self-paid dapp tx;
   // repeat claims are safe (see #41).
-  const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
+  const { FeeJuiceContract } = await retryImport(() => import("@aztec/aztec.js/protocol"));
   const feeJuice = FeeJuiceContract.at(wallet);
 
   let receipt: unknown;

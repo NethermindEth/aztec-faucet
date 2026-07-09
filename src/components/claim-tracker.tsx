@@ -6,9 +6,10 @@ import type { Wallet } from "@aztec/aztec.js/wallet";
 import { DataField, ClaimCommands, ClaimCompletePanel } from "./drip-result";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
+import { retryImport } from "@/lib/retry-import";
 
 const WalletClaimButton = dynamic(
-  () => import("./wallet-claim-button").then((m) => m.WalletClaimButton),
+  () => retryImport(() => import("./wallet-claim-button")).then((m) => m.WalletClaimButton),
   { ssr: false },
 );
 

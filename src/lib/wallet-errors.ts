@@ -105,6 +105,14 @@ export function isCapabilityDenied(err: unknown): boolean {
   );
 }
 
+// The wallet's fee estimate lost a race with a rising base fee: the tx's
+// maxFeesPerGas cap ended up below the live gasFees at validation. Nothing
+// was sent; a retry re-estimates against the current fee.
+export function isFeeCapTooLow(err: unknown): boolean {
+  const blob = flattenError(err);
+  return blob.includes("maxfeespergas") && blob.includes("must be greater than or equal");
+}
+
 // A dynamic import() whose chunk failed to load: a flaky server, a network blip,
 // or a tab left open across a deploy that changed the chunk hashes. The claim
 // code never ran, so recovery is to reload the page (which restores the claim

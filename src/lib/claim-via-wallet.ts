@@ -4,6 +4,7 @@ import "@/lib/buffer-polyfill";
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+import { GasFees } from "@aztec/stdlib/gas";
 import type { Wallet } from "@aztec/aztec.js/wallet";
 import { flattenError, isUserRejection, isWalletDisconnected, isWalletVersionMismatch, isCapabilityDenied, WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
@@ -38,6 +39,25 @@ export class ClaimRecipientMismatchError extends Error {
         `Switch to the wallet account that controls ${r}, or request a fresh drip for ${a}.`,
     );
     this.name = "ClaimRecipientMismatchError";
+  }
+}
+
+// Cap the tx's max fees at 2x the current network rate. Wallet fee estimates
+// can lose a race with a rising base fee between simulation and submission
+// (observed: a cap ~1% under the live fee rejects with "maxFeesPerGas must be
+// greater than or equal to gasFees"). The cap is a ceiling, not the price
+// paid. On any failure return undefined and let the wallet estimate.
+async function bufferedMaxFees(): Promise<GasFees | undefined> {
+  try {
+    const res = await fetch("/api/fees");
+    if (!res.ok) return undefined;
+    const fees = await res.json();
+    const feePerDaGas = BigInt(fees?.feePerDaGas ?? 0);
+    const feePerL2Gas = BigInt(fees?.feePerL2Gas ?? 0);
+    if (feePerL2Gas <= 0n) return undefined;
+    return new GasFees(feePerDaGas * 2n, feePerL2Gas * 2n);
+  } catch {
+    return undefined;
   }
 }
 
@@ -86,9 +106,13 @@ export async function claimFeeJuiceViaWallet(
       claimSecret,
       messageLeafIndex,
     });
+    const maxFeesPerGas = await bufferedMaxFees();
     receipt = await feeJuice.methods
       .check_balance(0n)
-      .send({ from: address, fee: { paymentMethod } });
+      .send({
+        from: address,
+        fee: { paymentMethod, ...(maxFeesPerGas ? { gasSettings: { maxFeesPerGas } } : {}) },
+      });
   } catch (err) {
     // Classify known wallet-side errors; genuine failures fall through to log + humanise.
     // Rejection/disconnect stay silent (expected); version/capability warn to keep the

@@ -5,7 +5,7 @@ import type { Wallet } from "@aztec/aztec.js/wallet";
 import { useWalletConnect } from "@/lib/use-wallet-connect";
 import { WalletConnectModal } from "./wallet-connect-modal";
 import { claimFeeJuiceViaWallet, type ClaimDataInput } from "@/lib/claim-via-wallet";
-import { WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError, isChunkLoadError } from "@/lib/wallet-errors";
+import { WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError, isChunkLoadError, isFeeCapTooLow } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
 import { useDeferredEffect } from "@/lib/use-deferred-effect";
 import { EXPLORER_TX_URL } from "@/lib/network-config";
@@ -39,6 +39,7 @@ function claimErrorMessage(err: unknown): string {
   if (err instanceof WalletVersionMismatchError) return "Your wallet is on an incompatible network version. Update it to the latest v5 build and reconnect.";
   if (err instanceof WalletCapabilityDeniedError) return "Your wallet did not grant permission to send this transaction. Reconnect and approve the requested permissions.";
   if (isChunkLoadError(err)) return "Couldn't load the claim tool. The page may need a refresh after an update. Reload and try again.";
+  if (isFeeCapTooLow(err)) return "The network fee rose while your claim was being prepared. Nothing was sent. Try again.";
   return err instanceof Error ? err.message : "Claim failed";
 }
 

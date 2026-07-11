@@ -7,12 +7,15 @@ export const NODE_URL = "https://v5.testnet.rpc.aztec-labs.com";
 export const EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
 export const NETWORK_LABEL = "Testnet";
 // @rc npm tag still points at 4.3.0-rc.1; testnet moved to v5, so pin explicitly.
-export const NPM_TAG = "5.0.0-rc.1";
-export const SCHNORR_CLASS_ID = "0x096eb58b105950df6e32346ff3bc610fa648c3dc39002382a4d7e8019cda6df2";
+export const NPM_TAG = "5.0.0-rc.2";
+// rc.2 changed the Schnorr account contract class (rc.1 was 0x096eb58b...); the
+// node rejected rc.1 proofs with "Incorrect verification keys tree root". Derived
+// addresses shift with this value. Re-verify on every SDK bump.
+export const SCHNORR_CLASS_ID = "0x197279a63a0522e3ca638f1deab0d084cdc1f39ba83a46defd0e1d114509d299";
 
 // ── Feature Flags ────────────────────────────────────────────────────────────
 // Gates the in-wallet claim path (connect + "Claim in wallet").
-// Azguard stays disabled in the picker until it ships v5 (#56).
+// Azguard re-enabled in the picker as of its v0.14.0 v5 build (#56).
 export const IN_WALLET_CLAIM_ENABLED = true;
 
 // ── L1 (Sepolia) ─────────────────────────────────────────────────────────────

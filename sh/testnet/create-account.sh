@@ -45,8 +45,7 @@ cd ~/.aztec-devtools
 # Load shared version config (always fetch fresh so version bumps propagate)
 curl -fsSL "$REPO_RAW/sh/versions.sh" -o .versions.sh 2>/dev/null || true
 [ -f .versions.sh ] && . ./.versions.sh
-AZTEC_SDK_NPM_TAG="${AZTEC_SDK_NPM_TAG:-5.0.0-rc.1}"
-AZTEC_NODE_URL="${AZTEC_NODE_URL:-https://v5.testnet.rpc.aztec-labs.com}"
+AZTEC_SDK_NPM_TAG="${AZTEC_SDK_NPM_TAG:-5.0.0-rc.2}"
 
 # Print installed version of a package, empty string if missing or unreadable
 _pkg_ver() { node -e "try{process.stdout.write(require('./node_modules/$1/package.json').version)}catch(e){}" 2>/dev/null; }
@@ -65,14 +64,19 @@ _remote_pkg_ver() {
 }
 
 # Testnet packages are installed as @aztec-rc/* aliases so create-aztec-account.mjs
-# can import them from that scope without conflicting with devnet @aztec/* packages
+# can import them from that scope without conflicting with devnet @aztec/* packages.
+# Address derivation is local now, so it imports aztec.js + accounts + stdlib (no
+# wallets). Check every package it imports: a prior tool may have installed one at
+# the right version without the others, and the missing import would crash the .mjs.
 _needs_install=0
-_installed_ver="$(_pkg_ver "@aztec-rc/wallets")"
-if [ -z "$_installed_ver" ]; then
+_aztec_ver="$(_pkg_ver "@aztec-rc/aztec.js")"
+_accounts_ver="$(_pkg_ver "@aztec-rc/accounts")"
+_stdlib_ver="$(_pkg_ver "@aztec-rc/stdlib")"
+if [ -z "$_aztec_ver" ] || [ -z "$_accounts_ver" ] || [ -z "$_stdlib_ver" ]; then
   _needs_install=1
 else
-  _expected_ver="$(_remote_pkg_ver "@aztec/wallets" "$AZTEC_SDK_NPM_TAG")"
-  if [ -n "$_expected_ver" ] && [ "$_installed_ver" != "$_expected_ver" ]; then
+  _expected_ver="$(_remote_pkg_ver "@aztec/aztec.js" "$AZTEC_SDK_NPM_TAG")"
+  if [ -n "$_expected_ver" ] && [ "$_aztec_ver" != "$_expected_ver" ]; then
     _needs_install=1
   fi
 fi
@@ -81,8 +85,9 @@ if [ "$_needs_install" = "1" ]; then
   printf '{"type":"module"}' > package.json
   rm -rf node_modules/@aztec-rc 2>/dev/null || true
   npm install --no-package-lock --no-audit \
-    "@aztec-rc/wallets@npm:@aztec/wallets@$AZTEC_SDK_NPM_TAG" \
     "@aztec-rc/aztec.js@npm:@aztec/aztec.js@$AZTEC_SDK_NPM_TAG" \
+    "@aztec-rc/accounts@npm:@aztec/accounts@$AZTEC_SDK_NPM_TAG" \
+    "@aztec-rc/stdlib@npm:@aztec/stdlib@$AZTEC_SDK_NPM_TAG" \
     --silent > /dev/null 2>&1 &
   _npm_pid=$!
   spin $_npm_pid "Installing packages (@$AZTEC_SDK_NPM_TAG)" || exit 1
@@ -92,7 +97,7 @@ curl -fsSL "$REPO_RAW/scripts/create-aztec-account.mjs" \
   -o ~/.aztec-devtools/create-aztec-account.mjs 2>/dev/null || true
 
 _out=$(mktemp)
-node ~/.aztec-devtools/create-aztec-account.mjs "$@" --network testnet --node-url "$AZTEC_NODE_URL" < /dev/null > "$_out" 2>&1 &
+node ~/.aztec-devtools/create-aztec-account.mjs "$@" --network testnet < /dev/null > "$_out" 2>&1 &
 _node_pid=$!
 set +e
 spin $_node_pid "Generating testnet account"

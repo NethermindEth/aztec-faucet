@@ -35,9 +35,20 @@ export async function GET(request: Request) {
     );
   }
 
+  // A 64-hex string can still exceed the field modulus; parse before the node
+  // call so an out-of-range value is a 400, not a 500 with a raw SDK message.
+  let owner: AztecAddress;
+  try {
+    owner = AztecAddress.fromStringUnsafe(address);
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid Aztec address: the value is out of range for the field." },
+      { status: 400, headers: CORS_HEADERS_GET },
+    );
+  }
+
   try {
     const node = createAztecNodeClient(NODE_URL);
-    const owner = AztecAddress.fromString(address);
     const balanceSlot = await deriveStorageSlotInMap(FEE_JUICE_BALANCES_SLOT, owner);
     // balance > 0 is the deploy proxy: faucet claims deploy + mint atomically,
     // and accounts initialize without publishing, so there is no reliable

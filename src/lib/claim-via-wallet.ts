@@ -4,9 +4,11 @@ import "@/lib/buffer-polyfill";
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+import { GasFees } from "@aztec/stdlib/gas";
 import type { Wallet } from "@aztec/aztec.js/wallet";
-import { flattenError, isUserRejection, isWalletDisconnected, WalletUserRejectedError, WalletDisconnectedError } from "@/lib/wallet-errors";
+import { flattenError, isUserRejection, isWalletDisconnected, isWalletVersionMismatch, isCapabilityDenied, WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError } from "@/lib/wallet-errors";
 import { addressesMatch } from "@/lib/address";
+import { retryImport } from "@/lib/retry-import";
 
 export type ClaimDataInput = {
   claimAmount: string;
@@ -40,6 +42,25 @@ export class ClaimRecipientMismatchError extends Error {
   }
 }
 
+// Cap the tx's max fees at 2x the current network rate. Wallet fee estimates
+// can lose a race with a rising base fee between simulation and submission
+// (observed: a cap ~1% under the live fee rejects with "maxFeesPerGas must be
+// greater than or equal to gasFees"). The cap is a ceiling, not the price
+// paid. On any failure return undefined and let the wallet estimate.
+async function bufferedMaxFees(): Promise<GasFees | undefined> {
+  try {
+    const res = await fetch("/api/fees");
+    if (!res.ok) return undefined;
+    const fees = await res.json();
+    const feePerDaGas = BigInt(fees?.feePerDaGas ?? 0);
+    const feePerL2Gas = BigInt(fees?.feePerL2Gas ?? 0);
+    if (feePerL2Gas <= 0n) return undefined;
+    return new GasFees(feePerDaGas * 2n, feePerL2Gas * 2n);
+  } catch {
+    return undefined;
+  }
+}
+
 // sameAccount disambiguates "no non-nullified L1 to L2 message": same chain
 // error whether already-consumed or wrong recipient. Only consumed if match.
 function humaniseClaimError(err: unknown, sameAccount: boolean): Error {
@@ -60,7 +81,7 @@ export async function claimFeeJuiceViaWallet(
   claim: ClaimDataInput,
   recipientHex: string,
 ): Promise<ClaimResult> {
-  const address = AztecAddress.fromString(fromAddressHex);
+  const address = AztecAddress.fromStringUnsafe(fromAddressHex);
   const claimAmount = BigInt(claim.claimAmount);
   const claimSecret = Fr.fromHexString(claim.claimSecretHex);
   const messageLeafIndex = BigInt(claim.messageLeafIndex);
@@ -73,9 +94,9 @@ export async function claimFeeJuiceViaWallet(
   // Single path for fresh AND initialized accounts: check_balance(0n) no-op
   // + FeeJuicePaymentMethodWithClaim. The fee payload claims and ends setup;
   // the no-op gives the wallet something to wrap, which bundles the deploy
-  // for fresh accounts. Azguard 0.13.x can only execute this shape for
-  // self-paid dapp txs, and repeat claims are safe on 4.3.x (see #41).
-  const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
+  // for fresh accounts. The wallet must execute this as a self-paid dapp tx;
+  // repeat claims are safe (see #41).
+  const { FeeJuiceContract } = await retryImport(() => import("@aztec/aztec.js/protocol"));
   const feeJuice = FeeJuiceContract.at(wallet);
 
   let receipt: unknown;
@@ -85,13 +106,27 @@ export async function claimFeeJuiceViaWallet(
       claimSecret,
       messageLeafIndex,
     });
+    const maxFeesPerGas = await bufferedMaxFees();
     receipt = await feeJuice.methods
       .check_balance(0n)
-      .send({ from: address, fee: { paymentMethod } });
+      .send({
+        from: address,
+        fee: { paymentMethod, ...(maxFeesPerGas ? { gasSettings: { maxFeesPerGas } } : {}) },
+      });
   } catch (err) {
-    // Declined popup / wallet drop are expected; do not console.error.
+    // Classify known wallet-side errors; genuine failures fall through to log + humanise.
+    // Rejection/disconnect stay silent (expected); version/capability warn to keep the
+    // raw wallet string for tightening the extension-test markers, without the dev overlay.
     if (isUserRejection(err)) throw new WalletUserRejectedError(err);
     if (isWalletDisconnected(err)) throw new WalletDisconnectedError(err);
+    if (isWalletVersionMismatch(err)) {
+      console.warn("[claim-via-wallet] wallet version mismatch:", err);
+      throw new WalletVersionMismatchError(err);
+    }
+    if (isCapabilityDenied(err)) {
+      console.warn("[claim-via-wallet] capability denied:", err);
+      throw new WalletCapabilityDeniedError(err);
+    }
     console.error("[claim-via-wallet] send threw:", err);
     throw humaniseClaimError(err, sameAccount);
   }

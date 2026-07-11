@@ -25,14 +25,19 @@ function Sk({ w = "w-24" }: { w?: string }) {
 
 export function DonateView() {
   const [faucetAddress, setFaucetAddress] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    fetch("/api/status")
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+    fetch("/api/status", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.faucetAddress) setFaucetAddress(data.faucetAddress);
+        else setFailed(true);
       })
-      .catch(() => {});
+      .catch(() => setFailed(true))
+      .finally(() => clearTimeout(timeout));
   }, []);
 
   return (
@@ -75,6 +80,8 @@ export function DonateView() {
                   </span>
                   <CopyInline text={faucetAddress} />
                 </>
+              ) : failed ? (
+                <span className="font-label text-[11px] text-on-surface-variant opacity-60">Unavailable</span>
               ) : (
                 <Sk w="w-36" />
               )}

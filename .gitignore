@@ -59,6 +59,9 @@ VERSION-BUMP.md
 # local info/research folder
 info/
 
+# local team coordination, never push
+docs/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

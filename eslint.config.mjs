@@ -20,6 +20,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Local agent worktrees; not part of the repo, but ESLint scans them.
     ".claude/**",
+    // Local team coordination space; gitignored, never ships.
+    "docs/**",
   ]),
 ]);
 

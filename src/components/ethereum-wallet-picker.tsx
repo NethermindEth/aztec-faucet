@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AnnouncedProvider } from "@/lib/ethereum-providers";
 import { useMounted } from "@/lib/use-mounted";
@@ -17,6 +17,10 @@ type Props = {
 
 export function EthereumWalletPicker({ open, providers, onEmpty, onPick, onClose }: Props) {
   const mounted = useMounted();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
 
   // Wait briefly for late-announced wallets before bailing out. 500ms is
   // long enough for slow extensions to inject, short enough that the user
@@ -29,13 +33,50 @@ export function EthereumWalletPicker({ open, providers, onEmpty, onPick, onClose
     return () => clearTimeout(t);
   }, [open, providers.length, onEmpty]);
 
+  // Modal focus management: move focus in, trap Tab, Esc closes, restore on close.
+  useEffect(() => {
+    if (!open || !mounted) return;
+    const dialog = dialogRef.current;
+    const prevFocused = document.activeElement as HTMLElement | null;
+    const focusables = () =>
+      dialog
+        ? Array.from(dialog.querySelectorAll<HTMLElement>(
+            'button, [href], input, [tabindex]:not([tabindex="-1"])',
+          )).filter((el) => !el.hasAttribute("disabled"))
+        : [];
+    (focusables()[0] ?? dialog)?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); onCloseRef.current(); return; }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) { e.preventDefault(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      prevFocused?.focus?.();
+    };
+  }, [open, mounted]);
+
   if (!open || !mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-sm border border-outline-variant bg-surface p-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-sm border border-outline-variant bg-surface p-5 focus:outline-none"
+      >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-label text-xs font-bold uppercase tracking-widest text-on-surface">
+          <h3 id={titleId} className="font-label text-xs font-bold uppercase tracking-widest text-on-surface">
             Choose a wallet
           </h3>
           <button

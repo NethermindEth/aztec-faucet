@@ -28,12 +28,15 @@ export function flattenError(err: unknown, depth = 0, seen = new Set<unknown>())
   if (typeof err === "string") parts.push(err);
   else if (err instanceof Error) {
     parts.push(err.message, err.name);
+    const code = (err as Error & { code?: unknown }).code;
+    if (typeof code === "number" || typeof code === "string") parts.push(String(code));
     if ("cause" in err) parts.push(flattenError((err as Error & { cause?: unknown }).cause, depth + 1, seen));
   } else if (typeof err === "object") {
     const e = err as Record<string, unknown>;
     for (const k of ["message", "error", "details", "data"]) {
       if (typeof e[k] === "string") parts.push(e[k] as string);
     }
+    if (typeof e.code === "number" || typeof e.code === "string") parts.push(String(e.code));
     if (e.cause) parts.push(flattenError(e.cause, depth + 1, seen));
   } else {
     parts.push(String(err));
@@ -62,4 +65,65 @@ export function isWalletDisconnected(err: unknown): boolean {
   if (err instanceof WalletDisconnectedError) return true;
   const blob = flattenError(err);
   return blob.includes("wallet disconnected") || blob.includes("wallet has been disconnected");
+}
+
+// Stale wallet SDK on an incompatible rollup version, or calling RPC v5 removed.
+export class WalletVersionMismatchError extends Error {
+  constructor(cause?: unknown) {
+    super("Wallet on an incompatible network version", cause !== undefined ? { cause } : undefined);
+    this.name = "WalletVersionMismatchError";
+  }
+}
+
+// #56 signatures: removed RPC (node_getBlockHeader / JSON-RPC method not found) or a rollup-version mismatch.
+export function isWalletVersionMismatch(err: unknown): boolean {
+  if (err instanceof WalletVersionMismatchError) return true;
+  const blob = flattenError(err);
+  return (
+    blob.includes("node_getblockheader") ||
+    blob.includes("method not found") ||
+    blob.includes("-32601") ||
+    (blob.includes("rollup") && (blob.includes("version") || blob.includes("mismatch")))
+  );
+}
+
+// Wallet connected but refused the tx/simulation capability the claim needs.
+export class WalletCapabilityDeniedError extends Error {
+  constructor(cause?: unknown) {
+    super("Wallet did not grant transaction permission", cause !== undefined ? { cause } : undefined);
+    this.name = "WalletCapabilityDeniedError";
+  }
+}
+
+// Provisional marker set; confirm the real Azguard capability-denial string on the extension test.
+export function isCapabilityDenied(err: unknown): boolean {
+  if (err instanceof WalletCapabilityDeniedError) return true;
+  const blob = flattenError(err);
+  return (
+    blob.includes("capability") &&
+    (blob.includes("not granted") || blob.includes("denied") || blob.includes("missing") || blob.includes("required"))
+  );
+}
+
+// The wallet's fee estimate lost a race with a rising base fee: the tx's
+// maxFeesPerGas cap ended up below the live gasFees at validation. Nothing
+// was sent; a retry re-estimates against the current fee.
+export function isFeeCapTooLow(err: unknown): boolean {
+  const blob = flattenError(err);
+  return blob.includes("maxfeespergas") && blob.includes("must be greater than or equal");
+}
+
+// A dynamic import() whose chunk failed to load: a flaky server, a network blip,
+// or a tab left open across a deploy that changed the chunk hashes. The claim
+// code never ran, so recovery is to reload the page (which restores the claim
+// from the ?claim= URL), not to reconnect the wallet.
+export function isChunkLoadError(err: unknown): boolean {
+  if (err instanceof Error && err.name === "ChunkLoadError") return true;
+  const blob = flattenError(err);
+  return (
+    blob.includes("failed to load chunk") ||
+    blob.includes("chunkloaderror") ||
+    blob.includes("error loading dynamically imported module") ||
+    blob.includes("importing a module script failed")
+  );
 }

@@ -3,11 +3,20 @@
 // Everything else lives here in code.
 
 // ── Aztec Network ────────────────────────────────────────────────────────────
-export const NODE_URL = "https://rpc.testnet.aztec-labs.com";
+export const NODE_URL = "https://v5.testnet.rpc.aztec-labs.com";
 export const EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
 export const NETWORK_LABEL = "Testnet";
-export const NPM_TAG = "rc";
-export const SCHNORR_CLASS_ID = "0x010319cf7faafaab5cbe684f2556e379a22539a8de18b35d290a85f30057bf02";
+// @rc npm tag still points at 4.3.0-rc.1; testnet moved to v5, so pin explicitly.
+export const NPM_TAG = "5.0.0-rc.2";
+// rc.2 changed the Schnorr account contract class (rc.1 was 0x096eb58b...); the
+// node rejected rc.1 proofs with "Incorrect verification keys tree root". Derived
+// addresses shift with this value. Re-verify on every SDK bump.
+export const SCHNORR_CLASS_ID = "0x197279a63a0522e3ca638f1deab0d084cdc1f39ba83a46defd0e1d114509d299";
+
+// ── Feature Flags ────────────────────────────────────────────────────────────
+// Gates the in-wallet claim path (connect + "Claim in wallet").
+// Azguard re-enabled in the picker as of its v0.14.0 v5 build (#56).
+export const IN_WALLET_CLAIM_ENABLED = true;
 
 // ── L1 (Sepolia) ─────────────────────────────────────────────────────────────
 export const L1_CHAIN_ID = 11155111;
@@ -17,11 +26,22 @@ export const ETH_DRIP_AMOUNT = "0.001";
 export const FEE_JUICE_DRIP_AMOUNT = 100_000_000_000_000_000_000n; // 100 FJ
 
 // ── Rate Limits ──────────────────────────────────────────────────────────────
-// (flip to 86_400_000 / 1 / 2 before merging to main)
-export const DRIP_INTERVAL_MS = 28_800_000;       // 8h (prod: 24h)
-export const DRIP_MAX_PER_ADDRESS = 3;             // (prod: 1)
-export const DRIP_MAX_PER_IP = 6;                  // (prod: 2)
+// Defaults: 8h window, 3 drips per address, 6 drips per IP. Generous enough
+// that devs iterating during a working session aren't blocked, tight enough
+// to make abuse non-trivial. Override per environment via env vars; setting
+// DRIP_INTERVAL_MS=0 disables drip rate limiting entirely (useful in dev).
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+export const DRIP_INTERVAL_MS = envInt("DRIP_INTERVAL_MS", 28_800_000);     // 8h
+export const DRIP_MAX_PER_ADDRESS = envInt("DRIP_MAX_PER_ADDRESS", 3);
+export const DRIP_MAX_PER_IP = envInt("DRIP_MAX_PER_IP", 6);
 
 // ── Keygen Rate Limit ────────────────────────────────────────────────────────
-export const KEYGEN_INTERVAL_MS = 86_400_000;      // 24h
-export const KEYGEN_MAX_PER_IP = 10;
+// Keygen is essentially free (no chain interaction), but capping it prevents
+// trivial scripted abuse of `/api/keygen` to derive arbitrary addresses.
+export const KEYGEN_INTERVAL_MS = envInt("KEYGEN_INTERVAL_MS", 86_400_000); // 24h
+export const KEYGEN_MAX_PER_IP = envInt("KEYGEN_MAX_PER_IP", 20);

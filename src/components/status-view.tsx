@@ -60,8 +60,6 @@ export function StatusView({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    setData(null);
-    setError(false);
     const controller = new AbortController();
     fetch("/api/status", { signal: controller.signal })
       .then((r) => {

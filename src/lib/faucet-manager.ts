@@ -1,4 +1,5 @@
-import { type Hex, formatEther, isAddress } from "viem";
+import { type Hex, formatEther } from "viem";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { L1Faucet } from "./l1-faucet";
 import { L2Faucet, type FeeJuiceClaimData } from "./l2-faucet";
 import { Throttle, ThrottleError } from "./throttle";
@@ -79,6 +80,10 @@ export class FaucetManager {
   private throttle: Throttle;
   private ipThrottle: Throttle;
   private claimStore: ClaimStore;
+  // Prevents concurrent bridge txs for the same address — two overlapping requests
+  // both pass throttle.check() before either calls throttle.record(), causing a
+  // nonce conflict on L1. The set is keyed by "address:asset".
+  private inFlight = new Set<string>();
   private constructor() {
     const l1PrivateKey = requireEnv("FAUCET_PRIVATE_KEY") as Hex;
     const l1RpcUrl = requireEnv("L1_RPC_URL");
@@ -98,10 +103,17 @@ export class FaucetManager {
       feeJuiceDripAmount: FEE_JUICE_DRIP_AMOUNT,
     });
 
-    // Disable rate limits in local dev (NODE_ENV is "production" in Docker)
-    const isDev = process.env.NODE_ENV !== "production";
-    this.throttle = new Throttle(isDev ? 0 : DRIP_INTERVAL_MS, isDev ? Infinity : DRIP_MAX_PER_ADDRESS);
-    this.ipThrottle = new Throttle(isDev ? 0 : DRIP_INTERVAL_MS, isDev ? Infinity : DRIP_MAX_PER_IP);
+    // Rate limit values come from env (with prod-correct defaults) — see network-config.ts.
+    // Set DRIP_INTERVAL_MS=0 in .env.local to disable rate limits entirely in dev.
+    this.throttle = new Throttle(DRIP_INTERVAL_MS, DRIP_MAX_PER_ADDRESS);
+    this.ipThrottle = new Throttle(DRIP_INTERVAL_MS, DRIP_MAX_PER_IP);
+
+    // Periodically prune stale throttle entries so memory doesn't grow with
+    // the number of unique IPs/addresses that have ever dripped.
+    setInterval(() => {
+      this.throttle.pruneStale();
+      this.ipThrottle.pruneStale();
+    }, 10 * 60 * 1000).unref?.();
 
     this.claimStore = new ClaimStore(NODE_URL);
   }
@@ -117,40 +129,65 @@ export class FaucetManager {
     const trimmed = address.trim();
     this.validateAddress(trimmed, asset);
 
+    // Lowercase once and use *only* the normalized form past this point.
+    // EIP-55 accepts mixed case for Ethereum addresses and Aztec addresses
+    // are byte-equivalent regardless of hex case, so this is purely a
+    // bookkeeping invariant: the same address must resolve to the same
+    // throttle key, the same stored claim record, and the same bridge
+    // recipient. Pass-through to bridgeFeeJuice() / claimStore.add() also
+    // gets the normalized form so audit log lines and persisted claim
+    // records all agree on a single canonical case.
     const normalizedAddress = trimmed.toLowerCase();
     this.throttle.check(normalizedAddress, asset);
     if (ip) this.ipThrottle.check(ip, asset);
 
+    const inFlightKey = `${normalizedAddress}:${asset}`;
+    if (this.inFlight.has(inFlightKey)) {
+      throw new ThrottleError(asset, 30_000);
+    }
+    this.inFlight.add(inFlightKey);
+
+    // Reserve the rate-limit slot synchronously, before the slow bridge/send
+    // await, so concurrent requests from one IP (to different addresses) can't
+    // all pass check() before any of them record(). Roll back on failure so a
+    // failed drip doesn't burn the caller's allowance.
+    const addrTs = this.throttle.record(normalizedAddress, asset);
+    const ipTs = ip ? this.ipThrottle.record(ip, asset) : undefined;
+
     let result: DripResult;
 
-    switch (asset) {
-      case "eth": {
-        const txHash = await this.l1Faucet.sendEth(normalizedAddress as Hex);
-        result = { success: true, asset, txHash };
-        break;
+    try {
+      switch (asset) {
+        case "eth": {
+          const txHash = await this.l1Faucet.sendEth(normalizedAddress as Hex);
+          result = { success: true, asset, txHash };
+          break;
+        }
+        case "fee-juice": {
+          const claimData = await this.l2Faucet.bridgeFeeJuice(normalizedAddress);
+          const claimId = this.claimStore.add(normalizedAddress, claimData);
+          result = {
+            success: true,
+            asset,
+            claimId,
+            claimStatus: "bridging",
+            claimData,
+          };
+          break;
+        }
+        default: {
+          const _exhaustive: never = asset;
+          throw new Error(`Unknown asset: ${_exhaustive}`);
+        }
       }
-      case "fee-juice": {
-        const claimData = await this.l2Faucet.bridgeFeeJuice(trimmed);
-        const claimId = this.claimStore.add(trimmed, claimData);
-        result = {
-          success: true,
-          asset,
-          claimId,
-          claimStatus: "bridging",
-          // Include claimData in the initial response so the client has it
-          // even if the polling endpoint later fails (e.g., server restart).
-          claimData,
-        };
-        break;
-      }
-      default: {
-        const _exhaustive: never = asset;
-        throw new Error(`Unknown asset: ${_exhaustive}`);
-      }
+    } catch (err) {
+      this.throttle.rollback(normalizedAddress, asset, addrTs);
+      if (ip) this.ipThrottle.rollback(ip, asset, ipTs);
+      throw err;
+    } finally {
+      this.inFlight.delete(inFlightKey);
     }
 
-    this.throttle.record(normalizedAddress, asset);
-    if (ip) this.ipThrottle.record(ip, asset);
     return result;
   }
 
@@ -164,7 +201,7 @@ export class FaucetManager {
     }
 
     if (asset === "eth") {
-      if (!isAddress(address)) {
+      if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
         throw new AddressValidationError(
           "Invalid Ethereum address. Expected a 0x-prefixed 40-character hex string (e.g. 0xAbC...123)",
         );
@@ -174,6 +211,16 @@ export class FaucetManager {
       if (!/^0x[0-9a-fA-F]{64}$/.test(address)) {
         throw new AddressValidationError(
           "Invalid Aztec address. Expected a 0x-prefixed 64-character hex string (e.g. 0x09a4...fb2)",
+        );
+      }
+      // A 64-hex string can still exceed the field modulus, which AztecAddress
+      // rejects (fromStringUnsafe still validates the field, just not the curve
+      // point). Catch it here so it's a 400, not a 500 from the bridge path.
+      try {
+        AztecAddress.fromStringUnsafe(address);
+      } catch {
+        throw new AddressValidationError(
+          "Invalid Aztec address: the value is out of range for the field. Double-check the address and try again.",
         );
       }
     }

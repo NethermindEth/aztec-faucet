@@ -8,8 +8,9 @@ import {
   type HttpTransport,
   type Account,
 } from "viem";
-import { type PrivateKeyAccount, privateKeyToAccount } from "viem/accounts";
+import type { PrivateKeyAccount } from "viem/accounts";
 import { sepolia, foundry } from "viem/chains";
+import { getFaucetL1Account } from "./faucet-l1-account";
 type L1FaucetConfig = {
   rpcUrl: string;
   chainId: number;
@@ -21,6 +22,16 @@ const CHAIN_MAP: Record<number, Chain> = {
   [sepolia.id]: sepolia,
   [foundry.id]: foundry,
 };
+
+export class FaucetInsufficientFundsError extends Error {
+  constructor(asset: string) {
+    super(
+      `The faucet has insufficient ${asset} balance to process this request. ` +
+        "Please try again later or contact the faucet operator.",
+    );
+    this.name = "FaucetInsufficientFundsError";
+  }
+}
 
 export class L1Faucet {
   private publicClient;
@@ -36,7 +47,7 @@ export class L1Faucet {
       rpcUrls: { default: { http: [config.rpcUrl] } },
     };
 
-    this.account = privateKeyToAccount(config.privateKey);
+    this.account = getFaucetL1Account(config.privateKey);
 
     this.publicClient = createPublicClient({
       chain: this.chain,
@@ -59,14 +70,27 @@ export class L1Faucet {
   }
 
   async sendEth(to: Hex): Promise<Hex> {
-    const hash = await this.walletClient.sendTransaction({
-      account: this.account,
-      to,
-      value: parseEther(this.config.ethDripAmount),
-      chain: this.chain,
-    });
-    await this.publicClient.waitForTransactionReceipt({ hash });
-    return hash;
+    try {
+      const hash = await this.walletClient.sendTransaction({
+        account: this.account,
+        to,
+        value: parseEther(this.config.ethDripAmount),
+        chain: this.chain,
+      });
+      await this.publicClient.waitForTransactionReceipt({ hash });
+      return hash;
+    } catch (err) {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+      if (
+        msg.includes("insufficient funds") ||
+        msg.includes("insufficient balance") ||
+        msg.includes("not enough balance") ||
+        msg.includes("sender balance")
+      ) {
+        throw new FaucetInsufficientFundsError("ETH");
+      }
+      throw err;
+    }
   }
 
 }

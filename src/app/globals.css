@@ -403,3 +403,34 @@ pre {
 .focus-glow-line:focus-within::after {
   width: 100%;
 }
+
+/* Respect the OS-level "reduce motion" setting.
+   Collapses all keyframe animations and most transitions to near-instant
+   so users who are sensitive to motion get a static UI. The focus-glow-line
+   transition is kept because it only moves a 2px underline — the threshold
+   for vestibular harm is much higher. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Grid accordion rows use transition-[grid-template-rows], which is
+     covered by transition-duration above, but make it explicit for clarity. */
+  .animate-slide-in-right,
+  .animate-panel-state-in,
+  .animate-panel-state-out,
+  .animate-fade-up,
+  .animate-walk-bob,
+  .animate-walk-arrive,
+  .animate-walk-run,
+  .animate-walk-celebrate,
+  .animate-walk-jump,
+  .animate-marquee,
+  .skeleton {
+    animation: none !important;
+  }
+}

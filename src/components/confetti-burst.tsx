@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useMounted } from "@/lib/use-mounted";
 
 const COLORS = ["#A78BFA", "#c4b5fd", "#ffffff", "#7c3aed", "#ddd6fe", "#f5f5f5", "#e9d5ff"];
 
@@ -39,10 +40,10 @@ function makeBurst(ox: number, oy: number, angleMinDeg: number, angleMaxDeg: num
 }
 
 function ConfettiCanvas() {
-  const colors = COLORS;
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -57,8 +58,8 @@ function ConfettiCanvas() {
     // Left cannon at top-left corner, fan angles: -60° to +50° (right + upward arc)
     // Right cannon at top-right corner, fan angles: 130° to 240° (left + upward arc)
     const particles: Particle[] = [
-      ...makeBurst(W * 0.03, H * 0.05, -60, 50, 120, colors),
-      ...makeBurst(W * 0.97, H * 0.05, 130, 240, 120, colors),
+      ...makeBurst(W * 0.03, H * 0.05, -60, 50, 120, COLORS),
+      ...makeBurst(W * 0.97, H * 0.05, 130, 240, 120, COLORS),
     ];
 
     let rafId: number;
@@ -104,11 +105,7 @@ function ConfettiCanvas() {
 }
 
 export function ConfettiBurst() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   if (!mounted) return null;
 

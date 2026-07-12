@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useOnValueChange } from "@/lib/use-on-value-change";
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+function subscribeReducedMotion(onChange: () => void): () => void {
+  const mq = window.matchMedia(REDUCED_MOTION_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+const getReducedMotion = () => window.matchMedia(REDUCED_MOTION_QUERY).matches;
 
 /**
  * Walking character with an elevated bridge in the middle of the track.
@@ -73,22 +82,22 @@ export function WalkingCharacter({
 
   const message = getMessage(progress, isReady);
 
-  const [visibleMsg, setVisibleMsg] = useState(message);
   const [showBubble, setShowBubble] = useState(true);
 
-  useEffect(() => {
-    if (message !== visibleMsg) {
-      setVisibleMsg(message);
-      setShowBubble(true);
-    }
-  }, [message, visibleMsg]);
+  // A new message re-shows the bubble. The ready message arrives through the
+  // same path, so isReady never needs to force the bubble separately.
+  useOnValueChange(message, () => setShowBubble(true));
 
   useEffect(() => {
-    if (isReady) { setShowBubble(true); return; }
-    if (!showBubble) return;
+    if (isReady || !showBubble) return;
     const timer = setTimeout(() => setShowBubble(false), 4000);
     return () => clearTimeout(timer);
   }, [showBubble, isReady]);
+
+  // CSS animations/transitions collapse via the globals.css reduced-motion
+  // block; SMIL <animate> is not CSS-controllable, so gate it here.
+  const reducedMotion = useSyncExternalStore(subscribeReducedMotion, getReducedMotion, () => false);
+  const animate = !reducedMotion;
 
   // In the jump zone: character does a jump bob
   const isJumping =
@@ -241,29 +250,29 @@ export function WalkingCharacter({
             {isReady ? (
               <>
                 <line x1="12" y1="12" x2="5" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <animate attributeName="y2" values="7;4;7" dur="0.25s" repeatCount="6" />
+                  {animate && <animate attributeName="y2" values="7;4;7" dur="0.25s" repeatCount="6" />}
                 </line>
                 <line x1="12" y1="12" x2="19" y2="7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <animate attributeName="y2" values="4;7;4" dur="0.25s" repeatCount="6" />
+                  {animate && <animate attributeName="y2" values="4;7;4" dur="0.25s" repeatCount="6" />}
                 </line>
               </>
             ) : (
               <>
                 <line x1="12" y1="12" x2="6" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <animate attributeName="y2" values="15;13;15" dur={armDuration} repeatCount="indefinite" />
+                  {animate && <animate attributeName="y2" values="15;13;15" dur={armDuration} repeatCount="indefinite" />}
                 </line>
                 <line x1="12" y1="12" x2="18" y2="15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <animate attributeName="y2" values="13;15;13" dur={armDuration} repeatCount="indefinite" />
+                  {animate && <animate attributeName="y2" values="13;15;13" dur={armDuration} repeatCount="indefinite" />}
                 </line>
               </>
             )}
             <line x1="12" y1="18" x2="8" y2="26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              {!isReady && (
+              {!isReady && animate && (
                 <animate attributeName="x2" values="8;14;8" dur={legDuration} repeatCount="indefinite" />
               )}
             </line>
             <line x1="12" y1="18" x2="16" y2="26" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              {!isReady && (
+              {!isReady && animate && (
                 <animate attributeName="x2" values="14;8;14" dur={legDuration} repeatCount="indefinite" />
               )}
             </line>

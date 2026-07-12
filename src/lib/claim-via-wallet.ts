@@ -1,0 +1,144 @@
+"use client";
+
+import "@/lib/buffer-polyfill";
+import { Fr } from "@aztec/aztec.js/fields";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
+import { GasFees } from "@aztec/stdlib/gas";
+import type { Wallet } from "@aztec/aztec.js/wallet";
+import { flattenError, isUserRejection, isWalletDisconnected, isWalletVersionMismatch, isCapabilityDenied, WalletUserRejectedError, WalletDisconnectedError, WalletVersionMismatchError, WalletCapabilityDeniedError } from "@/lib/wallet-errors";
+import { addressesMatch } from "@/lib/address";
+import { retryImport } from "@/lib/retry-import";
+
+export type ClaimDataInput = {
+  claimAmount: string;
+  claimSecretHex: string;
+  messageLeafIndex: string;
+};
+
+export type ClaimResult = {
+  txHash: string;
+  blockNumber?: number;
+};
+
+export class ClaimAlreadyRedeemedError extends Error {
+  constructor() {
+    super(
+      "This drip has already been claimed. Request a new Fee Juice drip if you need more. Each L1 to L2 bridge message can only be redeemed once.",
+    );
+    this.name = "ClaimAlreadyRedeemedError";
+  }
+}
+
+export class ClaimRecipientMismatchError extends Error {
+  constructor(recipient: string, actualSender: string) {
+    const r = `${recipient.slice(0, 10)}…${recipient.slice(-6)}`;
+    const a = `${actualSender.slice(0, 10)}…${actualSender.slice(-6)}`;
+    super(
+      `This drip was sent to ${r} but the connected wallet account is ${a}. ` +
+        `Switch to the wallet account that controls ${r}, or request a fresh drip for ${a}.`,
+    );
+    this.name = "ClaimRecipientMismatchError";
+  }
+}
+
+// Cap the tx's max fees at 2x the current network rate. Wallet fee estimates
+// can lose a race with a rising base fee between simulation and submission
+// (observed: a cap ~1% under the live fee rejects with "maxFeesPerGas must be
+// greater than or equal to gasFees"). The cap is a ceiling, not the price
+// paid. On any failure return undefined and let the wallet estimate.
+async function bufferedMaxFees(): Promise<GasFees | undefined> {
+  try {
+    const res = await fetch("/api/fees");
+    if (!res.ok) return undefined;
+    const fees = await res.json();
+    const feePerDaGas = BigInt(fees?.feePerDaGas ?? 0);
+    const feePerL2Gas = BigInt(fees?.feePerL2Gas ?? 0);
+    if (feePerL2Gas <= 0n) return undefined;
+    return new GasFees(feePerDaGas * 2n, feePerL2Gas * 2n);
+  } catch {
+    return undefined;
+  }
+}
+
+// sameAccount disambiguates "no non-nullified L1 to L2 message": same chain
+// error whether already-consumed or wrong recipient. Only consumed if match.
+function humaniseClaimError(err: unknown, sameAccount: boolean): Error {
+  const original = err instanceof Error ? err : new Error(String(err));
+  const blob = flattenError(err);
+  if (blob.includes("no non-nullified l1 to l2 message") && sameAccount) {
+    return new ClaimAlreadyRedeemedError();
+  }
+  if (blob.includes("duplicate siloed nullifier")) {
+    return new ClaimAlreadyRedeemedError();
+  }
+  return original;
+}
+
+export async function claimFeeJuiceViaWallet(
+  wallet: Wallet,
+  fromAddressHex: string,
+  claim: ClaimDataInput,
+  recipientHex: string,
+): Promise<ClaimResult> {
+  const address = AztecAddress.fromStringUnsafe(fromAddressHex);
+  const claimAmount = BigInt(claim.claimAmount);
+  const claimSecret = Fr.fromHexString(claim.claimSecretHex);
+  const messageLeafIndex = BigInt(claim.messageLeafIndex);
+
+  const sameAccount = addressesMatch(fromAddressHex, recipientHex);
+  if (!sameAccount) {
+    throw new ClaimRecipientMismatchError(recipientHex, fromAddressHex);
+  }
+
+  // Single path for fresh AND initialized accounts: check_balance(0n) no-op
+  // + FeeJuicePaymentMethodWithClaim. The fee payload claims and ends setup;
+  // the no-op gives the wallet something to wrap, which bundles the deploy
+  // for fresh accounts. The wallet must execute this as a self-paid dapp tx;
+  // repeat claims are safe (see #41).
+  const { FeeJuiceContract } = await retryImport(() => import("@aztec/aztec.js/protocol"));
+  const feeJuice = FeeJuiceContract.at(wallet);
+
+  let receipt: unknown;
+  try {
+    const paymentMethod = new FeeJuicePaymentMethodWithClaim(address, {
+      claimAmount,
+      claimSecret,
+      messageLeafIndex,
+    });
+    const maxFeesPerGas = await bufferedMaxFees();
+    receipt = await feeJuice.methods
+      .check_balance(0n)
+      .send({
+        from: address,
+        fee: { paymentMethod, ...(maxFeesPerGas ? { gasSettings: { maxFeesPerGas } } : {}) },
+      });
+  } catch (err) {
+    // Classify known wallet-side errors; genuine failures fall through to log + humanise.
+    // Rejection/disconnect stay silent (expected); version/capability warn to keep the
+    // raw wallet string for tightening the extension-test markers, without the dev overlay.
+    if (isUserRejection(err)) throw new WalletUserRejectedError(err);
+    if (isWalletDisconnected(err)) throw new WalletDisconnectedError(err);
+    if (isWalletVersionMismatch(err)) {
+      console.warn("[claim-via-wallet] wallet version mismatch:", err);
+      throw new WalletVersionMismatchError(err);
+    }
+    if (isCapabilityDenied(err)) {
+      console.warn("[claim-via-wallet] capability denied:", err);
+      throw new WalletCapabilityDeniedError(err);
+    }
+    console.error("[claim-via-wallet] send threw:", err);
+    throw humaniseClaimError(err, sameAccount);
+  }
+
+  const wrapper = receipt as {
+    receipt?: { txHash?: { toString(): string }; blockNumber?: number };
+    txHash?: { toString(): string };
+    blockNumber?: number;
+  };
+  const inner = wrapper.receipt ?? wrapper;
+  return {
+    txHash: inner.txHash?.toString() ?? "",
+    blockNumber: inner.blockNumber,
+  };
+}

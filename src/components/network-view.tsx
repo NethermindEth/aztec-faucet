@@ -57,7 +57,13 @@ const L1_CONTRACT_LABELS: Record<string, string> = {
   outboxAddress: "Outbox",
   feeJuiceAddress: "Fee Juice (L1)",
   feeJuicePortalAddress: "Fee Juice Portal",
+  coinIssuerAddress: "Coin Issuer",
+  rewardDistributorAddress: "Reward Distributor",
+  governanceProposerAddress: "Governance Proposer",
+  governanceAddress: "Governance",
   stakingAssetAddress: "Staking Asset",
+  feeAssetHandlerAddress: "Fee Asset Handler",
+  gseAddress: "GSE",
 };
 
 const L2_CONTRACT_LABELS: Record<string, string> = {
@@ -68,7 +74,14 @@ const L2_CONTRACT_LABELS: Record<string, string> = {
 };
 
 function formatGas(raw: string): string {
-  const n = BigInt(raw);
+  // A malformed 200 body can make raw undefined/non-numeric; BigInt would throw
+  // in render and take down the whole view, so degrade to a placeholder.
+  let n: bigint;
+  try {
+    n = BigInt(raw);
+  } catch {
+    return "?";
+  }
   if (n === 0n) return "0";
   if (n >= 1_000_000n) return `${(Number(n) / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000n) return `${(Number(n) / 1_000).toFixed(1)}K`;

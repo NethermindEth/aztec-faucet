@@ -38,6 +38,15 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV LOG_LEVEL=silent
 
+# Build provenance — surfaced at /api/version so deployments can be
+# verified (e.g. confirming ArgoCD has rolled a new image).
+ARG GIT_SHA=unknown
+ARG GIT_BRANCH=unknown
+ARG BUILT_AT=unknown
+ENV GIT_SHA=$GIT_SHA
+ENV GIT_BRANCH=$GIT_BRANCH
+ENV BUILT_AT=$BUILT_AT
+
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 --gid nodejs nextjs
 

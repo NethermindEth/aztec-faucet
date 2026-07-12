@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { Fr } from "@aztec/aztec.js/fields";
 import { FaucetManager } from "@/lib/faucet-manager";
 import { CLAIM_EXPIRY_MS } from "@/lib/claim-store";
+import { NODE_URL } from "@/lib/network-config";
+import { CORS_HEADERS_GET } from "@/lib/cors";
 
 function buildSdkSnippet(claimData: {
   claimAmount: string;
   claimSecretHex: string;
   messageLeafIndex: string;
 }): string {
+  // Note: in @aztec/aztec.js@4.2.0+, the wallet auto-fills gasSettings via
+  // simulation. Don't pass `fee: { gasSettings }` — pass only `paymentMethod`
+  // (or nothing at all if the account has existing FJ balance).
   return `import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
 import { FeeJuiceContract } from "@aztec/aztec.js/protocol";
+import { NO_FROM } from "@aztec/aztec.js/account";
 import { Fr } from "@aztec/aztec.js/fields";
 
 const claim = {
@@ -17,15 +25,19 @@ const claim = {
   messageLeafIndex: ${claimData.messageLeafIndex}n,
 };
 
-// Option 1: Account NOT yet deployed — deploy + claim in one tx
+// Option 1: Account NOT yet deployed — deploy + claim atomically.
+// Pass NO_FROM for self-deploys; the wallet wraps the payload through the
+// multicall entrypoint so it can execute without an existing account.
 const paymentMethod = new FeeJuicePaymentMethodWithClaim(accountAddress, claim);
-await deployMethod.send({ fee: { paymentMethod } });
+await deployMethod.send({ from: NO_FROM, fee: { paymentMethod } });
 
-// Option 2: Account ALREADY deployed — claim directly
+// Option 2: Account ALREADY deployed — claim through the FeeJuice contract.
+// The wallet auto-detects FEE_JUICE_WITH_CLAIM mode when from === feePayer
+// and wraps claim_and_end_setup automatically.
 const feeJuice = FeeJuiceContract.at(wallet);
 await feeJuice.methods
   .claim(accountAddress, claim.claimAmount, claim.claimSecret, new Fr(claim.messageLeafIndex))
-  .send({ from: accountAddress, fee: { gasSettings } });`;
+  .send({ from: accountAddress, fee: { paymentMethod } });`;
 }
 
 export async function GET(
@@ -45,40 +57,45 @@ export async function GET(
     // requests land on different server pods.
     if (messageHash) {
       try {
-        const { NODE_URL } = await import("@/lib/network-config");
-        const aztecNodeUrl = NODE_URL;
-        if (aztecNodeUrl) {
-          const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
-          const { Fr } = await import("@aztec/aztec.js/fields");
-          const node = createAztecNodeClient(aztecNodeUrl);
-          const witness = await node.getL1ToL2MessageMembershipWitness(
-            "latest",
-            Fr.fromHexString(messageHash),
-          );
-          if (witness !== undefined) {
-            return NextResponse.json({
-              status: "ready",
-              elapsedSeconds: 0,
-              expiresInSeconds: Math.floor(CLAIM_EXPIRY_MS / 1000),
-            });
-          }
-          return NextResponse.json({ status: "bridging", elapsedSeconds: 0 });
+        const node = createAztecNodeClient(NODE_URL);
+        const witness = await node.getL1ToL2MessageMembershipWitness(
+          "latest",
+          Fr.fromHexString(messageHash),
+        );
+        if (witness !== undefined) {
+          // Stateless path: no createdAt → no expiresAt. Client keeps its own.
+          return NextResponse.json({
+            status: "ready",
+            elapsedSeconds: 0,
+            expiresInSeconds: Math.floor(CLAIM_EXPIRY_MS / 1000),
+          }, { headers: CORS_HEADERS_GET });
         }
+        return NextResponse.json(
+          { status: "bridging", elapsedSeconds: 0 },
+          { headers: CORS_HEADERS_GET },
+        );
       } catch (err) {
         console.error("[claim] Stateless fallback failed:", err);
       }
     }
-    return NextResponse.json({ error: "Claim not found" }, { status: 404 });
+    // 404 unknown vs 410 known-expired (handled below).
+    return NextResponse.json(
+      { error: "Claim not found", reason: "unknown" },
+      { status: 404, headers: CORS_HEADERS_GET },
+    );
   }
 
   const elapsed = Math.floor((Date.now() - claim.createdAt) / 1000);
+  // Absolute expiry lets the client count down locally across server 404s.
+  const expiresAt = claim.createdAt + CLAIM_EXPIRY_MS;
 
   switch (claim.status) {
     case "bridging":
       return NextResponse.json({
         status: "bridging",
         elapsedSeconds: elapsed,
-      });
+        expiresAt,
+      }, { headers: CORS_HEADERS_GET });
 
     case "ready":
       return NextResponse.json({
@@ -86,16 +103,18 @@ export async function GET(
         elapsedSeconds: elapsed,
         expiresInSeconds: Math.max(
           0,
-          Math.floor((claim.createdAt + CLAIM_EXPIRY_MS - Date.now()) / 1000),
+          Math.floor((expiresAt - Date.now()) / 1000),
         ),
+        expiresAt,
         claimData: claim.claimData,
         sdkSnippet: buildSdkSnippet(claim.claimData),
-      });
+      }, { headers: CORS_HEADERS_GET });
 
     case "expired":
       return NextResponse.json({
         status: "expired",
         elapsedSeconds: elapsed,
-      });
+        expiresAt,
+      }, { status: 410, headers: CORS_HEADERS_GET });
   }
 }

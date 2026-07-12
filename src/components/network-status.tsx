@@ -52,8 +52,6 @@ export function NetworkStatus() {
         .finally(() => clearTimeout(timeout));
     }
 
-    setStatus(null);
-    setError(false);
     fetchStatus();
     pollTimer = setInterval(fetchStatus, 60_000);
 

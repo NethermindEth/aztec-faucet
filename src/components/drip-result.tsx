@@ -1,10 +1,17 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useId } from "react";
+import dynamic from "next/dynamic";
+import type { Wallet } from "@aztec/aztec.js/wallet";
 import { ConfettiBurst } from "./confetti-burst";
-import { NODE_URL, NPM_TAG, EXPLORER_TX_URL } from "@/lib/network-config";
+import { NODE_URL, NPM_TAG, EXPLORER_TX_URL, L1_CHAIN_ID, IN_WALLET_CLAIM_ENABLED } from "@/lib/network-config";
+import { retryImport } from "@/lib/retry-import";
 
-const GITHUB_REPO = "https://github.com/NethermindEth/aztec-faucet";
+const WalletClaimButton = dynamic(
+  () => retryImport(() => import("./wallet-claim-button")).then((m) => m.WalletClaimButton),
+  { ssr: false },
+);
+
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
 
 export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
@@ -18,13 +25,11 @@ export function makeClaimOneLiner(claimAmount: string, claimSecretHex: string, m
 export function makeClaimSelfContained(claimAmount: string, claimSecretHex: string, messageLeafIndex: string): string {
   return `mkdir -p ~/.aztec-devtools && cd ~/.aztec-devtools && \\
 echo '{"type":"module"}' > package.json && \\
-npm install --no-package-lock @aztec/wallets@${NPM_TAG} @aztec/aztec.js@${NPM_TAG} @aztec/stdlib@${NPM_TAG} --silent && \\
+npm install --no-package-lock @aztec/wallets@${NPM_TAG} @aztec/aztec.js@${NPM_TAG} --silent && \\
 LOG_LEVEL=silent node --input-type=module << 'AZTEC_EOF'
 import { Fr } from "@aztec/aztec.js/fields";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { FeeJuicePaymentMethodWithClaim } from "@aztec/aztec.js/fee";
-import { GasSettings } from "@aztec/stdlib/gas";
+import { NO_FROM } from "@aztec/aztec.js/account";
 const { EmbeddedWallet } = await import("@aztec/wallets/embedded");
 
 const SECRET = "YOUR_SECRET_KEY";           // ← paste your secret key here
@@ -36,15 +41,17 @@ const NODE_URL = "${NODE_URL}";
 const wallet = await EmbeddedWallet.create(NODE_URL, { ephemeral: true, pxeConfig: { proverEnabled: true } });
 const mgr = await wallet.createSchnorrAccount(Fr.fromHexString(SECRET), Fr.ZERO);
 const addr = mgr.address;
-const isDeployed = (await wallet.getContractMetadata(addr)).isContractInitialized;
-const node = createAztecNodeClient(NODE_URL);
-const gasSettings = GasSettings.default({ maxFeesPerGas: (await node.getCurrentMinFees()).mul(2) });
+// 4.3.x renamed isContractInitialized to initializationStatus; support both.
+const meta = await wallet.getContractMetadata(addr);
+const isDeployed = meta.initializationStatus
+  ? meta.initializationStatus === "INITIALIZED"
+  : !!meta.isContractInitialized;
 const claim = { claimAmount: AMOUNT, claimSecret: CLAIM_SECRET, messageLeafIndex: LEAF };
 if (!isDeployed) {
   console.log("Deploying account + claiming Fee Juice (proving ~10s)...");
   const raw = await (await mgr.getDeployMethod()).send({
-    from: AztecAddress.ZERO,
-    fee: { gasSettings, paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
+    from: NO_FROM,
+    fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) },
     wait: { returnReceipt: true },
   });
   const receipt = raw?.receipt ?? raw;
@@ -54,9 +61,10 @@ if (!isDeployed) {
 } else {
   const { FeeJuiceContract } = await import("@aztec/aztec.js/protocol");
   console.log("Claiming into existing account (proving ~10s)...");
+  // Pay the fee from the claimed juice so a zero-balance account can claim (#52).
   const raw = await FeeJuiceContract.at(wallet).methods
-    .claim(addr, AMOUNT, CLAIM_SECRET, new Fr(LEAF))
-    .send({ from: addr, fee: { gasSettings } });
+    .check_balance(0n)
+    .send({ from: addr, fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(addr, claim) } });
   const receipt = raw?.receipt ?? raw;
   const txHash = receipt?.txHash?.toString?.();
   console.log("Done! Tx:", txHash, "| Block:", receipt?.blockNumber);
@@ -69,22 +77,28 @@ AZTEC_EOF`;
 
 export function SelfContainedDropdown({ code }: { code: string }) {
   const [open, setOpen] = useState(false);
+  const panelId = useId();
   return (
     <div className="border border-outline-variant/40 bg-surface-lowest">
-      <div className="flex items-center justify-between px-4 py-2.5 cursor-pointer transition-colors hover:bg-surface-low" onClick={() => setOpen((v) => !v)}>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-2.5">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="flex items-center gap-2 transition-colors hover:opacity-80"
+        >
           <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">self-contained</span>
           <span className={`transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? "rotate-45" : ""}`}>
             <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3 text-on-surface-variant opacity-50">
               <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </span>
-        </div>
-        <div onClick={(e) => e.stopPropagation()}>
-          <CopyButton text={code} />
-        </div>
+        </button>
+        <CopyButton text={code} />
       </div>
       <div
+        id={panelId}
         className="grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
         style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
       >
@@ -108,10 +122,10 @@ export function ClaimCommands({ claimAmount, claimSecretHex, messageLeafIndex }:
   return (
     <div className="space-y-2">
       <div className="border border-outline-variant/40 bg-surface-lowest">
-        <div className="flex items-center justify-between border-b border-outline-variant/30 px-4 py-2">
+        <div className="flex items-center justify-between border-b border-outline-variant/30 px-3 py-1">
           <div className="flex items-center gap-2">
             <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">curl one-liner</span>
-            <span className="bg-emerald-500/15 px-2 py-0.5 font-label text-[9px] font-bold uppercase tracking-widest text-emerald-400">Recommended</span>
+            <span className="bg-emerald-500/15 px-1.5 font-label text-[9px] font-bold uppercase tracking-widest text-emerald-400">Recommended</span>
           </div>
           <CopyButton text={oneLiner} />
         </div>
@@ -151,7 +165,11 @@ type DripResultProps = {
   result: DripResultData | null;
   error: string | null;
   retryAfter: number | null;
+  recipient?: string;
   onReset?: () => void;
+  connectedWallet?: Wallet;
+  connectedAddress?: string;
+  onWalletClaimComplete?: () => void;
 };
 
 function formatMs(ms: number): string {
@@ -188,7 +206,7 @@ export function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={copy}
-      className="shrink-0 border border-outline-variant px-2 py-1 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
+      className="shrink-0 border border-outline-variant px-2 py-0.5 font-label text-xs uppercase tracking-wider text-on-surface-variant transition-all hover:border-accent hover:text-accent"
       title="Copy to clipboard"
     >
       {copied ? (
@@ -200,6 +218,40 @@ export function CopyButton({ text }: { text: string }) {
         </span>
       ) : "Copy"}
     </button>
+  );
+}
+
+function TechnicalDetails({ claimData }: { claimData: { claimAmount: string; claimSecretHex: string; claimSecretHashHex: string; messageHashHex: string; messageLeafIndex: string } }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-outline-variant/30">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-2 transition-colors hover:bg-surface-low"
+      >
+        <span className="font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-50">Technical details</span>
+        <span className={`transition-transform duration-200 ${open ? "rotate-45" : ""}`}>
+          <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3 text-on-surface-variant opacity-40">
+            <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </span>
+      </button>
+      <div
+        className="grid transition-[grid-template-rows] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+      >
+        <div className="overflow-hidden">
+          <div className="space-y-2 border-t border-outline-variant/30 p-3">
+            <DataField label="Claim Amount" value={claimData.claimAmount} />
+            <DataField label="Claim Secret" value={claimData.claimSecretHex} />
+            <DataField label="Claim Secret Hash" value={claimData.claimSecretHashHex} />
+            <DataField label="Message Hash" value={claimData.messageHashHex} />
+            <DataField label="Message Leaf Index" value={claimData.messageLeafIndex} />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -227,6 +279,41 @@ const SEPOLIA_ETHERSCAN = "https://sepolia.etherscan.io/tx";
 function truncateHash(hash: string): string {
   if (hash.length <= 22) return hash;
   return `${hash.slice(0, 12)}...${hash.slice(-10)}`;
+}
+
+export function ClaimCompletePanel({ txHash }: { txHash: string }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3 border border-accent/30 bg-accent/5 px-4 py-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-accent/40 bg-accent/15">
+          <svg viewBox="0 0 14 14" fill="none" className="h-4 w-4 text-accent">
+            <path d="M2.5 7.5L5.5 10.5L11.5 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        <div className="min-w-0">
+          <p className="font-label text-xs font-bold uppercase tracking-wider text-accent">Claim complete</p>
+          <p className="mt-0.5 font-body text-xs text-on-surface-variant">
+            Fee Juice has been credited to your wallet account.
+          </p>
+        </div>
+      </div>
+      {txHash && (
+        <a
+          href={`${EXPLORER_TX_URL}/${txHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center justify-between border border-outline-variant bg-surface-low px-4 py-2 font-label text-xs uppercase tracking-wider transition-all hover:border-accent hover:bg-accent/5"
+        >
+          <span className="truncate text-on-surface-variant transition-colors group-hover:text-on-surface">
+            View on Aztec Scan
+          </span>
+          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 shrink-0 text-on-surface-variant opacity-50 transition-all group-hover:translate-x-0.5 group-hover:text-accent">
+            <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </a>
+      )}
+    </div>
+  );
 }
 
 function ResetButton({ onReset }: { onReset: () => void }) {
@@ -269,7 +356,7 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
             <span className="relative inline-flex h-1.5 w-1.5 bg-accent" />
           </span>
           <span className="font-label text-xs uppercase tracking-wider text-on-surface-variant opacity-60">Sepolia Testnet</span>
-          <span className="ml-auto font-label text-xs text-on-surface-variant opacity-40">11155111</span>
+          <span className="ml-auto font-label text-xs text-on-surface-variant opacity-40">{L1_CHAIN_ID}</span>
         </div>
 
         {/* Transaction hash */}
@@ -333,7 +420,10 @@ function EthResult({ txHash, onReset }: { txHash: string; onReset?: () => void }
 }
 
 
-export function DripResult({ result, error, retryAfter, onReset }: DripResultProps) {
+export function DripResult({ result, error, retryAfter, recipient, onReset, connectedWallet, connectedAddress, onWalletClaimComplete }: DripResultProps) {
+  // Once the wallet claim lands, bridge message is nullified → hide CLI fallback.
+  const [walletClaimedTx, setWalletClaimedTx] = useState<string | null>(null);
+
   if (error) {
     return (
       <div className="border-l-4 border-red-500 bg-red-500/10 p-4">
@@ -357,8 +447,8 @@ export function DripResult({ result, error, retryAfter, onReset }: DripResultPro
   const assetLabel = ASSET_LABELS[result.asset] ?? result.asset;
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="space-y-5">
+    <div className="flex flex-col gap-3">
+      <div className="space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-7 w-7 items-center justify-center border border-accent/30 bg-accent/10">
             <svg viewBox="0 0 14 14" fill="none" className="h-3.5 w-3.5 text-accent">
@@ -370,28 +460,48 @@ export function DripResult({ result, error, retryAfter, onReset }: DripResultPro
 
         {result.txHash && <DataField label="Transaction Hash" value={result.txHash} />}
 
-        {result.claimData && (
-          <div className="space-y-3">
-            <div className="border border-secondary/20 bg-secondary/5 px-4 py-3">
-              <p className="font-label text-xs font-bold uppercase tracking-wider text-secondary">Action required: Claim on L2</p>
-              <p className="mt-1 font-body text-xs text-secondary/60">
-                Bridge is complete. Use the script or SDK to claim.
-              </p>
+        {result.claimData && walletClaimedTx ? (
+          <ClaimCompletePanel txHash={walletClaimedTx} />
+        ) : result.claimData ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between border border-secondary/20 bg-secondary/5 px-3 py-2">
+              <p className="font-label text-[10px] font-bold uppercase tracking-wider text-secondary">Action required: claim on L2</p>
+              <span className="font-label text-[9px] text-secondary/50 uppercase tracking-wider">Bridge complete</span>
             </div>
 
-            <DataField label="Claim Amount" value={result.claimData.claimAmount} />
-            <DataField label="Claim Secret" value={result.claimData.claimSecretHex} />
-            <DataField label="Claim Secret Hash" value={result.claimData.claimSecretHashHex} />
-            <DataField label="Message Hash" value={result.claimData.messageHashHex} />
-            <DataField label="Message Leaf Index" value={result.claimData.messageLeafIndex} />
+            {IN_WALLET_CLAIM_ENABLED && (
+              <>
+                <WalletClaimButton
+                  claimData={{
+                    claimAmount: result.claimData.claimAmount,
+                    claimSecretHex: result.claimData.claimSecretHex,
+                    messageLeafIndex: result.claimData.messageLeafIndex,
+                  }}
+                  recipient={recipient ?? ""}
+                  onClaimComplete={(tx) => { setWalletClaimedTx(tx); onWalletClaimComplete?.(); }}
+                  preConnectedWallet={connectedWallet}
+                  preConnectedAddress={connectedAddress}
+                />
+
+                <div className="relative flex items-center py-1">
+                  <div className="grow border-t border-outline-variant/30" />
+                  <span className="mx-3 font-label text-[10px] uppercase tracking-widest text-on-surface-variant opacity-40">
+                    Or use the CLI
+                  </span>
+                  <div className="grow border-t border-outline-variant/30" />
+                </div>
+              </>
+            )}
 
             <ClaimCommands
               claimAmount={result.claimData.claimAmount}
               claimSecretHex={result.claimData.claimSecretHex}
               messageLeafIndex={result.claimData.messageLeafIndex}
             />
+
+            <TechnicalDetails claimData={result.claimData} />
           </div>
-        )}
+        ) : null}
       </div>
 
       {onReset && <ResetButton onReset={onReset} />}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CopyButton, SelfContainedDropdown } from "./drip-result";
 import { NODE_URL, NPM_TAG } from "@/lib/network-config";
+import type { DeploymentStatus } from "@/app/api/balance/route";
 
 const AZTEC_ADDRESS_RE = /^0x[0-9a-fA-F]{64}$/;
 const GITHUB_RAW = `https://raw.githubusercontent.com/NethermindEth/aztec-faucet/${process.env.NEXT_PUBLIC_GITHUB_BRANCH ?? "main"}`;
@@ -21,9 +22,9 @@ import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
 const node = createAztecNodeClient("${NODE_URL}");
-const owner = AztecAddress.fromString("${address}");
+const owner = AztecAddress.fromStringUnsafe("${address}");
 const slot = await deriveStorageSlotInMap(new Fr(1), owner);
-const raw = (await node.getPublicStorageAt("latest", AztecAddress.fromBigInt(5n), slot)).toBigInt();
+const raw = (await node.getPublicStorageAt("latest", AztecAddress.fromBigIntUnsafe(3n), slot)).toBigInt();
 const s = raw.toString().padStart(19, "0");
 console.log("Fee Juice:", (s.slice(0, s.length - 18) || "0") + "." + s.slice(s.length - 18, s.length - 14));
 AZTEC_EOF`;
@@ -32,7 +33,7 @@ AZTEC_EOF`;
 type BalanceResult = {
   balanceFormatted: string;
   balanceRaw: string;
-  isDeployed?: boolean;
+  deploymentStatus?: DeploymentStatus;
 };
 
 export function BalanceView() {
@@ -56,7 +57,7 @@ export function BalanceView() {
       const res = await fetch(`/api/balance?address=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch balance");
-      setResult({ balanceFormatted: data.balanceFormatted, balanceRaw: data.balanceRaw, isDeployed: data.isDeployed });
+      setResult({ balanceFormatted: data.balanceFormatted, balanceRaw: data.balanceRaw, deploymentStatus: data.deploymentStatus });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -160,7 +161,7 @@ export function BalanceView() {
 
               {isZero && (
                 <p className="mt-2 font-label text-xs text-on-surface-variant opacity-40">
-                  Zero balance. If you just bridged, wait ~2 min for the L1 to L2 message to land.
+                  Zero balance. If you just bridged, wait 3-4 min for the L1 to L2 message to land.
                 </p>
               )}
 
@@ -172,10 +173,10 @@ export function BalanceView() {
                     {checkedAddress?.slice(0, 10)}...{checkedAddress?.slice(-8)}
                   </code>
                 </div>
-                {result.isDeployed !== undefined && (
+                {result.deploymentStatus !== undefined && (
                   <div className="flex items-center justify-between">
                     <span className="font-label text-[10px] font-bold uppercase tracking-widest text-on-surface-variant opacity-50">Status</span>
-                    {result.isDeployed ? (
+                    {result.deploymentStatus === "deployed" ? (
                       <span className="flex items-center gap-1.5 font-label text-[11px] text-emerald-400">
                         <span className="h-1.5 w-1.5 bg-emerald-400" />
                         Deployed

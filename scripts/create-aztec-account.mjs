@@ -41,75 +41,70 @@ function getArg(name) {
   return process.argv[idx + 1];
 }
 
-const DEFAULT_NODE_URLS = {
-  testnet: "https://rpc.testnet.aztec-labs.com",
-  devnet: "https://v4-devnet-2.aztec-labs.com/",
-};
-
-const network = getArg("network") === "testnet" ? "testnet" : "devnet";
-const nodeUrl = getArg("node-url") || process.env.AZTEC_NODE_URL || DEFAULT_NODE_URLS[network];
-const existingSecret = getArg("secret") ?? null;
-
-// Load SDK matching the network — devnet uses @aztec/*, testnet uses @aztec-rc/*
-const SDK = network === "testnet" ? "@aztec-rc" : "@aztec";
-const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
-
-// For testnet, Fr must come from the wallets-internal @aztec/foundation to pass
-// instanceof checks inside EmbeddedWallet.createSchnorrAccount (same pattern as claim-fee-juice.mjs)
-let Fr;
-if (network === "testnet") {
-  const { createRequire } = await import("module");
-  const { existsSync } = await import("fs");
-  const _req = createRequire(import.meta.url);
-  const walletsEntry = _req.resolve(`${SDK}/wallets/embedded`);
-  const walletsRoot = walletsEntry.slice(
-    0,
-    walletsEntry.indexOf("/node_modules/@aztec-rc/wallets/") + "/node_modules/@aztec-rc/wallets/".length
-  );
-  const internalFieldsPath = walletsRoot + "node_modules/@aztec/aztec.js/dest/api/fields.js";
-  // If npm deduplicated the package (no nested copy), fall back to the root-level alias.
-  // Deduplication means all @aztec/aztec.js imports share one module instance, so instanceof works.
-  if (existsSync(internalFieldsPath)) {
-    ({ Fr } = await import(internalFieldsPath));
-  } else {
-    ({ Fr } = await import(`${SDK}/aztec.js/fields`));
-  }
-} else {
-  ({ Fr } = await import(`${SDK}/aztec.js/fields`));
+// Reject any --network value other than "testnet" — the project is testnet-only.
+const networkArg = getArg("network");
+if (networkArg !== undefined && networkArg !== "testnet") {
+  console.error(`\n  Error: Unknown --network value "${networkArg}". Only "testnet" is supported.\n`);
+  process.exit(1);
 }
 
-console.log(`\n  Aztec Account Generator  ·  ${network}\n`);
+const existingSecret = getArg("secret") ?? null;
+
+// Testnet packages are installed under @aztec-rc/* aliases by sh/testnet/create-account.sh.
+const SDK = "@aztec-rc";
+const { Fr } = await import(`${SDK}/aztec.js/fields`);
+const { AztecAddress } = await import(`${SDK}/aztec.js/addresses`);
+const { SchnorrAccountContract } = await import(`${SDK}/accounts/schnorr`);
+const { deriveKeys, deriveSigningKey } = await import(`${SDK}/stdlib/keys`);
+const { getContractInstanceFromInstantiationParams } = await import(`${SDK}/stdlib/contract`);
+
+// Mirrors SCHNORR_CLASS_ID in src/lib/network-config.ts; re-verify on SDK bumps.
+// Derivation is local (no node), so guard against artifact/network drift.
+const SCHNORR_CLASS_ID = "0x197279a63a0522e3ca638f1deab0d084cdc1f39ba83a46defd0e1d114509d299";
+
+// Derives the Schnorr account address locally, the same way the faucet keygen
+// route does; showing the address needs no node connection.
+async function deriveSchnorrAddress(secret) {
+  const signingKey = deriveSigningKey(secret);
+  const { publicKeys } = await deriveKeys(secret);
+  const contract = new SchnorrAccountContract(signingKey);
+  const artifact = await contract.getContractArtifact();
+  const initFn = await contract.getInitializationFunctionAndArgs();
+  const instance = await getContractInstanceFromInstantiationParams(artifact, {
+    constructorArtifact: initFn?.constructorName,
+    constructorArgs: initFn?.constructorArgs ?? [],
+    salt: Fr.ZERO,
+    publicKeys,
+    deployer: AztecAddress.ZERO,
+  });
+  if (instance.originalContractClassId.toString() !== SCHNORR_CLASS_ID) {
+    throw new Error(
+      `Schnorr class id mismatch: ${instance.originalContractClassId.toString()} != pinned ${SCHNORR_CLASS_ID}. SDK and testnet are out of sync.`,
+    );
+  }
+  return instance.address;
+}
+
+console.log(`\n  Aztec Account Generator  ·  testnet\n`);
 
 try {
-  const s1 = spin('Connecting to node');
-  const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true });
-  s1.ok(nodeUrl);
-
-  const s2 = spin('Deriving account');
+  const s = spin('Deriving account');
   const secretKey = existingSecret ? Fr.fromHexString(existingSecret) : Fr.random();
-  const account = await wallet.createSchnorrAccount(secretKey, Fr.ZERO);
-  s2.ok(account.address.toString().slice(0, 20) + '…');
+  const address = await deriveSchnorrAddress(secretKey);
+  s.ok(address.toString().slice(0, 20) + '…');
 
   console.log(`
   ${_C.di}secret${_C.rs}   ${secretKey.toString()}
-  ${_C.di}address${_C.rs}  ${account.address.toString()}
+  ${_C.di}address${_C.rs}  ${address.toString()}
 
-  ${_C.di}Next:${_C.rs} paste your address into the faucet, wait ~2 min for the bridge,
+  ${_C.di}Next:${_C.rs} paste your address into the faucet, wait ~3-4 min for the bridge,
   then run the claim command shown in the faucet UI.
 `);
 
-  await wallet.stop();
   process.exit(0);
 } catch (err) {
   if (_sp) _sp.fail();
-
   const msg = err.message || String(err);
-  if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
-    console.error(`\n  Error: Cannot connect to Aztec node at ${nodeUrl}.`);
-    console.error("         Check AZTEC_NODE_URL or ensure the node is running.\n");
-  } else {
-    console.error(`\n  Error: ${msg}\n`);
-  }
-
+  console.error(`\n  Error: ${msg}\n`);
   process.exit(1);
 }

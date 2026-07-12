@@ -19,8 +19,10 @@ export function KeygenView() {
   const [deployOpen, setDeployOpen] = useState(false);
   const [rateLimitOpen, setRateLimitOpen] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [confirmDestroy, setConfirmDestroy] = useState(false);
 
   function destroy() {
+    setConfirmDestroy(false);
     setLeaving(true);
     setTimeout(() => {
       setState({ status: "idle" });
@@ -37,6 +39,7 @@ export function KeygenView() {
   }
 
   async function generate() {
+    setConfirmDestroy(false);
     setState({ status: "loading" });
     try {
       const res = await fetch("/api/keygen");
@@ -145,28 +148,52 @@ export function KeygenView() {
                       </p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <button
-                        type="button"
-                        onClick={() => saveKeys(state.address)}
-                        className="flex-1 flex items-center justify-center gap-2 border-2 border-accent bg-accent/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-accent transition-all hover:bg-accent/20"
-                      >
-                        <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
-                          <path d="M3 8l3.5 3.5L13 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        I&apos;ve saved my keys
-                      </button>
-                      <button
-                        type="button"
-                        onClick={destroy}
-                        className="flex items-center justify-center gap-2 border-2 border-red-500/30 bg-red-500/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/20"
-                      >
-                        <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
-                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                        Destroy
-                      </button>
-                    </div>
+                    {confirmDestroy ? (
+                      <div className="border border-red-500/30 bg-red-500/8 p-3 space-y-2">
+                        <p className="font-label text-xs leading-relaxed text-red-400">
+                          This will permanently clear the secret key from view. Make sure you have saved it before continuing.
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDestroy(false)}
+                            className="flex-1 border border-outline-variant bg-surface-high px-3 py-2 font-label text-[10px] uppercase tracking-wider text-on-surface-variant transition-colors hover:border-accent hover:text-accent"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={destroy}
+                            className="flex-1 border border-red-500/50 bg-red-500/15 px-3 py-2 font-label text-[10px] font-bold uppercase tracking-wider text-red-400 transition-colors hover:bg-red-500/25"
+                          >
+                            Yes, destroy
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          type="button"
+                          onClick={() => saveKeys(state.address)}
+                          className="flex-1 flex items-center justify-center gap-2 border-2 border-accent bg-accent/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-accent transition-all hover:bg-accent/20"
+                        >
+                          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+                            <path d="M3 8l3.5 3.5L13 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          I&apos;ve saved my keys
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDestroy(true)}
+                          className="flex items-center justify-center gap-2 border-2 border-red-500/30 bg-red-500/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/20"
+                        >
+                          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                          Destroy
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
 
@@ -189,25 +216,49 @@ export function KeygenView() {
                       </p>
                     </div>
 
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={generate}
-                        className="flex-1 btn-primary py-2.5 text-xs"
-                      >
-                        GENERATE NEW KEYPAIR
-                      </button>
-                      <button
-                        type="button"
-                        onClick={destroy}
-                        className="flex items-center justify-center gap-2 border-2 border-red-500/30 bg-red-500/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/20"
-                      >
-                        <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
-                          <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                        Destroy
-                      </button>
-                    </div>
+                    {confirmDestroy ? (
+                      <div className="border border-red-500/30 bg-red-500/8 p-3 space-y-2">
+                        <p className="font-label text-xs leading-relaxed text-red-400">
+                          This will clear the address display and reset the generator. Are you sure?
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDestroy(false)}
+                            className="flex-1 border border-outline-variant bg-surface-high px-3 py-2 font-label text-[10px] uppercase tracking-wider text-on-surface-variant transition-colors hover:border-accent hover:text-accent"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={destroy}
+                            className="flex-1 border border-red-500/50 bg-red-500/15 px-3 py-2 font-label text-[10px] font-bold uppercase tracking-wider text-red-400 transition-colors hover:bg-red-500/25"
+                          >
+                            Yes, destroy
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={generate}
+                          className="flex-1 btn-primary py-2.5 text-xs"
+                        >
+                          GENERATE NEW KEYPAIR
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDestroy(true)}
+                          className="flex items-center justify-center gap-2 border-2 border-red-500/30 bg-red-500/10 px-4 py-2 font-label text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/20"
+                        >
+                          <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5">
+                            <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                          Destroy
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -273,7 +324,7 @@ export function KeygenView() {
           <div className="overflow-hidden">
             <div className="space-y-2 border-t border-outline-variant/30 px-5 py-3 font-body text-xs text-on-surface-variant opacity-70">
               <p>
-                This faucet allows <span className="text-on-surface font-medium">10 keypairs per 24 hours per IP</span>. This is enough for typical testing.
+                This faucet allows <span className="text-on-surface font-medium">10 keypairs per 8 hours per IP</span>. This is enough for typical testing.
               </p>
               <p>
                 If you need more, you can generate accounts locally with no limits using{" "}

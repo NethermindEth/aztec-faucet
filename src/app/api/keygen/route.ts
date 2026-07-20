@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { SchnorrAccountContract } from "@aztec/accounts/schnorr";
-import { deriveKeys, deriveSigningKey } from "@aztec/stdlib/keys";
+import { deriveKeys, deriveMasterMessageSigningSecretKey } from "@aztec/stdlib/keys";
 import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
 import { Throttle, ThrottleError } from "@/lib/throttle";
 import { SCHNORR_CLASS_ID, KEYGEN_INTERVAL_MS, KEYGEN_MAX_PER_IP } from "@/lib/network-config";
@@ -18,7 +18,7 @@ import { extractClientIp } from "@/lib/client-ip";
  * fail loudly instead of minting unreachable addresses.
  */
 async function getSchnorrAddress(secret: Fr): Promise<AztecAddress> {
-  const signingKey = deriveSigningKey(secret);
+  const signingKey = deriveMasterMessageSigningSecretKey(secret);
   const { publicKeys } = await deriveKeys(secret);
   const contract = new SchnorrAccountContract(signingKey);
   const artifact = await contract.getContractArtifact();

@@ -55,17 +55,17 @@ const SDK = "@aztec-rc";
 const { Fr } = await import(`${SDK}/aztec.js/fields`);
 const { AztecAddress } = await import(`${SDK}/aztec.js/addresses`);
 const { SchnorrAccountContract } = await import(`${SDK}/accounts/schnorr`);
-const { deriveKeys, deriveSigningKey } = await import(`${SDK}/stdlib/keys`);
+const { deriveKeys, deriveMasterMessageSigningSecretKey } = await import(`${SDK}/stdlib/keys`);
 const { getContractInstanceFromInstantiationParams } = await import(`${SDK}/stdlib/contract`);
 
 // Mirrors SCHNORR_CLASS_ID in src/lib/network-config.ts; re-verify on SDK bumps.
 // Derivation is local (no node), so guard against artifact/network drift.
-const SCHNORR_CLASS_ID = "0x197279a63a0522e3ca638f1deab0d084cdc1f39ba83a46defd0e1d114509d299";
+const SCHNORR_CLASS_ID = "0x0db539838feacc4420c8e33b01ffe733a8bae58bba2c403653691b1ed8d3d0c5";
 
 // Derives the Schnorr account address locally, the same way the faucet keygen
 // route does; showing the address needs no node connection.
 async function deriveSchnorrAddress(secret) {
-  const signingKey = deriveSigningKey(secret);
+  const signingKey = deriveMasterMessageSigningSecretKey(secret);
   const { publicKeys } = await deriveKeys(secret);
   const contract = new SchnorrAccountContract(signingKey);
   const artifact = await contract.getContractArtifact();

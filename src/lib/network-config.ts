@@ -7,11 +7,11 @@ export const NODE_URL = "https://v5.testnet.rpc.aztec-labs.com";
 export const EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
 export const NETWORK_LABEL = "Testnet";
 // @rc npm tag still points at 4.3.0-rc.1; testnet moved to v5, so pin explicitly.
-export const NPM_TAG = "5.0.0-rc.2";
+export const NPM_TAG = "5.0.1";
 // rc.2 changed the Schnorr account contract class (rc.1 was 0x096eb58b...); the
 // node rejected rc.1 proofs with "Incorrect verification keys tree root". Derived
 // addresses shift with this value. Re-verify on every SDK bump.
-export const SCHNORR_CLASS_ID = "0x197279a63a0522e3ca638f1deab0d084cdc1f39ba83a46defd0e1d114509d299";
+export const SCHNORR_CLASS_ID = "0x0db539838feacc4420c8e33b01ffe733a8bae58bba2c403653691b1ed8d3d0c5";
 
 // ── Feature Flags ────────────────────────────────────────────────────────────
 // Gates the in-wallet claim path (connect + "Claim in wallet").

@@ -8,9 +8,9 @@ export const EXPLORER_TX_URL = "https://testnet.aztecscan.xyz/tx-effects";
 export const NETWORK_LABEL = "Testnet";
 // @rc npm tag still points at 4.3.0-rc.1; testnet moved to v5, so pin explicitly.
 export const NPM_TAG = "5.0.1";
-// rc.2 changed the Schnorr account contract class (rc.1 was 0x096eb58b...); the
-// node rejected rc.1 proofs with "Incorrect verification keys tree root". Derived
-// addresses shift with this value. Re-verify on every SDK bump.
+// The Schnorr account class id changes across SDK releases (rc.1, rc.2, and
+// 5.0.1 all differ); a stale pin makes the node reject proofs and shifts every
+// derived address. Re-verify on every SDK bump.
 export const SCHNORR_CLASS_ID = "0x0db539838feacc4420c8e33b01ffe733a8bae58bba2c403653691b1ed8d3d0c5";
 
 // ── Feature Flags ────────────────────────────────────────────────────────────

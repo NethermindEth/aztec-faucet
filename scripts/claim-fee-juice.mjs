@@ -104,6 +104,8 @@ const SDK = "@aztec-rc";
 const { FeeJuicePaymentMethodWithClaim } = await import(`${SDK}/aztec.js/fee`);
 const { NO_FROM } = await import(`${SDK}/aztec.js/account`);
 const { EmbeddedWallet } = await import(`${SDK}/wallets/embedded`);
+// 5.0.1: createSchnorrAccount no longer derives the signing key internally.
+const { deriveMasterMessageSigningSecretKey } = await import(`${SDK}/stdlib/keys`);
 
 // @aztec-rc/wallets and @aztec-rc/aztec.js each bundle a separate copy of
 // @aztec/foundation. EmbeddedWallet's AccountManager does `new Fr(salt)` using
@@ -145,7 +147,8 @@ try {
     pxeConfig: { proverEnabled: true },
   });
   const secretKey = Fr.fromHexString(accountSecret);
-  const accountManager = await wallet.createSchnorrAccount(secretKey, Fr.ZERO);
+  const signingKey = deriveMasterMessageSigningSecretKey(secretKey);
+  const accountManager = await wallet.createSchnorrAccount(secretKey, Fr.ZERO, signingKey);
   const address = accountManager.address;
   s1.ok(address.toString().slice(0, 20) + '…');
 

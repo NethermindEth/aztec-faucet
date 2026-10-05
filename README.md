@@ -11,7 +11,7 @@
 
 **Fee Juice and Sepolia ETH for developers building on Aztec Testnet.**
 
-![Sepolia](https://img.shields.io/badge/L1-Sepolia-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28) ![Testnet](https://img.shields.io/badge/L2-Aztec_Testnet-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28) [![Live](https://img.shields.io/badge/Live-aztec--faucet.nethermind.io-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)](https://aztec-faucet.nethermind.io/)
+![Sepolia](https://img.shields.io/badge/L1-Sepolia-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28) ![Testnet](https://img.shields.io/badge/L2-Aztec_Testnet-D4FF28?style=flat-square&labelColor=0a0a0f&color=D4FF28)
 
 </div>
 

@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   push-aztec-faucet:
-    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@1f9d122e0914edf12938ae6c07c1c15b36ebef67 # v4.0.0
+    uses: NethermindEth/github-workflows/.github/workflows/docker-build-push-jfrog.yaml@0ec1888dbcb65419548ef221b5ffb1a986eeefc8 # v4.0.1
     with:
       repo_name: ${{ github.ref_name == 'main' && 'core-oci-local-prod' || github.ref_name == 'dev' && 'core-oci-local-dev' }}
       image_name: aztec-faucet

@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # Node 22 ships npm 10. npm 11 breaks `npm ci` on this lockfile
           # (lockfileVersion 3 with npm-aliased packages).
